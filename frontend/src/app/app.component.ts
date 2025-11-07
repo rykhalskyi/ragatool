@@ -7,7 +7,7 @@ import { SelectedTopicComponent } from './selected-topic/selected-topic.componen
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, TopbarComponent, TopicListComponent, SelectedTopicComponent],
+  imports: [TopbarComponent, TopicListComponent, SelectedTopicComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss'
 })
