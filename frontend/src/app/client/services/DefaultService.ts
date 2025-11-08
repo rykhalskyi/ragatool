@@ -18,6 +18,26 @@ export class DefaultService {
         });
     }
     /**
+     * Check Chromadb
+     * @param query
+     * @returns any Successful Response
+     * @throws ApiError
+     */
+    public static checkChromadbCheckGet(
+        query: string,
+    ): CancelablePromise<Record<string, any>> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/check/',
+            query: {
+                'query': query,
+            },
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
      * Read Items
      * @returns any Successful Response
      * @throws ApiError

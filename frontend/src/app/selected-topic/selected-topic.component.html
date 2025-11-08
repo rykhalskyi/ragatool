@@ -1,2 +1,21 @@
 
-<button mat-raised-button color="primary" class="main-button" (click)="ctaClick()" >Call To Action</button>
+<div class="main-container">
+    <div class="cta-container">
+		<button mat-raised-button color="primary" class="main-button" (click)="ctaClick()">Call To Action</button>
+	</div>
+
+    <div class="main-button">
+        <mat-form-field appearance="outline" class="query-field">
+            <mat-label>Enter query</mat-label>
+            <input matInput [(ngModel)]="query" placeholder="Type something..." />
+        </mat-form-field>
+        
+
+        <button mat-raised-button color="primary" class="main-button" (click)="checkPocGet()">CheckPocGet</button>
+
+	    <p class="result-paragraph" *ngIf="result !== null">{{ result }}</p>
+    </div>
+</div>
+
+
+	
