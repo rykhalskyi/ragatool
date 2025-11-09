@@ -1,0 +1,21 @@
+<div class="selected-collection-container" *ngIf="collection">
+  <div class="details margin-16">
+    <h2>{{ collection.name }}</h2>
+    <p> {{ collection.description }}</p>
+  </div>
+  <div class="controls margin-8">
+    <mat-slide-toggle [(ngModel)]="isEnabled" (change)="onToggleChange()">Enabled</mat-slide-toggle>
+    <button mat-icon-button color="warn" (click)="deleteCollection()">
+      <mat-icon>delete</mat-icon>
+    </button>
+  </div>
+  
+  <div class="full-row margin-16">
+    <h3>Import Part: To be specified in another ticket</h3>
+  </div>
+  
+  <div class="full-row-2 margin-16">
+    <h3>Log Part: To be specified in another ticket</h3>
+  </div>
+ 
+</div>
