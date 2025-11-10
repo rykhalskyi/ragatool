@@ -7,7 +7,10 @@ export { CancelablePromise, CancelError } from './core/CancelablePromise';
 export { OpenAPI } from './core/OpenAPI';
 export type { OpenAPIConfig } from './core/OpenAPI';
 
+export type { Collection } from './models/Collection';
+export type { CollectionCreate } from './models/CollectionCreate';
 export type { HTTPValidationError } from './models/HTTPValidationError';
 export type { ValidationError } from './models/ValidationError';
 
+export { CollectionsService } from './services/CollectionsService';
 export { DefaultService } from './services/DefaultService';

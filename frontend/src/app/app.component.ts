@@ -1,14 +1,13 @@
 import { Component, HostListener, ElementRef, Renderer2 } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { TopbarComponent } from "./topbar/topbar.component";
-import { TopicListComponent } from './topic-list/topic-list.component';
-import { SelectedTopicComponent } from './selected-topic/selected-topic.component';
+import { CollectionsListComponent } from './collections-list/collections-list.component';
 import { OpenAPI } from './client';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [TopbarComponent, TopicListComponent, SelectedTopicComponent],
+  imports: [TopbarComponent, CollectionsListComponent, RouterOutlet],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss'
 })

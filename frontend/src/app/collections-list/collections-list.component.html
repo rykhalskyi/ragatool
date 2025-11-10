@@ -1,0 +1,7 @@
+<mat-list>
+    @for (collection of collections; track collection.id) {
+        <mat-list-item (click)="selectCollection(collection.id)">
+            <span matListItemTitle mat-line>{{collection.name}}</span>
+        </mat-list-item>
+    }
+</mat-list>

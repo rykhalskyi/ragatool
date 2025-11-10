@@ -1,0 +1,50 @@
+<div class="selected-collection-container" *ngIf="collection">
+  <div class="details margin-16">
+    <h2>{{ collection.name }}</h2>
+
+    <div class="description-container">
+      @if (!isEditingDescription)
+      {
+        <div class="description-container">
+          @if (collection.description){
+            <span>{{ collection.description }}</span>
+          }@else {
+            <span class="gray">no description</span>
+          }
+            
+            <button mat-icon-button (click)="startEditingDescription()">
+              <mat-icon>edit</mat-icon>
+            </button>
+        </div>
+      }@else{
+      <div>
+        <mat-form-field class="full-width">
+          <textarea matInput [(ngModel)]="editedDescription"></textarea>
+        </mat-form-field>
+        <button mat-button (click)="saveDescription()">Save</button>
+        <button mat-button (click)="cancelEditingDescription()">Cancel</button>
+      </div>
+      }
+  
+      
+
+    </div>
+
+  </div>
+
+  <div class="controls margin-8">
+    <mat-slide-toggle [(ngModel)]="isEnabled" (change)="onToggleChange()">Enabled</mat-slide-toggle>
+    <button mat-icon-button color="warn" (click)="deleteCollection()">
+      <mat-icon>delete</mat-icon>
+    </button>
+  </div>
+  
+  <div class="full-row margin-16">
+    <h3>Import Part: To be specified in another ticket</h3>
+  </div>
+  
+  <div class="full-row-2 margin-16">
+    <h3>Log Part: To be specified in another ticket</h3>
+  </div>
+ 
+</div>
