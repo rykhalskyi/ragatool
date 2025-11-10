@@ -1,12 +1,7 @@
 <mat-list>
-     <button mat-raised-button color="primary" class="add-topic-button" (click)="openAddCollectionDialog()">ADD COLLECTION</button>
-
     @for (collection of collections; track collection.id) {
         <mat-list-item (click)="selectCollection(collection.id)">
-            <mat-icon matListItemIcon>folder</mat-icon>
-
             <span matListItemTitle mat-line>{{collection.name}}</span>
-            <span matListItemLine mat-line>{{collection.id}}</span>
         </mat-list-item>
     }
 </mat-list>
