@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { MatListModule } from '@angular/material/list';
 import { MatIconModule } from '@angular/material/icon';
 import { CommonModule } from '@angular/common';
@@ -7,7 +7,11 @@ import { CollectionsService } from '../client/services/CollectionsService';
 import { Collection } from '../client/models/Collection';
 import { Router } from '@angular/router';
 import { MatDialogModule } from '@angular/material/dialog';
+import { CollectionRefreshService } from '../collection-refresh.service';
+import { Subscription } from 'rxjs';
+import { UntilDestroy, untilDestroyed } from '@ngneat/until-destroy';
 
+@UntilDestroy()
 @Component({
   selector: 'app-collections-list',
   standalone: true,
@@ -15,13 +19,26 @@ import { MatDialogModule } from '@angular/material/dialog';
   templateUrl: './collections-list.component.html',
   styleUrl: './collections-list.component.scss'
 })
-export class CollectionsListComponent implements OnInit {
+export class CollectionsListComponent implements OnInit, OnDestroy {
   collections: Collection[] = [];
+  private refreshSubscription: Subscription;
 
-  constructor(private router: Router) {}
+  constructor(private router: Router, private collectionRefreshService: CollectionRefreshService) {
+    this.refreshSubscription = this.collectionRefreshService.refreshNeeded$
+    .pipe(untilDestroyed(this))
+    .subscribe(() => {
+      this.fetchCollections();
+    });
+  }
 
   ngOnInit(): void {
     this.fetchCollections();
+  }
+
+  ngOnDestroy(): void {
+    if (this.refreshSubscription) {
+      this.refreshSubscription.unsubscribe();
+    }
   }
 
   async fetchCollections(): Promise<void> {
@@ -35,6 +52,6 @@ export class CollectionsListComponent implements OnInit {
   selectCollection(collectionId: string): void {
     this.router.navigate(['/collection', collectionId]);
   }
-
- 
 }
+
+

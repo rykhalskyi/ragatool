@@ -5,6 +5,7 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { CollectionsService } from '../client/services/CollectionsService';
 import { AddCollectionDialogComponent } from '../add-collection-dialog/add-collection-dialog.component';
 import { MatDialog } from '@angular/material/dialog';
+import { CollectionRefreshService } from '../collection-refresh.service';
 
 @Component({
   selector: 'app-topbar',
@@ -15,7 +16,7 @@ import { MatDialog } from '@angular/material/dialog';
 })
 export class TopbarComponent {
   
-  constructor(public dialog: MatDialog){}
+  constructor(public dialog: MatDialog, private collectionRefreshService: CollectionRefreshService){}
 
  openAddCollectionDialog(): void {
     const dialogRef = this.dialog.open(AddCollectionDialogComponent, {
@@ -37,6 +38,7 @@ export class TopbarComponent {
   async createCollection(collectionName: string): Promise<void> {
     try {
       await CollectionsService.createNewCollectionCollectionsPost({ name: collectionName });
+      this.collectionRefreshService.triggerRefresh();
     } catch (error) {
       console.error('Error creating collection:', error);
     }
