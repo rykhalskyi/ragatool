@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from app.routers import items, poc, collections
+from app.routers import items, poc, collections, tasks
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import create_tables
 from contextlib import asynccontextmanager
@@ -25,6 +25,7 @@ app.add_middleware(
 app.include_router(poc.router)
 app.include_router(items.router)
 app.include_router(collections.router, prefix="/collections", tags=["collections"])
+app.include_router(tasks.router, prefix="/tasks", tags=["tasks"])
 
 @app.get("/")
 def read_root():

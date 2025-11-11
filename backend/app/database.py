@@ -23,6 +23,16 @@ def create_tables():
         enabled BOOLEAN
     )
     """)
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS tasks (
+        id TEXT PRIMARY KEY,
+        collectionId TEXT,
+        name TEXT NOT NULL,
+        startTime INTEGER,
+        status TEXT
+    )
+    """)
     
     conn.commit()
     conn.close()

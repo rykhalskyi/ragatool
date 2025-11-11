@@ -1,6 +1,5 @@
 fastapi
 uvicorn
-sqlalchemy
 pydantic
 sentence-transformers
 chromadb
