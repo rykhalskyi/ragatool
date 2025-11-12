@@ -2,6 +2,7 @@ import threading
 import queue
 import uuid
 import time
+import asyncio
 from app.crud import crud_task
 
 class BackgroundTaskDispatcher:
@@ -38,17 +39,21 @@ class BackgroundTaskDispatcher:
                 try:
                     crud_task.update_task_status(task_id, "RUNNING")
                     kwargs['cancel_event'] = cancellation_event
-                    task_func(*args, **kwargs)
+                    if asyncio.iscoroutinefunction(task_func):
+                        asyncio.run(task_func(*args, **kwargs))
+                    else:
+                        task_func(*args, **kwargs)
                     crud_task.update_task_status(task_id, "COMPLETED")
                 except Exception as e:
                     print(f"Task {task_id} failed: {e}")
                     crud_task.update_task_status(task_id, "FAILED")
                 finally:
                     with self.lock:
-                        del self.running_tasks[task_id]
+                        if task_id in self.running_tasks:
+                            del self.running_tasks[task_id]
                     self.task_id_queue.task_done()
 
-    def enqueue_task(self, collection_id: str, task_name: str, task_func, *args, **kwargs):
+    def add_task(self, collection_id: str, task_name: str, task_func, *args, **kwargs):
         task_id = str(uuid.uuid4())
         start_time = int(time.time())
         crud_task.create_task(task_id, collection_id, task_name, start_time, "NEW")

@@ -22,7 +22,7 @@ class TestBackgroundTaskDispatcher(unittest.TestCase):
             collection_id = "test_collection"
             task_name = "test_task"
             
-            task_id = dispatcher.enqueue_task(collection_id, task_name, cancellable_dummy_task, 0.1, cancel_event=threading.Event())
+            task_id = dispatcher.add_task(collection_id, task_name, cancellable_dummy_task, 0.1, cancel_event=threading.Event())
             
             self.assertIsNotNone(task_id)
             mock_crud_task.create_task.assert_called_once()
@@ -43,10 +43,10 @@ class TestBackgroundTaskDispatcher(unittest.TestCase):
             task_name = "test_task_queued"
             
             # Enqueue a long-running task first to ensure the next one stays in queue
-            long_task_id = dispatcher.enqueue_task(collection_id, "long_task", cancellable_dummy_task, 10, cancel_event=threading.Event())
+            long_task_id = dispatcher.add_task(collection_id, "long_task", cancellable_dummy_task, 10, cancel_event=threading.Event())
             
             # Enqueue the task to be cancelled
-            task_id_to_cancel = dispatcher.enqueue_task(collection_id, task_name, cancellable_dummy_task, 0.1, cancel_event=threading.Event())
+            task_id_to_cancel = dispatcher.add_task(collection_id, task_name, cancellable_dummy_task, 0.1, cancel_event=threading.Event())
             
             # Immediately cancel the second task
             self.assertTrue(dispatcher.cancel_task(task_id_to_cancel))
@@ -70,7 +70,7 @@ class TestBackgroundTaskDispatcher(unittest.TestCase):
             task_name = "test_task_running"
             
             # Enqueue a task that runs for a while
-            task_id = dispatcher.enqueue_task(collection_id, task_name, cancellable_dummy_task, 1, cancel_event=threading.Event())
+            task_id = dispatcher.add_task(collection_id, task_name, cancellable_dummy_task, 1, cancel_event=threading.Event())
             
             # Wait for the task to start running
             time.sleep(0.1) 

@@ -20,7 +20,8 @@ def create_tables():
         model TEXT,
         chunk_size INTEGER,
         chunk_overlap INTEGER,
-        enabled BOOLEAN
+        enabled BOOLEAN,
+        import_type TEXT DEFAULT 'NONE'
     )
     """)
 
