@@ -2,6 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { ImportType } from './ImportType';
 export type Collection = {
     name: string;
     description?: (string | null);
@@ -9,6 +10,7 @@ export type Collection = {
     chunk_size?: (number | null);
     chunk_overlap?: (number | null);
     enabled?: (boolean | null);
+    import_type?: ImportType;
     id: string;
 };
 

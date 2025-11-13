@@ -2,6 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { ImportType } from './ImportType';
 export type CollectionCreate = {
     name: string;
     description?: (string | null);
@@ -9,5 +10,6 @@ export type CollectionCreate = {
     chunk_size?: (number | null);
     chunk_overlap?: (number | null);
     enabled?: (boolean | null);
+    import_type?: ImportType;
 };
 
