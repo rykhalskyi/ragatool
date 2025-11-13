@@ -17,7 +17,7 @@ def get_imports() -> List[Import]:
     return [Import(name=file_import.name, embedding_model=file_import.embedding_model, chunk_size=file_import.chunk_size, chunk_overlay=file_import.chunk_overlay)]
 
 @router.post("/{collection_name}")
-async def import_file(collection_id: str, file: UploadFile = File(...), db: Connection = Depends(get_db_connection)):
+async def import_file(collection_id: str, import_params: Import, file: UploadFile = File(...), db: Connection = Depends(get_db_connection)):
     task_name = f"Importing {file.filename} to {collection_id}"
     
     collection = crud_collection.get_collection(db, collection_id)
