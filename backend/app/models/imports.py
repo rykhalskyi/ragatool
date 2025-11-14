@@ -17,7 +17,7 @@ class ImportBase(ABC):
         pass
 
     @abstractmethod
-    async def import_data(self, collection_name: str, file: UploadFile, cancellation_event:Event) -> None:
+    async def import_data(self, collection_name: str, file: UploadFile, cancel_event:Event) -> None:
         pass
 
 class FileImport(ImportBase):
@@ -29,7 +29,7 @@ class FileImport(ImportBase):
     def create_chunks(self, text: str) -> List[str]:
         return [text[i:i+self.chunk_size] for i in range(0, len(text), self.chunk_size - self.chunk_overlap)]
 
-    async def import_data(self, collection_name: str, file: UploadFile, cancellation_event: Event) -> None:
+    async def import_data(self, collection_name: str, file: UploadFile, cancel_event: Event) -> None:
         text_content = ""
         byte_content =await file.read()
             

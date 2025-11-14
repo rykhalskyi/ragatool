@@ -28,17 +28,19 @@ class BackgroundTaskDispatcher:
             if task_id is None:
                 break
 
-            task_func, args, kwargs, cancellation_event = None, None, None, None
+            task_func, args, kwargs = None, None, None
             with self.lock:
                 if task_id in self.waiting_tasks:
                     task_func, args, kwargs = self.waiting_tasks.pop(task_id)
-                    cancellation_event = threading.Event()
+                    cancellation_event = kwargs.get('cancel_event')
+                    if cancellation_event is None:
+                        cancellation_event = threading.Event()
                     self.running_tasks[task_id] = cancellation_event
 
             if task_func:
                 try:
                     crud_task.update_task_status(task_id, "RUNNING")
-                    kwargs['cancellation_event'] = cancellation_event
+                    kwargs['cancel_event'] = cancellation_event
                     if asyncio.iscoroutinefunction(task_func):
                         asyncio.run(task_func(*args, **kwargs))
                     else:

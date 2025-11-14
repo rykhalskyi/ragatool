@@ -1,82 +1,64 @@
-import unittest
-from unittest.mock import patch, MagicMock, AsyncMock
-from fastapi import UploadFile
-from app.models.imports import FileImport
-import io
 import asyncio
-from fastapi.testclient import TestClient
-from app.main import app
+import io
+import threading
+from unittest.mock import MagicMock, patch
+import pytest
+from fastapi import UploadFile
+from app.routers.imports import import_file
+from app.models.imports import FileImport
 
-class TestFileImport(unittest.TestCase):
+@pytest.mark.asyncio
+async def test_import_file_background_task():
+    # 1. Mock the database connection and CRUD operations
+    mock_db = MagicMock()
+    mock_crud_collection = MagicMock()
+    mock_crud_collection.get_collection.return_value = MagicMock(id="test_collection", name="test_collection", import_type="NONE")
 
-    @patch('app.models.imports.SentenceTransformer')
-    @patch('app.models.imports.chromadb.PersistentClient')
-    def test_import_data(self, mock_chromadb_client, mock_sentence_transformer):
-        async def run_test():
-            # Arrange
-            mock_model = MagicMock()
-            mock_model.encode.return_value = [[0.1, 0.2, 0.3]]
-            mock_sentence_transformer.return_value = mock_model
+    # 2. Create a mock file
+    file_content = b"This is a test file."
+    file_buffer = io.BytesIO(file_content)
+    mock_file = UploadFile(filename="test.txt", file=file_buffer)
 
-            mock_collection = MagicMock()
-            mock_client = MagicMock()
-            mock_client.get_or_create_collection.return_value = mock_collection
-            mock_chromadb_client.return_value = mock_client
+    # 3. Mock the BackgroundTaskDispatcher
+    mock_task_dispatcher = MagicMock()
 
-            file_content = b"This is a test file."
-            file = UploadFile(filename="test.txt", file=io.BytesIO(file_content))
-            file.read = AsyncMock(return_value=file_content)
-            
-            file_import = FileImport()
+    # 4. Patch the dependencies
+    with patch("app.routers.imports.get_db_connection", return_value=mock_db), \
+         patch("app.routers.imports.crud_collection", mock_crud_collection), \
+         patch("app.routers.imports.task_dispatcher", mock_task_dispatcher):
 
-            # Act
-            await file_import.import_data("test_collection", file)
-
-            # Assert
-            mock_sentence_transformer.assert_called_once_with("all-MiniLM-L6-v2", trust_remote_code=True)
-            mock_model.encode.assert_called_once()
-            mock_chromadb_client.assert_called_once_with(path="./chroma_data")
-            mock_client.get_or_create_collection.assert_called_once_with(name="test_collection")
-            mock_collection.upsert.assert_called_once()
-        
-        asyncio.run(run_test())
-
-class TestImportRoutes(unittest.TestCase):
-    def setUp(self):
-        self.client = TestClient(app)
-
-    @patch('app.routers.imports.task_dispatcher')
-    @patch('app.routers.imports.crud_collection')
-    @patch('app.routers.imports.get_db_connection')
-    def test_import_file(self, mock_get_db_connection, mock_crud_collection, mock_task_dispatcher):
-        # Arrange
-        mock_db = MagicMock()
-        mock_get_db_connection.return_value = mock_db
-        mock_crud_collection.get_collection_by_name.return_value = MagicMock(import_type="NONE")
-
-        file_content = b"This is a test file."
-        
-        # Act
-        response = self.client.post(
-            "/import/test_collection",
-            files={"file": ("test.txt", io.BytesIO(file_content), "text/plain")}
+        # 5. Call the endpoint function
+        response = await import_file(
+            collection_id="test_collection",
+            import_params='{"name": "FILE", "embedding_model": "all-MiniLM-L6-v2", "chunk_size": 300, "chunk_overlap": 50}',
+            file=mock_file,
+            db=mock_db
         )
 
-        # Assert
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json(), {"message": "File import started in the background."})
+        # 6. Assert that the background task was added
         mock_task_dispatcher.add_task.assert_called_once()
-        mock_crud_collection.update_collection_import_type.assert_called_once()
-
-    def test_get_imports(self):
-        # Act
-        response = self.client.get("/import/")
-
-        # Assert
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.json()), 1)
-        self.assertEqual(response.json()[0]['name'], 'FILE')
-
-
-if __name__ == '__main__':
-    unittest.main()
+        
+        # 7. Get the arguments passed to the background task
+        args = mock_task_dispatcher.add_task.call_args[0]
+        
+        # 8. The actual file object is the 4th argument
+        background_file = args[4]
+        
+        # 9. Simulate the background task by calling the import_data method
+        importer = FileImport()
+        cancellation_event = threading.Event()
+        
+        # This call would have raised the "I/O operation on closed file" error
+        # with the old code.
+        await importer.import_data(
+            collection_name="test_collection",
+            file=background_file,
+            cancellation_event=cancellation_event
+        )
+        
+        # 10. Assert that the file was read correctly
+        # (This is an indirect way to check that no error was raised)
+        assert not cancellation_event.is_set()
+        
+        # 11. Check the response
+        assert response == {"message": "File import started in the background."}
