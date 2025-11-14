@@ -7,7 +7,7 @@ export { CancelablePromise, CancelError } from './core/CancelablePromise';
 export { OpenAPI } from './core/OpenAPI';
 export type { OpenAPIConfig } from './core/OpenAPI';
 
-export type { Body_import_file_import__collection_name__post } from './models/Body_import_file_import__collection_name__post';
+export type { Body_import_file_import__collection_id__post } from './models/Body_import_file_import__collection_id__post';
 export type { Collection } from './models/Collection';
 export type { CollectionCreate } from './models/CollectionCreate';
 export type { HTTPValidationError } from './models/HTTPValidationError';

@@ -38,7 +38,7 @@ class BackgroundTaskDispatcher:
             if task_func:
                 try:
                     crud_task.update_task_status(task_id, "RUNNING")
-                    kwargs['cancel_event'] = cancellation_event
+                    kwargs['cancellation_event'] = cancellation_event
                     if asyncio.iscoroutinefunction(task_func):
                         asyncio.run(task_func(*args, **kwargs))
                     else:

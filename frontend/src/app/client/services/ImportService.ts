@@ -2,7 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { Body_import_file_import__collection_name__post } from '../models/Body_import_file_import__collection_name__post';
+import type { Body_import_file_import__collection_id__post } from '../models/Body_import_file_import__collection_id__post';
 import type { Import } from '../models/Import';
 import type { CancelablePromise } from '../core/CancelablePromise';
 import { OpenAPI } from '../core/OpenAPI';
@@ -26,14 +26,14 @@ export class ImportService {
      * @returns any Successful Response
      * @throws ApiError
      */
-    public static importFileImportCollectionNamePost(
+    public static importFileImportCollectionIdPost(
         collectionId: string,
-        formData: Body_import_file_import__collection_name__post,
+        formData: Body_import_file_import__collection_id__post,
     ): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'POST',
-            url: '/import/{collection_name}',
-            query: {
+            url: '/import/{collection_id}',
+            path: {
                 'collection_id': collectionId,
             },
             formData: formData,

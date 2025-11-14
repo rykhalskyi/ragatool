@@ -8,8 +8,9 @@ import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angula
 import { ImportService } from '../../client/services/ImportService';
 import { Import } from '../../client/models/Import';
 import { Collection } from '../../client/models/Collection';
-import { Body_import_file_import__collection_name__post } from '../../client/models/Body_import_file_import__collection_name__post';
+
 import { UntilDestroy, untilDestroyed } from '@ngneat/until-destroy';
+import { Body_import_file_import__collection_id__post } from '../../client/models/Body_import_file_import__collection_id__post';
 
 @Component({
   selector: 'app-selected-collection-import',
@@ -113,12 +114,19 @@ export class SelectedCollectionImportComponent implements OnInit {
 
   onSubmit(): void {
     if (this.importForm.valid && this.collection?.name && this.selectedFile) {
-      const formData: Body_import_file_import__collection_name__post = {
-        file: this.selectedFile
+      const formData: Body_import_file_import__collection_id__post = {
+        file: this.selectedFile,
+        import_params: JSON.stringify({
+             name: this.importForm.get('importType')?.value.name,
+             embedding_model: this.importForm.get('model')?.value,
+             chunk_size: this.importForm.get('chunkSize')?.value,
+             chunk_overlay: this.importForm.get('chunkOverlap')?.value
+        })
       };
 
-      ImportService.importFileImportCollectionNamePost(
-        this.collection.name, // Use collection.name as collection_id
+      console.log('save request:',this.collection.name, this.collection.id, formData);
+      ImportService.importFileImportCollectionIdPost(
+        this.collection.id, 
         formData
       ).then(
         (response: any) => {
