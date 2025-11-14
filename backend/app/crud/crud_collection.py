@@ -3,6 +3,7 @@ from typing import List, Optional
 import uuid
 
 from app.schemas.collection import Collection, CollectionCreate, ImportType
+from app.schemas.imports import Import
 
 
 def get_collections(db: Connection) -> List[Collection]:
@@ -48,16 +49,16 @@ def update_collection(db: Connection, collection_id: str, collection: Collection
         return None
     return get_collection(db, collection_id)
 
-def update_collection_import_type(db: Connection, collection_name: str, import_type: ImportType) -> Optional[Collection]:
+def update_collection_import_type(db: Connection, collection_id: str, import_params:Import) -> Optional[Collection]:
     cursor = db.cursor()
     cursor.execute(
-        "UPDATE collections SET import_type = ? WHERE name = ?",
-        (import_type.value, collection_name),
+        "UPDATE collections SET import_type = ?, model = ?, chunk_size = ?, chunk_overlap =?  WHERE id = ?",
+        (import_params.name, import_params.embedding_model, import_params.chunk_size, import_params.chunk_overlap , collection_id),
     )
     db.commit()
     if cursor.rowcount == 0:
         return None
-    return get_collection_by_name(db, collection_name)
+    return get_collection(db, collection_id)
 
 def delete_collection(db: Connection, collection_id: str):
     cursor = db.cursor()

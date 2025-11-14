@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit, Input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, Input, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
@@ -29,7 +29,7 @@ import { Body_import_file_import__collection_id__post } from '../../client/model
 })
 
 @UntilDestroy()
-export class SelectedCollectionImportComponent implements OnInit {
+export class SelectedCollectionImportComponent implements OnInit, OnChanges {
   @Input() collection: Collection | undefined;
 
   importForm!: FormGroup;
@@ -59,23 +59,22 @@ export class SelectedCollectionImportComponent implements OnInit {
       this.onFormChange();
     });
 
-    // Listen for changes in collection to update form state
-    // This might need a more robust solution if collection changes frequently
-    // For now, assuming it's set once or changes are handled by parent
-    // If collection changes dynamically, consider using ngOnChanges or a setter for @Input()
-    if (this.collection?.import_type && this.collection.import_type !== 'NONE') {
-      this.importForm.get('importType')?.disable();
-      this.importForm.get('model')?.disable();
-    }
+    this.setControls();
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    this.setControls();
+
   }
 
   onFormChange(): void {
-    const importType = this.importForm.get('importType')?.value;
-    console.log("sel", importType);
-
+    if (!this.collectionIsSet())
+    {
+     const importType = this.importForm.get('importType')?.value;
      this.importForm.get('model')?.setValue(importType.embedding_model);
      this.importForm.get('chunkSize')?.setValue(importType.chunk_size);
-     this.importForm.get('chunkOverlap')?.setValue(importType.chunk_overlay);
+     this.importForm.get('chunkOverlap')?.setValue(importType.chunk_overlap);
+    }
   }
 
   getImportTypes(): void {
@@ -120,7 +119,7 @@ export class SelectedCollectionImportComponent implements OnInit {
              name: this.importForm.get('importType')?.value.name,
              embedding_model: this.importForm.get('model')?.value,
              chunk_size: this.importForm.get('chunkSize')?.value,
-             chunk_overlay: this.importForm.get('chunkOverlap')?.value
+             chunk_overlap: this.importForm.get('chunkOverlap')?.value
         })
       };
 
@@ -143,5 +142,29 @@ export class SelectedCollectionImportComponent implements OnInit {
       console.error('Form is invalid or collection name/file is missing.');
       // TODO: Show validation errors to user
     }
+  }
+
+  private setControls(): void{
+    console.log('Set Controls', this.collection);
+      if (this.collectionIsSet()) {
+        
+        const importType = this.importTypes.find(i=> i.name === this.collection!.import_type);
+
+        this.importForm.get('importType')?.setValue(importType);
+        this.importForm.get('chunkSize')?.setValue(this.collection!.chunk_size);
+        this.importForm.get('chunkOverlap')?.setValue(this.collection!.chunk_overlap);
+        this.importForm.get('model')?.setValue(this.collection!.model);  
+
+        this.importForm.get('importType')?.disable();
+        this.importForm.get('model')?.disable();
+    }
+    else{
+        this.importForm.get('importType')?.enable();
+        this.importForm.get('model')?.enable();
+    }
+  }
+
+  private collectionIsSet(): boolean{
+    return (this.collection?.import_type && this.collection.import_type !== 'NONE') ?? false;
   }
 }

@@ -4,4 +4,4 @@ class Import(BaseModel):
     name: str
     embedding_model: str
     chunk_size: int
-    chunk_overlay: int
+    chunk_overlap: int

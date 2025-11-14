@@ -10,7 +10,7 @@ class ImportBase(ABC):
     name: str
     embedding_model: str
     chunk_size: int
-    chunk_overlay: int
+    chunk_overlap: int
 
     @abstractmethod
     def create_chunks(self, text: str) -> List[str]:
@@ -24,24 +24,16 @@ class FileImport(ImportBase):
     name = "FILE"
     embedding_model = "all-MiniLM-L6-v2"
     chunk_size = 300
-    chunk_overlay = 50
+    chunk_overlap = 50
 
     def create_chunks(self, text: str) -> List[str]:
-        return [text[i:i+self.chunk_size] for i in range(0, len(text), self.chunk_size - self.chunk_overlay)]
+        return [text[i:i+self.chunk_size] for i in range(0, len(text), self.chunk_size - self.chunk_overlap)]
 
     async def import_data(self, collection_name: str, file: UploadFile, cancellation_event: Event) -> None:
         text_content = ""
-        text_content2 =await file.read()
-        #while True:
-            #if asyncio.iscoroutinefunction(file.read):
-            #    chunk = await file.read(4096)
-            #else:
-            #    chunk = file.read(4096)
+        byte_content =await file.read()
             
-            #if not chunk:
-            #    break
-            
-        text_content += text_content2.decode("utf-8")
+        text_content = byte_content.decode("utf-8")
 
         chunks = self.create_chunks(text_content)
 

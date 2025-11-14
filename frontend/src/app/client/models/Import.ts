@@ -6,6 +6,6 @@ export type Import = {
     name: string;
     embedding_model: string;
     chunk_size: number;
-    chunk_overlay: number;
+    chunk_overlap: number;
 };
 
