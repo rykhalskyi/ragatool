@@ -43,3 +43,6 @@ Thumbs.db
 
 .gemini/
 .design-specs/
+
+/test-results
+/playwright-report
