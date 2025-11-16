@@ -13,9 +13,11 @@ export type { CollectionCreate } from './models/CollectionCreate';
 export type { HTTPValidationError } from './models/HTTPValidationError';
 export type { Import } from './models/Import';
 export { ImportType } from './models/ImportType';
+export type { MCPEnabledRequest } from './models/MCPEnabledRequest';
 export type { ValidationError } from './models/ValidationError';
 
 export { CollectionsService } from './services/CollectionsService';
 export { DefaultService } from './services/DefaultService';
 export { ImportService } from './services/ImportService';
+export { McpService } from './services/McpService';
 export { TasksService } from './services/TasksService';

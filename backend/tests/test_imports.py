@@ -53,7 +53,7 @@ async def test_import_file_background_task():
         await importer.import_data(
             collection_name="test_collection",
             file=background_file,
-            cancellation_event=cancellation_event
+            cancel_event=cancellation_event
         )
         
         # 10. Assert that the file was read correctly

@@ -3,7 +3,7 @@ from typing import List
 from sqlite3 import Connection
 
 from app.schemas.collection import Collection, CollectionCreate
-from app.crud.crud_collection import get_collections, create_collection, update_collection, delete_collection, get_collection
+from app.crud.crud_collection import get_collections, create_collection, update_collection_description_and_enabled, delete_collection, get_collection
 from app.dependencies import get_db
 
 router = APIRouter()
@@ -25,7 +25,7 @@ def create_new_collection(collection: CollectionCreate, db: Connection = Depends
 
 @router.put("/{collection_id}", response_model=Collection)
 def update_existing_collection(collection_id: str, collection: CollectionCreate, db: Connection = Depends(get_db)):
-    updated_collection = update_collection(db, collection_id, collection)
+    updated_collection = update_collection_description_and_enabled(db, collection_id, collection)
     if updated_collection is None:
         raise HTTPException(status_code=404, detail="Collection not found")
     return updated_collection

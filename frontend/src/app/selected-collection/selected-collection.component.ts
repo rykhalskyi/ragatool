@@ -66,7 +66,10 @@ export class SelectedCollectionComponent implements OnInit {
   async onToggleChange(): Promise<void> {
     if (this.collection) {
       try {
-        await CollectionsService.updateExistingCollectionCollectionsCollectionIdPut(this.collection.id, { name: this.collection.name, enabled: this.isEnabled });
+        await CollectionsService.updateExistingCollectionCollectionsCollectionIdPut(this.collection.id, { 
+          name: this.collection.name,
+          description:  this.editedDescription,
+          enabled: this.isEnabled });
         console.log('Collection enabled status updated.');
         this.collectionRefreshService.triggerRefresh();
       } catch (error) {
@@ -114,6 +117,7 @@ export class SelectedCollectionComponent implements OnInit {
         await CollectionsService.updateExistingCollectionCollectionsCollectionIdPut(this.collection.id, {
           name: this.collection.name,
           description: this.editedDescription,
+          enabled: this.isEnabled
         });
         if(this.collection) {
           this.collection.description = this.editedDescription;

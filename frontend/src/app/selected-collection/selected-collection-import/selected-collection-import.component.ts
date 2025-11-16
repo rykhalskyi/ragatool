@@ -78,11 +78,7 @@ export class SelectedCollectionImportComponent implements OnInit, OnChanges {
       const state = this.importFormStateService.getState(collectionId);
       console.log('**on changes', state, this.collection);
       
-      //Clean selected file
-      this.selectedFile = null;
-      this.selectedFileName = '';
-      this.fileInput.nativeElement.value = '';
-      this.importForm.get('file')?.updateValueAndValidity();
+     
 
       //Enable/Disable controls
       if (this.collectionIsSet()){
@@ -123,6 +119,14 @@ export class SelectedCollectionImportComponent implements OnInit, OnChanges {
         }, { emitEvent: false });
         this.importFormStateService.clearState(collectionId);
       }
+
+       //Clean selected file
+      this.selectedFile = null;
+      this.selectedFileName = '';
+      this.fileInput.nativeElement.value = '';
+      this.importForm.get('file')?.setValue('', {emitEvent: false});
+      //this.importForm.get('file')?.updateValueAndValidity();
+
     }
   }
 

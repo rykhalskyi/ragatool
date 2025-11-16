@@ -1,11 +1,12 @@
 import { Component } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatSlideToggleChange, MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { CollectionsService } from '../client/services/CollectionsService';
 import { AddCollectionDialogComponent } from '../add-collection-dialog/add-collection-dialog.component';
 import { MatDialog } from '@angular/material/dialog';
 import { CollectionRefreshService } from '../collection-refresh.service';
+import { McpService } from '../client';
 
 @Component({
   selector: 'app-topbar',
@@ -15,6 +16,7 @@ import { CollectionRefreshService } from '../collection-refresh.service';
   styleUrl: './topbar.component.scss'
 })
 export class TopbarComponent {
+
   
   constructor(public dialog: MatDialog, private collectionRefreshService: CollectionRefreshService){}
 
@@ -42,6 +44,12 @@ export class TopbarComponent {
     } catch (error) {
       console.error('Error creating collection:', error);
     }
+  }
+
+  protected async onToggleChange(event: MatSlideToggleChange) {
+    console.log('toggle', event.checked);
+    await McpService.setMcpEnabledMcpMcpEnabledPut({enabled : event.checked});
+
   }
 
 }

@@ -38,11 +38,11 @@ def create_collection(db: Connection, collection: CollectionCreate) -> Collectio
     db.commit()
     return Collection(id=new_id, **collection.model_dump())
 
-def update_collection(db: Connection, collection_id: str, collection: CollectionCreate) -> Optional[Collection]:
+def update_collection_description_and_enabled(db: Connection, collection_id: str, collection: CollectionCreate) -> Optional[Collection]:
     cursor = db.cursor()
     cursor.execute(
-        "UPDATE collections SET description = ?, model = ?, chunk_size = ?, chunk_overlap = ?, enabled = ? WHERE id = ?",
-        (collection.description, collection.model, collection.chunk_size, collection.chunk_overlap, collection.enabled, collection_id),
+        "UPDATE collections SET description = ?, enabled = ? WHERE id = ?",
+        (collection.description, collection.enabled, collection_id),
     )
     db.commit()
     if cursor.rowcount == 0:
@@ -67,3 +67,9 @@ def delete_collection(db: Connection, collection_id: str):
     if cursor.rowcount == 0:
         return None
     return {"message": "Collection deleted successfully"}
+
+def get_enabled_collections_for_mcp(db: Connection) -> List[dict]:
+    cursor = db.cursor()
+    cursor.execute("SELECT name, description FROM collections WHERE enabled = TRUE")
+    collections_data = cursor.fetchall()
+    return [{"name": col["name"], "description": col["description"]} for col in collections_data]
