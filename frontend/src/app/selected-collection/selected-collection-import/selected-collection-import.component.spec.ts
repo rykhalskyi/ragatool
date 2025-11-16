@@ -10,35 +10,34 @@ import { MatButtonModule } from '@angular/material/button';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { Collection } from '../../client/models/Collection';
 import { Import } from '../../client/models/Import';
+import { ImportType } from '../../client/models/ImportType';
+import { ExtendedCollection } from '../../selected-collection/selected-collection.component';
+import { CancelablePromise } from '../../client/core/CancelablePromise';
+
+function createCancelablePromise<T>(value: T): CancelablePromise<T> {
+  return new CancelablePromise((resolve) => resolve(value));
+}
 
 describe('SelectedCollectionImportComponent', () => {
   let component: SelectedCollectionImportComponent;
   let fixture: ComponentFixture<SelectedCollectionImportComponent>;
-  let mockImportService: jasmine.SpyObj<ImportService>;
 
   const mockImportTypes: Import[] = [
-    { name: 'PDF', description: 'PDF Import' },
-    { name: 'TXT', description: 'Text Import' },
+    { name: 'PDF', embedding_model: 'model1', chunk_size: 100, chunk_overlap: 10 },
+    { name: 'TXT', embedding_model: 'model2', chunk_size: 200, chunk_overlap: 20 },
   ];
 
-  const mockCollection: Collection = {
+  const mockCollection: ExtendedCollection = {
     name: 'test-collection',
-    uuid: '123',
-    document_count: 0,
-    embedding_model: 'model',
-    import_type: 'NONE',
-    is_active: true,
-    is_indexing: false,
-    last_modified: new Date().toISOString(),
-    splitter_chunk_overlap: 0,
-    splitter_chunk_size: 0,
-    description: 'A test collection'
+    id: '123',
+    description: 'A test collection',
+    import_type: ImportType.NONE,
+    saved: false,
   };
 
   beforeEach(async () => {
-    mockImportService = jasmine.createSpyObj('ImportService', ['getImportsImportGet', 'importFileImportCollectionNamePost']);
-    mockImportService.getImportsImportGet.and.returnValue(Promise.resolve(mockImportTypes));
-    mockImportService.importFileImportCollectionNamePost.and.returnValue(Promise.resolve({ message: 'Import successful' }));
+    spyOn(ImportService, 'getImportsImportGet').and.returnValue(createCancelablePromise(mockImportTypes));
+    spyOn(ImportService, 'importFileImportCollectionIdPost').and.returnValue(createCancelablePromise({ message: 'Import successful' }));
 
     await TestBed.configureTestingModule({
       imports: [
@@ -52,7 +51,6 @@ describe('SelectedCollectionImportComponent', () => {
       ],
       providers: [
         FormBuilder,
-        { provide: ImportService, useValue: mockImportService }
       ]
     })
     .compileComponents();
@@ -89,7 +87,7 @@ describe('SelectedCollectionImportComponent', () => {
   });
 
   it('should load import types on initialization', fakeAsync(() => {
-    expect(mockImportService.getImportsImportGet).toHaveBeenCalled();
+    expect(ImportService.getImportsImportGet).toHaveBeenCalled();
     tick(); // Resolve the promise
     expect(component.importTypes).toEqual(mockImportTypes);
   }));
@@ -127,7 +125,7 @@ describe('SelectedCollectionImportComponent', () => {
     expect(component.importForm.get('file')?.valid).toBeTrue();
   });
 
-  it('should call importFileImportCollectionNamePost on form submission with valid data', fakeAsync(() => {
+  it('should call importFileImportCollectionIdPost on form submission with valid data', fakeAsync(() => {
     component.importForm.get('importType')?.setValue('PDF');
     component.importForm.get('model')?.setValue('test-model');
     component.importForm.get('chunkSize')?.setValue(100);
@@ -142,14 +140,14 @@ describe('SelectedCollectionImportComponent', () => {
 
     component.onSubmit();
 
-    expect(mockImportService.importFileImportCollectionNamePost).toHaveBeenCalledWith(
-      mockCollection.name,
-      { file: mockFile }
+    expect(ImportService.importFileImportCollectionIdPost).toHaveBeenCalledWith(
+      mockCollection.id,
+      jasmine.any(Object)
     );
   }));
 
   it('should disable importType and model fields if collection.import_type is not NONE', fakeAsync(() => {
-    component.collection = { ...mockCollection, import_type: 'PDF' };
+    component.collection = { ...mockCollection, import_type: ImportType.FILE };
     component.ngOnInit(); // Re-initialize component with new input
     fixture.detectChanges();
     tick();
@@ -159,7 +157,7 @@ describe('SelectedCollectionImportComponent', () => {
   }));
 
   it('should not disable importType and model fields if collection.import_type is NONE', fakeAsync(() => {
-    component.collection = { ...mockCollection, import_type: 'NONE' };
+    component.collection = { ...mockCollection, import_type: ImportType.NONE };
     component.ngOnInit(); // Re-initialize component with new input
     fixture.detectChanges();
     tick();
@@ -240,3 +238,4 @@ describe('SelectedCollectionImportComponent', () => {
     expect(errorElement.textContent).toContain('Chunk overlap must be at least 0.');
   }));
 });
+
