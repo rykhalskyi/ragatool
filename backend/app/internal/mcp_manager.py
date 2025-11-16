@@ -75,6 +75,51 @@ class MCPManager:
                         }
                     except Exception as e:
                         return {"status": "error", "message": str(e)}
+                    
+                @self._mcp_server.tool()
+                def get_chunks_by_id(collection_name: str, ids):
+                    """
+                    Retrieves one or multiple chunks from a ChromaDB collection using IDs.
+
+                    - collection_name: name of the ChromaDB collection
+                    - ids: a single ID (string) or a list of IDs (list[str])
+                    """
+
+                    collection_name = collection_name.lower()
+
+                    if not self._is_enabled:
+                        return {"status": "error", "message": "MCP server is disabled."}
+
+                    try:
+                        # Normalize IDs into a list
+                        if isinstance(ids, str):
+                            ids = [ids]
+                        elif isinstance(ids, list):
+                            # Ensure all elements are strings
+                            ids = [str(i) for i in ids]
+                        else:
+                            return {
+                                "status": "error",
+                                "message": "Parameter 'ids' must be a string or list of strings.",
+                            }
+
+                        client = chromadb.PersistentClient(path="./chroma_data")
+                        collection = client.get_collection(name=collection_name)
+
+                        results = collection.get(
+                            ids=ids,
+                            include=["documents", "metadatas"]
+                        )
+
+                        return {"status": "success", "results": results}
+
+                    except ValueError:
+                        return {
+                            "status": "error",
+                            "message": f"Collection '{collection_name}' not found.",
+                        }
+                    except Exception as e:
+                        return {"status": "error", "message": str(e)}
 
                 # Start the server thread only once when the MCP server is first initialized
                 self._server_thread = threading.Thread(target=self._run_server, daemon=True)
@@ -82,6 +127,8 @@ class MCPManager:
                 # Give the server a moment to start
                 time.sleep(1)
                 print(f"MCP server '{self.server_name}' started.")
+            
+
 
     def disable(self):
         if self._is_enabled:
