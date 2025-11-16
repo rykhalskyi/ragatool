@@ -70,6 +70,6 @@ def delete_collection(db: Connection, collection_id: str):
 
 def get_enabled_collections_for_mcp(db: Connection) -> List[dict]:
     cursor = db.cursor()
-    cursor.execute("SELECT name, description FROM collections WHERE enabled = TRUE")
+    cursor.execute("SELECT name, description, chunk_size, chunk_overlap FROM collections WHERE enabled = TRUE")
     collections_data = cursor.fetchall()
-    return [{"name": col["name"], "description": col["description"]} for col in collections_data]
+    return [{"name": col["name"], "description": col["description"], "properties": f'text is divided to chunks of {col["chunk_size"]} symbols and {col['chunk_overlap']} overlap'} for col in collections_data]

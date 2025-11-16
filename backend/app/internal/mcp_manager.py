@@ -1,6 +1,7 @@
 from fastmcp import FastMCP
 import threading
 import time
+import chromadb
 from app.database import get_db_connection
 from app.crud.crud_collection import get_enabled_collections_for_mcp
 
@@ -49,6 +50,32 @@ class MCPManager:
                         collections = get_enabled_collections_for_mcp(db)
                     return collections
                 
+                @self._mcp_server.tool()
+                def query_collection(collection_name: str, query_text: str, n_results: int = 10) -> dict:
+                    """
+                    Queries a collection with a given text.
+                    - collection_name: The name of the collection to query.
+                    - query_text: The text to query the collection with.
+                    - n_results: The number of results to return.
+                    """
+                    collection_name = collection_name.lower()
+                    if not self._is_enabled:
+                        return {"status": "error", "message": "MCP server is disabled."}
+                    try:
+                        client = chromadb.PersistentClient(path="./chroma_data")
+                        collection = client.get_collection(name=collection_name)
+                        results = collection.query(
+                            query_texts=[query_text], n_results=n_results
+                        )
+                        return {"status": "success", "results": results}
+                    except ValueError:
+                        return {
+                            "status": "error",
+                            "message": f"Collection '{collection_name}' not found.",
+                        }
+                    except Exception as e:
+                        return {"status": "error", "message": str(e)}
+
                 # Start the server thread only once when the MCP server is first initialized
                 self._server_thread = threading.Thread(target=self._run_server, daemon=True)
                 self._server_thread.start()

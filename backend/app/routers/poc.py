@@ -114,7 +114,7 @@ def check_chromadb(query: str) -> dict:
 
     try:
         client = chromadb.PersistentClient(path="./chroma_data")
-        collection = client.get_or_create_collection(name="poc")
+        collection = client.get_or_create_collection(name="drakula")
     except Exception as e:
         print('connect to db',e)
         raise HTTPException(status_code=500, detail=f"Failed to initialize ChromaDB or get collection: {e}")
