@@ -60,7 +60,8 @@ class BackgroundTaskDispatcher:
         start_time = int(time.time())
         crud_task.create_task(task_id, collection_id, task_name, start_time, "NEW")
         with self.lock:
-            self.waiting_tasks[task_id] = (task_func, args, kwargs)
+            new_args = (collection_id,) + args
+            self.waiting_tasks[task_id] = (task_func, new_args, kwargs)
         self.task_id_queue.put(task_id)
         return task_id
 

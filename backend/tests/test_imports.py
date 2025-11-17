@@ -6,13 +6,18 @@ import pytest
 from fastapi import UploadFile
 from app.routers.imports import import_file
 from app.models.imports import FileImport
+from app.database import create_tables # New import
 
 @pytest.mark.asyncio
 async def test_import_file_background_task():
+    create_tables() # Call create_tables at the beginning of the test
+
     # 1. Mock the database connection and CRUD operations
     mock_db = MagicMock()
     mock_crud_collection = MagicMock()
-    mock_crud_collection.get_collection.return_value = MagicMock(id="test_collection", name="test_collection", import_type="NONE")
+    mock_collection_instance = MagicMock(id="test_collection_id", import_type="NONE")
+    mock_collection_instance.name = "test_collection_name"
+    mock_crud_collection.get_collection.return_value = mock_collection_instance
 
     # 2. Create a mock file
     file_content = b"This is a test file."
@@ -41,18 +46,20 @@ async def test_import_file_background_task():
         # 7. Get the arguments passed to the background task
         args = mock_task_dispatcher.add_task.call_args[0]
         
-        # 8. The actual file object is the 4th argument
-        background_file = args[4]
-        
+        # The arguments passed to import_data are now:
+        # collection_id (args[0])
+        # collection_name (args[3])
+        # file (args[4])
+        # cancel_event (kwargs['cancel_event'])
+
         # 9. Simulate the background task by calling the import_data method
         importer = FileImport()
         cancellation_event = threading.Event()
         
-        # This call would have raised the "I/O operation on closed file" error
-        # with the old code.
         await importer.import_data(
-            collection_name="test_collection",
-            file=background_file,
+            collection_id=args[0], # Pass collection_id
+            collection_name=args[3], # Pass collection_name
+            file=args[4], # Pass file
             cancel_event=cancellation_event
         )
         

@@ -1,6 +1,6 @@
 import os
 from fastapi import FastAPI
-from app.routers import items, poc, collections, tasks, imports, mcp
+from app.routers import items, poc, collections, tasks, imports, mcp, logs
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import create_tables
 from contextlib import asynccontextmanager
@@ -37,6 +37,7 @@ app.include_router(collections.router, prefix="/collections", tags=["collections
 app.include_router(tasks.router, prefix="/tasks", tags=["tasks"])
 app.include_router(imports.router, prefix="/import", tags=["import"])
 app.include_router(mcp.router, prefix="/mcp", tags=["mcp"])
+app.include_router(logs.router, prefix="/logs", tags=["logs"])
 
 @app.get("/")
 def read_root():

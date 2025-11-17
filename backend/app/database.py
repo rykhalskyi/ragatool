@@ -38,6 +38,17 @@ def create_tables():
         status TEXT
     )
     """)
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS logs (
+        id TEXT PRIMARY KEY,
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+        collectionId TEXT,
+        collectionName TEXT,
+        topic TEXT,
+        message TEXT
+    )
+    """)
     
     conn.commit()
     conn.close()
