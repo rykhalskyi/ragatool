@@ -58,7 +58,7 @@ class MCPManager:
                     - query_text: The text to query the collection with.
                     - n_results: The number of results to return.
                     """
-                    collection_name = collection_name.lower()
+                    collection_name = collection_name.lower().replace(' ','_')
                     if not self._is_enabled:
                         return {"status": "error", "message": "MCP server is disabled."}
                     try:
@@ -85,7 +85,7 @@ class MCPManager:
                     - ids: a single ID (string) or a list of IDs (list[str])
                     """
 
-                    collection_name = collection_name.lower()
+                    collection_name = collection_name.lower().replace(' ','_')
 
                     if not self._is_enabled:
                         return {"status": "error", "message": "MCP server is disabled."}

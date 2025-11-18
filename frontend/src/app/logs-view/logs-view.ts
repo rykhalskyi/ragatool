@@ -41,6 +41,6 @@ export class LogsViewComponent implements OnInit, OnDestroy {
   }
 
   addLog(log: LogEntry) {
-    this._allLogs.unshift(log); // Add new log to the beginning of the array
+    this._allLogs.push(log); // Add new log to the beginning of the array
   }
 }

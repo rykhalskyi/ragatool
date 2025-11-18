@@ -1,5 +1,5 @@
 .log-container {
-  max-height: 400px; /* Adjust as needed */
+  max-height: 300px; /* Adjust as needed */
   overflow-y: auto;
   border: 1px solid #e0e0e0;
   border-radius: 4px;
@@ -7,9 +7,7 @@
 }
 
 .log-item {
-  margin-bottom: 10px;
-  padding-bottom: 10px;
-  border-bottom: 1px dashed #f0f0f0;
+  margin-bottom: 4px;
 
   &:last-child {
     border-bottom: none;
@@ -26,6 +24,4 @@
   }
 }
 
-mat-card-title {
-  margin-bottom: 16px;
-}
+

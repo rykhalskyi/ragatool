@@ -19,7 +19,7 @@ def get_latest_log_entries(db: Connection, n: int):
     db.row_factory = sqlite3.Row  # Set row_factory to return dictionary-like rows
     cursor = db.cursor()
     cursor.execute(
-        "SELECT id, timestamp, collectionId, collectionName, topic, message FROM logs ORDER BY timestamp DESC LIMIT ?",
+        "SELECT id, timestamp, collectionId, collectionName, topic, message FROM logs ORDER BY timestamp ASC LIMIT ?",
         (n,)
     )
     logs = cursor.fetchall()

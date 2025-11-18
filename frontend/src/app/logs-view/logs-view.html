@@ -1,23 +1,21 @@
-<mat-card>
-  <mat-card-header>
-    <mat-card-title>Logs</mat-card-title>
-  </mat-card-header>
-  <mat-card-content>
+<div>
+
+    <h2>Logs</h2>
     <div class="log-container">
-      <mat-list>
-        <mat-list-item *ngFor="let log of logs">
-          <div class="log-item">
-            <p><strong>Timestamp:</strong> {{ log.timestamp }}</p>
-            <p><strong>Collection ID:</strong> {{ log.collectionId }}</p>
-            <p><strong>Collection Name:</strong> {{ log.collectionName }}</p>
-            <p><strong>Topic:</strong> {{ log.topic }}</p>
-            <p><strong>Message:</strong> {{ log.message }}</p>
-          </div>
-        </mat-list-item>
-        <mat-list-item *ngIf="logs.length === 0">
-          <p>No logs to display.</p>
-        </mat-list-item>
-      </mat-list>
+     
+        @for (log of logs; track logs){         
+            <div class="log-item">
+              <p><strong>></strong> {{ log.timestamp }} {{ log.topic }} {{ log.message }}</p>
+            </div>     
+        }
+       
+        @if (logs.length === 0)
+        {
+          <mat-list-item>
+            <p>No logs to display.</p>
+          </mat-list-item>
+        }
+     
     </div>
-  </mat-card-content>
-</mat-card>
+
+</div>

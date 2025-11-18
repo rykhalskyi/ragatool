@@ -1,9 +1,10 @@
-import { ChangeDetectionStrategy, Component, OnInit, Input, OnChanges, SimpleChanges, ViewChild, ElementRef } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, Input, OnChanges, SimpleChanges, ViewChild, ElementRef, OnDestroy, signal } from '@angular/core'; // Added signal
 import { CommonModule } from '@angular/common';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
+import {MatProgressBarModule} from '@angular/material/progress-bar';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { ImportService } from '../../client/services/ImportService';
 import { Import } from '../../client/models/Import';
@@ -13,6 +14,8 @@ import { ImportFormStateService } from '../../import-form-state.service';
 import { UntilDestroy, untilDestroyed } from '@ngneat/until-destroy';
 import { Body_import_file_import__collection_id__post } from '../../client/models/Body_import_file_import__collection_id__post';
 import { ExtendedCollection } from '../selected-collection.component';
+import { LogStreamService } from '../../log-stream.service';
+import { LogEntry } from '../../logs-view/log-entry.interface';
 
 @Component({
   selector: 'app-selected-collection-import',
@@ -23,7 +26,8 @@ import { ExtendedCollection } from '../selected-collection.component';
     MatSelectModule,
     MatInputModule,
     MatButtonModule,
-    ReactiveFormsModule
+    ReactiveFormsModule,
+    MatProgressBarModule
   ],
   templateUrl: './selected-collection-import.component.html',
   styleUrl: './selected-collection-import.component.scss',
@@ -31,7 +35,7 @@ import { ExtendedCollection } from '../selected-collection.component';
 })
 
 @UntilDestroy()
-export class SelectedCollectionImportComponent implements OnInit, OnChanges {
+export class SelectedCollectionImportComponent implements OnInit, OnChanges, OnDestroy { // Added OnDestroy
   @Input() collection: ExtendedCollection | undefined;
   @ViewChild('fileInput') fileInput!: ElementRef;
 
@@ -39,11 +43,13 @@ export class SelectedCollectionImportComponent implements OnInit, OnChanges {
   importTypes: Import[] = [];
   selectedFileName: string = '';
   selectedFile: File | null = null;
+  showProgressBar = signal(false); // Changed to signal
 
 
   constructor(
     private fb: FormBuilder,
     private importFormStateService: ImportFormStateService,
+    private logStreamService: LogStreamService
   ) {}
 
   ngOnInit(): void {
@@ -70,15 +76,24 @@ export class SelectedCollectionImportComponent implements OnInit, OnChanges {
         this.importFormStateService.setState(this.collection!.id, this.importForm.getRawValue());
       });
 
+    this.logStreamService.logs$
+      .pipe(untilDestroyed(this))
+      .subscribe((log: LogEntry) => {
+        if (log.collectionId === this.collection?.id) {
+          if (log.topic === 'LOCK') {
+            this.showProgressBar.set(true); // Updated to use signal
+          } else if (log.topic === 'UNLOCK') {
+            this.showProgressBar.set(false); // Updated to use signal
+          }
+          console.log('*** show progres', this.showProgressBar(), log); // Access signal value with ()
+        }
+      });
   }
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['collection'] && this.collection) {
       const collectionId = this.collection.id;
       const state = this.importFormStateService.getState(collectionId);
-      console.log('**on changes', state, this.collection);
-      
-     
 
       //Enable/Disable controls
       if (this.collectionIsSet()){
@@ -128,6 +143,10 @@ export class SelectedCollectionImportComponent implements OnInit, OnChanges {
       //this.importForm.get('file')?.updateValueAndValidity();
 
     }
+  }
+
+  ngOnDestroy(): void {
+    // untilDestroyed handles unsubscription
   }
 
   onFormChange(): void {

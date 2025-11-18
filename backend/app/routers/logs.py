@@ -12,7 +12,7 @@ from app.schemas.mcp import Message
 router = APIRouter()
 
 @router.get("/", response_model=List[Message])
-def read_logs(n: int = 10, db: Connection = Depends(get_db)):
+def read_logs(n: int = 50, db: Connection = Depends(get_db)):
     """
     Retrieve the latest n log entries.
     """

@@ -33,9 +33,9 @@ class FileImport(ImportBase):
 
     async def import_data(self, collection_id: str, collection_name: str, file: UploadFile, cancel_event: Event) -> None: # Modified signature
         try:
-            message_hub.send_message(collection_id, collection_name, "LOG", f"Starting import of {file.filename}")
+            message_hub.send_message(collection_id, collection_name, "LOCK", f"Starting import of {file.filename}")
             
-            collection_name = collection_name.lower()
+            collection_name = collection_name.lower().replace(' ','_')
             text_content = ""
             byte_content =await file.read()
                 
@@ -52,13 +52,32 @@ class FileImport(ImportBase):
             collection = client.get_or_create_collection(name=collection_name)
 
             ts = int(time.time())
-            collection.upsert(
-                documents=chunks,
-                embeddings=embeddings.tolist(),
-                metadatas=[{"source": file.filename, "chunk": i, "ts":ts} for i in range(len(chunks))],
-                ids=[f"{file.filename}_{ts}_{i}" for i in range(len(chunks))]
-            )
-            message_hub.send_message(collection_id, collection_name, "LOG", f"Import of {file.filename} completed successfully")
+            # ---- batching logic ----
+            max_batch_size = 5000  # safe limit below Chroma's 5461 cap
+
+            batch_num = 1
+            for start in range(0, len(chunks), max_batch_size):
+                end = start + max_batch_size
+
+                batch_chunks = chunks[start:end]
+                batch_embeddings = embeddings[start:end].tolist()
+
+                batch_ids = [
+                    f"{file.filename}_{ts}_{i}"
+                    for i in range(start, min(end, len(chunks)))
+                ]
+
+                collection.upsert(
+                    documents=batch_chunks,
+                    embeddings=batch_embeddings,
+                    metadatas=[{"source": file.filename, "chunk": i, "ts":ts} for i in range(start, min(end, len(chunks)))],
+                    ids=batch_ids
+                )
+
+                message_hub.send_message(collection_id, collection_name, "LOG", f"Import of batch {batch_num} completed successfully")
+                batch_num += 1
+                
+            message_hub.send_message(collection_id, collection_name, "UNLOCK", f"Import of {file.filename} completed successfully")
         except Exception as e:
-            message_hub.send_message(collection_id, collection_name, "LOG", f"Import of {file.filename} failed: {e}")
+            message_hub.send_message(collection_id, collection_name, "UNLOCK", f"Import of {file.filename} failed: {e}")
             print("import_data", e)
