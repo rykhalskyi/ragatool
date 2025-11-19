@@ -7,6 +7,8 @@ from sentence_transformers import SentenceTransformer
 import chromadb
 import time
 from app.internal.message_hub import message_hub # New import
+from app.models.messages import MessageType
+from app.schemas.imports import Import
 
 class ImportBase(ABC):
     name: str
@@ -19,7 +21,7 @@ class ImportBase(ABC):
         pass
 
     @abstractmethod
-    async def import_data(self, collection_id: str, collection_name: str, file: UploadFile, cancel_event:Event) -> None: # Modified signature
+    async def import_data(self, collection_id: str, collection_name: str, file: UploadFile, import_params: Import, cancel_event:Event) -> None: # Modified signature
         pass
 
 class FileImport(ImportBase):
@@ -31,10 +33,13 @@ class FileImport(ImportBase):
     def create_chunks(self, text: str) -> List[str]:
         return [text[i:i+self.chunk_size] for i in range(0, len(text), self.chunk_size - self.chunk_overlap)]
 
-    async def import_data(self, collection_id: str, collection_name: str, file: UploadFile, cancel_event: Event) -> None: # Modified signature
+    async def import_data(self, collection_id: str, collection_name: str, file: UploadFile, import_params: Import, cancel_event: Event) -> None: # Modified signature
         try:
-            message_hub.send_message(collection_id, collection_name, "LOCK", f"Starting import of {file.filename}")
+            message_hub.send_message(collection_id, collection_name, MessageType.LOCK, f"Starting import of {file.filename}")
             
+            self.chunk_size = import_params.chunk_size
+            self.chunk_overlap = import_params.chunk_overlap
+
             collection_name = collection_name.lower().replace(' ','_')
             text_content = ""
             byte_content =await file.read()
@@ -42,11 +47,11 @@ class FileImport(ImportBase):
             text_content = byte_content.decode("utf-8")
 
             chunks = self.create_chunks(text_content)
-            message_hub.send_message(collection_id, collection_name, "LOG", f"Created {len(chunks)} chunks")
+            message_hub.send_message(collection_id, collection_name, MessageType.INFO, f"Created {len(chunks)} chunks. Embedding....")
 
             model = SentenceTransformer(self.embedding_model, trust_remote_code=True)
             embeddings = model.encode(chunks)
-            message_hub.send_message(collection_id, collection_name, "LOG", "Embeddings created")
+            message_hub.send_message(collection_id, collection_name, MessageType.INFO, "Embeddings created. Saving to Database....")
 
             client = chromadb.PersistentClient(path="./chroma_data")
             collection = client.get_or_create_collection(name=collection_name)
@@ -74,10 +79,13 @@ class FileImport(ImportBase):
                     ids=batch_ids
                 )
 
-                message_hub.send_message(collection_id, collection_name, "LOG", f"Import of batch {batch_num} completed successfully")
+                message_hub.send_message(collection_id, collection_name, MessageType.INFO, f"Import of batch {batch_num} completed successfully")
                 batch_num += 1
                 
-            message_hub.send_message(collection_id, collection_name, "UNLOCK", f"Import of {file.filename} completed successfully")
+            message_hub.send_message(collection_id, collection_name, MessageType.UNLOCK, f"Import of {file.filename} completed successfully")
+            message_hub.send_message(collection_id, collection_name, MessageType.LOG, f"SUCCESSFUL imported from {file.filename} {len(chunks)} chunks of length {self.chunk_size}, overlap {self.chunk_overlap}.")
         except Exception as e:
-            message_hub.send_message(collection_id, collection_name, "UNLOCK", f"Import of {file.filename} failed: {e}")
+            message_hub.send_message(collection_id, collection_name, MessageType.UNLOCK, f"Import of {file.filename} failed: {e}")
+            message_hub.send_message(collection_id, collection_name, MessageType.LOG, f"FAILED import from {file.filename}. Chunk size {self.chunk_size}, overlap {self.chunk_overlap}. Exception {e}")
             print("import_data", e)
+        

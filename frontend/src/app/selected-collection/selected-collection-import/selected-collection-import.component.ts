@@ -43,7 +43,8 @@ export class SelectedCollectionImportComponent implements OnInit, OnChanges, OnD
   importTypes: Import[] = [];
   selectedFileName: string = '';
   selectedFile: File | null = null;
-  showProgressBar = signal(false); // Changed to signal
+  showProgressBar = signal(false); 
+  infoString = signal<string>("");
 
 
   constructor(
@@ -80,34 +81,37 @@ export class SelectedCollectionImportComponent implements OnInit, OnChanges, OnD
       .pipe(untilDestroyed(this))
       .subscribe((log: LogEntry) => {
         if (log.collectionId === this.collection?.id) {
+
           if (log.topic === 'LOCK') {
             this.showProgressBar.set(true); // Updated to use signal
+            this.importForm.disable();
           } else if (log.topic === 'UNLOCK') {
             this.showProgressBar.set(false); // Updated to use signal
-          }
+            this.importForm.enable();
+          } 
+          this.infoString.set(log.message);
+          
           console.log('*** show progres', this.showProgressBar(), log); // Access signal value with ()
         }
       });
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['collection'] && this.collection) {
+    if (changes['collection'] && this.collection && this.importForm) {
       const collectionId = this.collection.id;
       const state = this.importFormStateService.getState(collectionId);
-
       //Enable/Disable controls
       if (this.collectionIsSet()){
-        this.importForm.get('importType')?.disable({ emitEvent: false });
-        this.importForm.get('model')?.disable({ emitEvent: false });
+        this.importForm?.get('importType')?.disable({ emitEvent: false });
+        this.importForm?.get('model')?.disable({ emitEvent: false });
       }
       else{
+
         this.importForm.get('importType')?.enable({ emitEvent: false });
         this.importForm.get('model')?.enable({ emitEvent: false });
       }
 
-      //Set or create state
       if (state) {
-        console.log('patch state:',collectionId, state);
         this.importForm.patchValue(state, { emitEvent: false });
       }
       else if (this.collectionIsSet()) {
@@ -134,7 +138,7 @@ export class SelectedCollectionImportComponent implements OnInit, OnChanges, OnD
         }, { emitEvent: false });
         this.importFormStateService.clearState(collectionId);
       }
-
+console.log('4');
        //Clean selected file
       this.selectedFile = null;
       this.selectedFileName = '';

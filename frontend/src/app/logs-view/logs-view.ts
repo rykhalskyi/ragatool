@@ -21,7 +21,7 @@ export class LogsViewComponent implements OnInit, OnDestroy {
 
   get logs(): LogEntry[] {
     if (this.collectionId) {
-      return this._allLogs.filter(log => log.collectionId === this.collectionId);
+      return this._allLogs.filter(log => log.collectionId === this.collectionId && log.topic === 'LOG');
     }
     return this._allLogs;
   }

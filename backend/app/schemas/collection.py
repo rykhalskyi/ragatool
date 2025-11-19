@@ -14,6 +14,7 @@ class CollectionBase(BaseModel):
     chunk_overlap: int | None = None
     enabled: bool | None = None
     import_type: ImportType = ImportType.NONE
+    locked: bool | None = None
 
 class CollectionCreate(CollectionBase):
     pass

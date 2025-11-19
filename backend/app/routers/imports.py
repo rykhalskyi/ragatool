@@ -36,7 +36,7 @@ async def import_file(collection_id: str, import_params: str = Form(...), file: 
     # as the original file object will be closed after the request
     file_for_background = UploadFile(filename=file.filename, file=file_buffer)
 
-    task_dispatcher.add_task(collection_id, task_name, FileImport().import_data, collection.name, file_for_background)
+    task_dispatcher.add_task(collection_id, task_name, FileImport().import_data, collection.name, file_for_background, import_params_model)
     
     if collection and collection.import_type == ImportType.NONE:
         crud_collection.update_collection_import_type(db, collection_id, import_params_model)

@@ -11,14 +11,14 @@
       </mat-error>
     </mat-form-field>
 
-    <button mat-raised-button color="accent" type="submit" [disabled]="importForm.invalid">Import</button>
+    <button mat-raised-button color="accent" type="submit" [disabled]="importForm.invalid || showProgressBar()">Import</button>
   </div>
   
   <div class="column2">
 
   <div class="file-input-container">
     <button mat-raised-button color="primary" type="button" (click)="fileInput.click()" 
-            [disabled]="canOpenfile()" >Pick File</button>
+            [disabled]="canOpenfile() || showProgressBar()" >Pick File</button>
     <input hidden type="file" #fileInput (change)="onFileSelected($event)">
     <span class="file-name">{{ selectedFileName || 'No file chosen' }}</span>
     <mat-error *ngIf="importForm.get('file')?.hasError('required') && importForm.get('file')?.touched">
@@ -63,4 +63,5 @@
 </form>
 @if (showProgressBar()) {
   <mat-progress-bar mode="indeterminate" ></mat-progress-bar>
+  <p>{{ infoString() }}</p>
 }

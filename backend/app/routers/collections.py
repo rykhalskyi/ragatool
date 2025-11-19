@@ -35,4 +35,5 @@ def delete_existing_collection(collection_id: str, db: Connection = Depends(get_
     result = delete_collection(db, collection_id)
     if result is None:
         raise HTTPException(status_code=404, detail="Collection not found")
+    #TODO: remove collection with the name from chromadb
     return result

@@ -25,7 +25,8 @@ def create_tables():
         chunk_size INTEGER,
         chunk_overlap INTEGER,
         enabled BOOLEAN,
-        import_type TEXT DEFAULT 'NONE'
+        import_type TEXT DEFAULT 'NONE',
+        locked BOOLEAN
     )
     """)
 
@@ -45,7 +46,6 @@ def create_tables():
         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
         collectionId TEXT,
         collectionName TEXT,
-        topic TEXT,
         message TEXT
     )
     """)
