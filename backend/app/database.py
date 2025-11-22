@@ -28,11 +28,10 @@ def create_tables(conn: Optional[Connection] = None):
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         description TEXT,
-        model TEXT,
-        chunk_size INTEGER,
-        chunk_overlap INTEGER,
         enabled BOOLEAN,
-        import_type TEXT DEFAULT 'NONE'
+        import_type TEXT DEFAULT 'NONE',
+        model TEXT,
+        settings TEXT
     )
     """)
 

@@ -10,6 +10,7 @@ export type { OpenAPIConfig } from './core/OpenAPI';
 export type { Body_import_file_import__collection_id__post } from './models/Body_import_file_import__collection_id__post';
 export type { Collection } from './models/Collection';
 export type { CollectionCreate } from './models/CollectionCreate';
+export type { FileImportSettings } from './models/FileImportSettings';
 export type { HTTPValidationError } from './models/HTTPValidationError';
 export type { Import } from './models/Import';
 export { ImportType } from './models/ImportType';

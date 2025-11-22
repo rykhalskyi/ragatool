@@ -28,6 +28,7 @@ async def event_generator(request: Request, message_hub):
         try:
             # block in a worker thread until a message is available
             message = await asyncio.to_thread(message_hub.get_message)
+            print('-- message sent --', message)
             yield f"data: {message.model_dump_json()}\n\n"
 
         except asyncio.CancelledError:

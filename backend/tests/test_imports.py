@@ -37,12 +37,12 @@ async def test_import_file_background_task():
          patch("app.routers.imports.crud_collection", mock_crud_collection), \
          patch("app.dependencies.get_task_dispatcher", return_value=mock_task_dispatcher), \
          patch("app.dependencies.get_message_hub", return_value=mock_message_hub):    
-        create_tables()  # Create tables in the in-memory db
+        create_tables(in_memory_conn)  # Create tables in the in-memory db
     
         # 5. Call the endpoint function
         response = await import_file(
             collection_id="test_collection",
-            import_params='{"name": "FILE", "embedding_model": "all-MiniLM-L6-v2", "chunk_size": 300, "chunk_overlap": 50}',
+            import_params='{"name": "FILE", "settings": {"model": "all-MiniLM-L6-v2", "chunk_size": 800, "chunk_overlap": 10, "no_chunks": false}}',
             file=mock_file,
             db=mock_db,
             task_dispatcher=mock_task_dispatcher,
@@ -61,16 +61,29 @@ async def test_import_file_background_task():
         # cancel_event (kwargs['cancel_event'])
 
         # 9. Simulate the background task by calling the import_data method
-        importer = FileImport()
+        importer = FileImport() # Still need an instance to call import_data
         cancellation_event = threading.Event()
         
+        # Extract import_params_model from the args passed to add_task
+        # based on the add_task call in app/routers/imports.py
+        # task_dispatcher.add_task(collection_id, task_name, FileImport().import_data, collection.name, file.filename, file_content_bytes, import_params_model, message_hub)
+        
+        # args[0] = collection_id
+        # args[1] = task_name
+        # args[2] = FileImport().import_data (the function itself)
+        # args[3] = collection.name
+        # args[4] = file.filename
+        # args[5] = file_content_bytes
+        # args[6] = import_params_model
+        # args[7] = message_hub
+
         await importer.import_data(
-            collection_id=args[0], # Pass collection_id
-            collection_name=args[3], # Pass collection_name
-            file_name=mock_file.filename, # Pass file_name
-            file_content_bytes=file_content, # Pass file_content_bytes
-            import_params=args[5],
-            message_hub=mock_message_hub, # Pass message_hub
+            collection_id=args[0], 
+            collection_name=args[3], 
+            file_name=args[4],
+            file_content_bytes=args[5],
+            import_params=args[6], # import_params_model is now at index 6
+            message_hub=args[7],
             cancel_event=cancellation_event
         )
         

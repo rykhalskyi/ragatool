@@ -9,11 +9,10 @@ class ImportType(str, Enum):
 class CollectionBase(BaseModel):
     name: str
     description: str | None = None
-    model: str | None = None
-    chunk_size: int | None = None
-    chunk_overlap: int | None = None
     enabled: bool | None = None
     import_type: ImportType = ImportType.NONE
+    model: str | None = None
+    settings: str | None = None
 
 class CollectionCreate(CollectionBase):
     pass
