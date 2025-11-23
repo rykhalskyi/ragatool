@@ -15,38 +15,14 @@ def mock_db_connection():
 @pytest.fixture
 def in_memory_db():
     conn = sqlite3.connect(":memory:")
-    cursor = conn.cursor()
-    cursor.execute(
-        """
-        CREATE TABLE logs (
-            id TEXT PRIMARY KEY,
-            timestamp TEXT DEFAULT CURRENT_TIMESTAMP,
-            collectionId TEXT,
-            collectionName TEXT,
-            topic TEXT,
-            message TEXT
-        )
-        """
-    )
-    conn.commit()
+    from app.database import create_tables
+    create_tables(conn)
     yield conn
     conn.close()
 
 def test_create_log(mock_db_connection):
-    test_uuid = str(uuid.uuid4())
-    test_timestamp = datetime.now().isoformat()
-    
-    with patch('uuid.uuid4', return_value=uuid.UUID(test_uuid)):
-        # Mock the cursor's fetchone to return a dictionary-like object
-        mock_db_connection.cursor.return_value.fetchone.return_value = {
-            "id": test_uuid,
-            "timestamp": test_timestamp,
-            "collectionId": "test-collection-id",
-            "collectionName": "test-collection-name",
-            "topic": "LOG",
-            "message": "Test log message"
-        }
-
+    test_uuid = uuid.uuid4()
+    with patch('uuid.uuid4', return_value=test_uuid):
         log_message = create_log(
             mock_db_connection,
             "test-collection-id",
@@ -54,12 +30,10 @@ def test_create_log(mock_db_connection):
             "LOG",
             "Test log message"
         )
-
-        mock_db_connection.cursor.assert_called_once()
         mock_db_connection.cursor.return_value.execute.assert_any_call(
             "INSERT INTO logs (id, collectionId, collectionName, topic, message) VALUES (?, ?, ?, ?, ?)",
             (
-                test_uuid, # Use test_uuid here
+                str(test_uuid),
                 "test-collection-id",
                 "test-collection-name",
                 "LOG",
@@ -67,13 +41,13 @@ def test_create_log(mock_db_connection):
             ),
         )
         mock_db_connection.commit.assert_called_once()
-
         assert isinstance(log_message, Message)
-        assert log_message.id == test_uuid
+        assert log_message.id == str(test_uuid)
         assert log_message.collectionId == "test-collection-id"
         assert log_message.collectionName == "test-collection-name"
         assert log_message.topic == "LOG"
         assert log_message.message == "Test log message"
+        assert isinstance(log_message.timestamp, datetime)
 
 def test_get_latest_log_entries(in_memory_db):
     # Insert some log entries

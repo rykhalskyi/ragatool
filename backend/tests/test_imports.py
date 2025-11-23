@@ -42,8 +42,7 @@ async def test_import_file_background_task():
         # 5. Call the endpoint function
         response = await import_file(
             collection_id="test_collection",
-            import_params='{"name": "FILE", "settings": {"model": "all-MiniLM-L6-v2", "chunk_size": 800, "chunk_overlap": 10, "no_chunks": false}}',
-            file=mock_file,
+                            import_params='{"name": "FILE", "model": "all-MiniLM-L6-v2", "settings": {"chunk_size": 800, "chunk_overlap": 10, "no_chunks": false}}',            file=mock_file,
             db=mock_db,
             task_dispatcher=mock_task_dispatcher,
             message_hub=mock_message_hub

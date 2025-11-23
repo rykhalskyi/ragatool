@@ -22,7 +22,7 @@ def get_message_hub_instance() -> MessageHub:
 def get_task_dispatcher_instance() -> BackgroundTaskDispatcher:
     global _task_dispatcher_instance
     if _task_dispatcher_instance is None:
-        _task_dispatcher_instance = BackgroundTaskDispatcher(get_message_hub_instance())
+        _task_dispatcher_instance = BackgroundTaskDispatcher(get_message_hub_instance(), get_db_connection())
     return _task_dispatcher_instance
 
 def get_task_dispatcher():

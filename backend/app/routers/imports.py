@@ -45,6 +45,6 @@ async def import_file(collection_id: str, import_params: str = Form(...), file: 
     except Exception as e:
         return JSONResponse(
         status_code=500,
-        content={"message": e}
+        content={"message": str(e)}
     )
 

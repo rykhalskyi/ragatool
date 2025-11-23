@@ -28,8 +28,8 @@ def message_hub_instance(mock_get_db_connection):
 @pytest.fixture
 def clear_message_hub_queue(message_hub_instance):
     # Ensure the queue is empty before each test
-    while not message_hub_instance.message_queue.empty():
-        message_hub_instance.message_queue.get()
+    while not message_hub_instance.incoming_message_queue.empty():
+        message_hub_instance.incoming_message_queue.get()
     yield
 
 def test_send_message(mock_crud_log, mock_get_db_connection, message_hub_instance, clear_message_hub_queue): # Modified test function
@@ -61,7 +61,7 @@ def test_send_message(mock_crud_log, mock_get_db_connection, message_hub_instanc
         "Test log message"
     )
 
-    retrieved_message = message_hub_instance.message_queue.get() # Using message_hub_instance
+    retrieved_message = message_hub_instance.incoming_message_queue.get() # Using message_hub_instance
     assert retrieved_message == mock_log_message
 
 def test_get_message(message_hub_instance, clear_message_hub_queue): # Modified test function
@@ -75,8 +75,8 @@ def test_get_message(message_hub_instance, clear_message_hub_queue): # Modified 
         topic="LOG",
         message="Test log message"
     )
-    message_hub_instance.message_queue.put(mock_log_message) # Using message_hub_instance
+    message_hub_instance.incoming_message_queue.put(mock_log_message) # Using message_hub_instance
 
     retrieved_message = message_hub_instance.get_message() # Using message_hub_instance
     assert retrieved_message == mock_log_message
-    assert message_hub_instance.message_queue.empty()
+    assert message_hub_instance.incoming_message_queue.empty()

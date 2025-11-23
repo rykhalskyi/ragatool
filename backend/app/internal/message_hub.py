@@ -53,9 +53,7 @@ class MessageHub:
                 topic=topic.name,
                 message=message)
             self.incoming_message_queue.put(msg)
-"""
     def get_message(self) -> Message:
-      msg = self.message_queue.get()
+      msg = self.incoming_message_queue.get()
       print("GET popped", self.id, msg.topic, msg.message, threading.get_ident())
       return msg
-"""
