@@ -155,7 +155,8 @@ export class SelectedCollectionImportComponent implements OnInit, OnChanges{
           collectionName: this.collection?.name,
           collectionId: this.collection?.id,
           model: this.collectionIsSaved() ? this.collection!.model! : selectedImportType.model,
-          settings: this.collectionIsSaved() ? JSON.parse(this.collection!.settings!) : selectedImportType.settings
+          settings: this.collectionIsSaved() ? JSON.parse(this.collection!.settings!) : selectedImportType.settings,
+          saved: this.collection?.saved
         }
       }).afterClosed().subscribe(result => {
         if (result) {

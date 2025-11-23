@@ -15,7 +15,7 @@ def get_collections(db: Connection) -> List[Collection]:
 
 def get_collection(db: Connection, collection_id: str) -> Optional[Collection]:
     cursor = db.cursor()
-    cursor.execute("SELECT id, name, description, enabled, import_type, model, settings FROM collections WHERE id = ?", (collection_id,))
+    cursor.execute("SELECT id, name, description, enabled, import_type, model, settings FROM collections WHERE id = ?", (str(collection_id),))
     collection = cursor.fetchone()
     if collection is None:
         return None
@@ -43,7 +43,7 @@ def update_collection_description_and_enabled(db: Connection, collection_id: str
     cursor = db.cursor()
     cursor.execute(
         "UPDATE collections SET description = ?, enabled = ? WHERE id = ?",
-        (collection.description, collection.enabled, collection_id),
+        (collection.description, collection.enabled, str(collection_id)),
     )
     db.commit()
     if cursor.rowcount == 0:
@@ -52,21 +52,30 @@ def update_collection_description_and_enabled(db: Connection, collection_id: str
 
 import json
 
-def update_collection_import_type(db: Connection, collection_id: str, import_params:Import) -> Optional[Collection]:
+def update_collection_import_type(db: Connection, collection_id: str, import_params:Import):
     cursor = db.cursor()
     settings_json = json.dumps(import_params.settings.model_dump())
     cursor.execute(
         "UPDATE collections SET import_type = ?, model =?, settings = ? WHERE id = ?",
-        (import_params.name, import_params.model, settings_json, collection_id),
+        (import_params.name, import_params.model, settings_json, str(collection_id)),
     )
     db.commit()
-    if cursor.rowcount == 0:
-        return None
-    return get_collection(db, collection_id)
+    return {"message": "Collection updated successfully"}
+    
+
+def update_collection_import_settings(db: Connection, collection_id: str, import_params:Import):
+    cursor = db.cursor()
+    settings_json = json.dumps(import_params.settings.model_dump())
+    cursor.execute(
+        "UPDATE collections SET settings = ? WHERE id = ?",
+        (settings_json, str(collection_id)),
+    )
+    db.commit()
+    return {"message": "Collection updated successfully"}
 
 def delete_collection(db: Connection, collection_id: str):
     cursor = db.cursor()
-    cursor.execute("DELETE FROM collections WHERE id = ?", (collection_id,))
+    cursor.execute("DELETE FROM collections WHERE id = ?", (str(collection_id),))
     db.commit()
     if cursor.rowcount == 0:
         return None

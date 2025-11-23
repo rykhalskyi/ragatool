@@ -37,7 +37,13 @@ export class FileImportDialog implements OnInit {
 
   constructor(
     public dialogRef: MatDialogRef<FileImportDialog>,
-    @Inject(MAT_DIALOG_DATA) public data: { collectionName: string, collectionId: string, model: string, settings: FileImportSettings},
+    @Inject(MAT_DIALOG_DATA) public data: { 
+      collectionName: string, 
+      collectionId: string, 
+      model: string, 
+      settings: FileImportSettings,
+      saved: boolean
+    },
     private fb: FormBuilder,
   ) {}
 
@@ -49,7 +55,8 @@ export class FileImportDialog implements OnInit {
       file: [null, Validators.required]
     });
 
-    
+    if (this.data.saved)
+      this.importForm.get('model')?.disable()
   }
 
   onNoClick(): void {

@@ -1,5 +1,7 @@
 import os
+import threading
 from fastapi import FastAPI
+from app.dependencies import get_message_hub, get_message_hub_instance
 from app.routers import items, poc, collections, tasks, imports, mcp, logs
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import create_tables
@@ -17,6 +19,16 @@ async def lifespan(app: FastAPI):
    
     #Clear tasks if application crashed and them left in db
     crud_task.delete_all_tasks()
+
+        # Get singleton MessageHub
+    message_hub = get_message_hub_instance()
+
+    # Start broadcaster thread
+    threading.Thread(
+        target=message_hub.broadcast_loop,
+        daemon=True
+    ).start()
+
     mcp_manager.enable()
     
     yield

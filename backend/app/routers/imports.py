@@ -38,6 +38,8 @@ async def import_file(collection_id: str, import_params: str = Form(...), file: 
         
         if collection and collection.import_type == ImportType.NONE:
             crud_collection.update_collection_import_type(db, collection_id, import_params_model)
+        elif collection.import_type != ImportType.NONE:
+            crud_collection.update_collection_import_settings(db, collection_id, import_params_model)
             
         return {"message": "File import started in the background."}
     except Exception as e:

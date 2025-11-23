@@ -55,7 +55,7 @@ class FileImport(ImportBase):
 
             message_hub.send_message(collection_id, collection_name, MessageType.INFO, f"Created {len(chunks)} chunks. Embedding....")
 
-            model = SentenceTransformer(import_params.settings.model, trust_remote_code=True)
+            model = SentenceTransformer(import_params.model, trust_remote_code=True)
             embeddings = model.encode(chunks)
             message_hub.send_message(collection_id, collection_name, MessageType.INFO, "Embeddings created. Saving to Database....")
 
