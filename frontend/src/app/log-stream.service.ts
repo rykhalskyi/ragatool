@@ -29,14 +29,15 @@ export class LogStreamService {
       this.eventSource.onmessage = (event) => {
         this.ngZone.run(() => {
           const data = JSON.parse(event.data);
-          const logEntry = data as Message;
+          const message = data as Message;
+          console.log('-- Incomming message --', message);
 
-          if (logEntry.topic==='INFO' && logEntry.collectionId)
+          if (message.topic==='INFO' && message.collectionId)
           {
-            this.infos[logEntry.collectionId] = logEntry.message;
+            this.infos[message.collectionId] = message.message;
           }
 
-          this.logSubject.next(logEntry);
+          this.logSubject.next(message);
         });
       };
 
@@ -49,8 +50,6 @@ export class LogStreamService {
       this.eventSource.onopen = () => {
         console.log('SSE connection opened.');
       };
-
-        // Fetch initial logs
       
     } else {
       console.warn('EventSource is not supported in this browser.');

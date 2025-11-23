@@ -10,41 +10,52 @@ from app.schemas.imports import Import
 
 class ImportBase(ABC):
     name: str
-    embedding_model: str
-    chunk_size: int
-    chunk_overlap: int
+    settings: Import
 
     @abstractmethod
-    def create_chunks(self, text: str) -> List[str]:
+    def create_chunks(self, text: str, chunk_size: int, chunk_overlap: int) -> List[str]:
         pass
 
     @abstractmethod
     async def import_data(self, collection_id: str, collection_name: str, file_name: str, file_content_bytes: bytes, import_params: Import, message_hub:MessageHub, cancel_event:Event) -> None: # Modified signature
         pass
 
+from app.schemas.imports import Import, FileImportSettings
+
 class FileImport(ImportBase):
     name = "FILE"
-    embedding_model = "all-MiniLM-L6-v2"
-    chunk_size = 300
-    chunk_overlap = 50
 
-    def create_chunks(self, text: str) -> List[str]:
-        return [text[i:i+self.chunk_size] for i in range(0, len(text), self.chunk_size - self.chunk_overlap)]
+    @staticmethod
+    def getDefault() -> Import:
+        return Import(
+            name="FILE",
+            model="all-MiniLM-L6-v2",
+            settings=FileImportSettings(
+                chunk_size=800,
+                chunk_overlap=10,
+                no_chunks=False
+            )
+        )
+
+    def create_chunks(self, text: str, chunk_size: int, chunk_overlap: int) -> List[str]:
+        return [text[i:i+chunk_size] for i in range(0, len(text), chunk_size - chunk_overlap)]
 
     async def import_data(self, collection_id: str, collection_name: str, file_name: str, file_content_bytes: bytes, import_params: Import, message_hub:MessageHub, cancel_event: Event) -> None: # Modified signature
         try:
             message_hub.send_message(collection_id, collection_name, MessageType.LOCK, f"Starting import of {file_name}")
                        
-            self.chunk_size = import_params.chunk_size
-            self.chunk_overlap = import_params.chunk_overlap
-
             collection_name = collection_name.lower().replace(' ','_')
             text_content = file_content_bytes.decode("utf-8")
 
-            chunks = self.create_chunks(text_content)
+            chunks = []
+            if not import_params.settings.no_chunks:
+                chunks = self.create_chunks(text_content, import_params.settings.chunk_size, import_params.settings.chunk_overlap)
+            else:
+                chunks = [text_content]
+
             message_hub.send_message(collection_id, collection_name, MessageType.INFO, f"Created {len(chunks)} chunks. Embedding....")
 
-            model = SentenceTransformer(self.embedding_model, trust_remote_code=True)
+            model = SentenceTransformer(import_params.model, trust_remote_code=True)
             embeddings = model.encode(chunks)
             message_hub.send_message(collection_id, collection_name, MessageType.INFO, "Embeddings created. Saving to Database....")
 
@@ -78,11 +89,11 @@ class FileImport(ImportBase):
                 batch_num += 1
                 
             message_hub.send_message(collection_id, collection_name, MessageType.UNLOCK, f"Import of {file_name} completed successfully")
-            message_hub.send_message(collection_id, collection_name, MessageType.LOG, f"SUCCESSFUL imported from {file_name} {len(chunks)} chunks of length {self.chunk_size}, overlap {self.chunk_overlap}.")
+            message_hub.send_message(collection_id, collection_name, MessageType.LOG, f"SUCCESSFUL imported from {file_name} {len(chunks)} chunks of length {import_params.settings.chunk_size}, overlap {import_params.settings.chunk_overlap}.")
         except Exception as e:
             print("FAIL import_data", e)
             message_hub.send_message(collection_id, collection_name, MessageType.UNLOCK, f"Import of {file_name} failed: {e}")
-            message_hub.send_message(collection_id, collection_name, MessageType.LOG, f"FAILED import from {file_name}. Chunk size {self.chunk_size}, overlap {self.chunk_overlap}. Exception {e}")
+            message_hub.send_message(collection_id, collection_name, MessageType.LOG, f"FAILED import from {file_name}. Chunk size {import_params.settings.chunk_size}, overlap {import_params.settings.chunk_overlap}. Exception {e}")
             
 
             

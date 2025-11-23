@@ -6,11 +6,10 @@ import type { ImportType } from './ImportType';
 export type Collection = {
     name: string;
     description?: (string | null);
-    model?: (string | null);
-    chunk_size?: (number | null);
-    chunk_overlap?: (number | null);
     enabled?: (boolean | null);
     import_type?: ImportType;
+    model?: (string | null);
+    settings?: (string | null);
     id: string;
 };
 

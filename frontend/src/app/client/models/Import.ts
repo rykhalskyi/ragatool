@@ -2,10 +2,10 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { FileImportSettings } from './FileImportSettings';
 export type Import = {
     name: string;
-    embedding_model: string;
-    chunk_size: number;
-    chunk_overlap: number;
+    model: string;
+    settings: FileImportSettings;
 };
 

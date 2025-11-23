@@ -1,7 +1,11 @@
 from pydantic import BaseModel
 
-class Import(BaseModel):
-    name: str
-    embedding_model: str
+class FileImportSettings(BaseModel):
     chunk_size: int
     chunk_overlap: int
+    no_chunks: bool
+
+class Import(BaseModel):
+    name: str
+    model: str
+    settings: FileImportSettings

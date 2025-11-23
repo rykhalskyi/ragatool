@@ -1,22 +1,22 @@
-import { ChangeDetectionStrategy, Component, OnInit, Input, OnChanges, SimpleChanges, ViewChild, ElementRef, OnDestroy, signal } from '@angular/core'; // Added signal
+import { ChangeDetectionStrategy, Component, OnInit, Input, OnChanges, SimpleChanges, OnDestroy, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatSelectModule } from '@angular/material/select';
+import { MatSelectModule, MatSelectChange } from '@angular/material/select'; // Import MatSelectChange
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
-import {MatProgressBarModule} from '@angular/material/progress-bar';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { ImportService } from '../../client/services/ImportService';
 import { Import } from '../../client/models/Import';
-import { ImportFormStateService } from '../../import-form-state.service';
-
 
 import { UntilDestroy, untilDestroyed } from '@ngneat/until-destroy';
-import { Body_import_file_import__collection_id__post } from '../../client/models/Body_import_file_import__collection_id__post';
 import { ExtendedCollection } from '../selected-collection.component';
 import { LogStreamService } from '../../log-stream.service';
 import { TaskCachingService } from '../../task-caching.service';
 import { Message } from '../../client/models/Message';
+import { MatDialog } from '@angular/material/dialog';
+import { FileImportDialog } from '../file-import-dialog/file-import-dialog';
+import { Body_import_file_import__collection_id__post } from '../../client/models/Body_import_file_import__collection_id__post';
 
 @Component({
   selector: 'app-selected-collection-import',
@@ -36,206 +36,158 @@ import { Message } from '../../client/models/Message';
 })
 
 @UntilDestroy()
-export class SelectedCollectionImportComponent implements OnInit, OnChanges, OnDestroy { // Added OnDestroy
+export class SelectedCollectionImportComponent implements OnInit, OnChanges{
   @Input() collection: ExtendedCollection | undefined;
-  @ViewChild('fileInput') fileInput!: ElementRef;
 
   importForm!: FormGroup;
   importTypes: Import[] = [];
-  selectedFileName: string = '';
-  selectedFile: File | null = null;
-  showProgressBar = signal(false); 
+  showProgressBar = signal(false);
   infoString = signal<string>("");
-
 
   constructor(
     private fb: FormBuilder,
-    private importFormStateService: ImportFormStateService,
     private logStreamService: LogStreamService,
-    private taskCachingService: TaskCachingService
+    private taskCachingService: TaskCachingService,
+    private dialog: MatDialog
   ) {}
 
-  ngOnInit(): void {
+  async ngOnInit(): Promise<void> {
+
     this.importForm = this.fb.group({
-      importType: ['', Validators.required],
-      model: ['', Validators.required],
-      chunkSize: [null, [Validators.required, Validators.min(1)]],
-      chunkOverlap: [null, [Validators.required, Validators.min(0)]],
-      file: [null, Validators.required]
+      importType: ['', Validators.required]
     });
 
-    this.getImportTypes();
-
-    this.importForm.get('importType')?.valueChanges
-      .pipe(untilDestroyed(this))
-      .subscribe(() => {
-        this.onFormChange();
-      });
-
-    this.importForm.valueChanges
-      .pipe(untilDestroyed(this))
-      .subscribe((a) => {
-        console.log('for changed. saving state');
-        this.importFormStateService.setState(this.collection!.id, this.importForm.getRawValue());
-      });
+    await this.getImportTypes();
 
     this.logStreamService.logs$
       .pipe(untilDestroyed(this))
       .subscribe((log: Message) => {
         if (log.collectionId === this.collection?.id) {
-          console.log('-- add to info --', log);
-          this.infoString.set(log.message);                
+          this.infoString.set(log.message);
         }
       });
 
     this.taskCachingService
-    .tasks$
-    .pipe(untilDestroyed(this))
-    .subscribe(tasks=>{   
-      const task = tasks.find(i=>i.collectionId === this.collection?.id);    
-      this.showProgressBar.set( task ? true : false);
-    });
-    
+      .tasks$
+      .pipe(untilDestroyed(this))
+      .subscribe(tasks => {
+        const task = tasks.find(i => i.collectionId === this.collection?.id);
+        this.showProgressBar.set(task ? true : false);
+      });
+
+     if (this.collection?.saved && this.collection?.import_type)
+     {
+        const collectionImport: Import = {
+          name : this.collection?.import_type,
+          model: this.collection?.model!, 
+          settings:  JSON.parse(this.collection!.settings!)
+        }
+        this.importForm.get('importType')?.setValue(collectionImport);
+     }
+
   }
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['collection'] && this.collection && this.importForm) {
       const collectionId = this.collection.id;
-      const state = this.importFormStateService.getState(collectionId);
-      //Enable/Disable controls
-      if (this.collectionIsSet()){
+
+      if (this.collectionIsSaved()) {
         this.importForm?.get('importType')?.disable({ emitEvent: false });
-        this.importForm?.get('model')?.disable({ emitEvent: false });
-      }
-      else{
-
+      } else {
         this.importForm.get('importType')?.enable({ emitEvent: false });
-        this.importForm.get('model')?.enable({ emitEvent: false });
       }
-
-      if (state) {
-        this.importForm.patchValue(state, { emitEvent: false });
-      }
-      else if (this.collectionIsSet()) {
+     
+      if (this.collectionIsSaved()) {
         const importType = this.importTypes.find(i => i.name === this.collection!.import_type);
         const initialState = {
           importType: importType,
-          model: this.collection!.model,
-          chunkSize: this.collection!.chunk_size,
-          chunkOverlap: this.collection!.chunk_overlap,
-          file: null
+          settings: this.collection!.settings
         };
 
         this.importForm.patchValue(initialState, { emitEvent: false });
-        this.importFormStateService.setState(collectionId, this.importForm.getRawValue());
+      } else {
 
-      }
-      else {
         this.importForm.reset({
           importType: '',
-          model: '',
-          chunkSize: null,
-          chunkOverlap: null,
-          file: null,
+          settings: {}
         }, { emitEvent: false });
-        this.importFormStateService.clearState(collectionId);
+
       }
 
-       //Clean selected file
-      this.selectedFile = null;
-      this.selectedFileName = '';
-      this.fileInput.nativeElement.value = '';
-      this.importForm.get('file')?.setValue(null, {emitEvent: false});
-      
       const task = this.taskCachingService.getTaskByCollectionId(this.collection.id);
-      this.showProgressBar.set( task ? true : false);
+      this.showProgressBar.set(task ? true : false);
 
       const info = this.logStreamService.getInfo(collectionId);
       if (info)
         this.infoString.set(info);
+
+      this.importForm.markAsPristine();
+      this.importForm.markAsUntouched();
+      this.importForm.updateValueAndValidity({ emitEvent: false });
+
     }
   }
 
-  ngOnDestroy(): void {
-    // untilDestroyed handles unsubscription
-  }
 
-  onFormChange(): void {
-    if (!this.collectionIsSet())
+  async getImportTypes(): Promise<void> {
+    try {
+      const data = await ImportService.getImportsImportGet();
+      this.importTypes = data;
+    } 
+    catch (e)
     {
-     const importType = this.importForm.get('importType')?.value;
-     if (importType) {
-       this.importForm.get('model')?.setValue(importType.embedding_model);
-       this.importForm.get('chunkSize')?.setValue(importType.chunk_size);
-       this.importForm.get('chunkOverlap')?.setValue(importType.chunk_overlap);
-     }
+        console.error('Error fetching import types:', e);
     }
+    
   }
 
-  getImportTypes(): void {
-    ImportService.getImportsImportGet().then(
-      (data: Import[]) => {
-        this.importTypes = data;
-        // After getting import types, re-evaluate the form state
-        if (this.collection) {
-          this.ngOnChanges({
-            collection: {
-              currentValue: this.collection,
-              previousValue: undefined,
-              firstChange: true,
-              isFirstChange: () => true
+  onImportTypeChange(event: MatSelectChange): void {
+    const selectedImportType: Import = event.value;
+    this.importForm.get('importType')?.setValue(selectedImportType);
+  }
+
+  openSelectedImportDialog(): void {
+    const selectedImportType = this.importForm.get('importType')?.value;
+
+    if (selectedImportType && selectedImportType.name === 'FILE') {
+      this.dialog.open(FileImportDialog, {
+        data: {
+          collectionName: this.collection?.name,
+          collectionId: this.collection?.id,
+          model: this.collectionIsSaved() ? this.collection!.model! : selectedImportType.model,
+          settings: this.collectionIsSaved() ? JSON.parse(this.collection!.settings!) : selectedImportType.settings,
+          saved: this.collection?.saved
+        }
+      }).afterClosed().subscribe(result => {
+        if (result) {
+          const formData: Body_import_file_import__collection_id__post = {
+            file: result.selectedFile,
+            import_params: JSON.stringify({
+              name: selectedImportType.name,
+              model: result.model,
+              settings: {
+                 chunk_size: result.chunkSize,
+                 chunk_overlap: result.chunkOverlap,
+                 no_chunks: false
+              }
+            })
+          };
+
+          ImportService.importFileImportCollectionIdPost(
+            result.collectionId,
+            formData
+          ).then(
+            (response: any) => {
+              console.log('File imported successfully:', response);
+            },
+            (error: any) => {
+              console.error('Error importing file:', error);
             }
-          });
+          );
         }
-      },
-      (error: any) => {
-        console.error('Error fetching import types:', error);
-      }
-    );
-  }
-
-  onFileSelected(event: Event) {
-    const element = event.currentTarget as HTMLInputElement;
-    let fileList: FileList | null = element.files;
-    if (fileList && fileList.length > 0) {
-      this.selectedFile = fileList[0];
-      this.selectedFileName = fileList[0].name;
-      this.importForm.patchValue({ file: this.selectedFile });
-      this.importForm.get('file')?.updateValueAndValidity();
+      });
     } else {
-      this.selectedFile = null;
-      this.selectedFileName = '';
-      this.importForm.patchValue({ file: null });
-      this.importForm.get('file')?.updateValueAndValidity();
-    }
-  }
-
-  onSubmit(): void {
-    if (this.importForm.valid && this.collection?.name && this.selectedFile) {
-      const formValue = this.importForm.getRawValue();
-      const formData: Body_import_file_import__collection_id__post = {
-        file: this.selectedFile,
-        import_params: JSON.stringify({
-             name: formValue.importType.name,
-             embedding_model: formValue.model,
-             chunk_size: formValue.chunkSize,
-             chunk_overlap: formValue.chunkOverlap
-        })
-      };
-
-      ImportService.importFileImportCollectionIdPost(
-        this.collection.id,
-        formData
-      ).then(
-        (response: any) => {
-          console.log('File imported successfully:', response);
-        },
-        (error: any) => {
-          console.error('Error importing file:', error);
-        }
-      );
-    } else {
-      console.error('Form is invalid or collection name/file is missing.');
+      console.log('Other import types are not yet implemented.');
     }
   }
 
@@ -247,11 +199,8 @@ export class SelectedCollectionImportComponent implements OnInit, OnChanges, OnD
     return item.name;
   }
 
-  protected canOpenfile():boolean {
-    return this.importForm.get('importType')?.value.name !== 'FILE';
-  }
-
-  private collectionIsSet(): boolean {
+  private collectionIsSaved(): boolean {
     return (this.collection?.saved) ?? false;
   }
 }
+

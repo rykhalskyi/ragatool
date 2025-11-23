@@ -1,3 +1,4 @@
+from sqlite3 import Connection
 import threading
 import queue
 import uuid
@@ -7,7 +8,7 @@ from app.crud import crud_task
 from app.internal.message_hub import MessageHub
 
 class BackgroundTaskDispatcher:
-    def __init__(self, message_hub: MessageHub, num_workers=4):
+    def __init__(self, message_hub: MessageHub, db:Connection, num_workers=4):
         self.task_id_queue = queue.Queue()
         self.waiting_tasks = {}
         self.running_tasks = {}
@@ -16,6 +17,7 @@ class BackgroundTaskDispatcher:
         self.workers = []
         self._start_workers()
         self.message_hub = message_hub
+        self.db = db
 
     def _start_workers(self):
         for _ in range(self.num_workers):
@@ -41,29 +43,29 @@ class BackgroundTaskDispatcher:
 
             if task_func:
                 try:
-                    crud_task.update_task_status(task_id, "RUNNING")
+                    crud_task.update_task_status(self.db, task_id, "RUNNING")
                    
                     kwargs['cancel_event'] = cancellation_event
                     if asyncio.iscoroutinefunction(task_func):
                         asyncio.run(task_func(*args, **kwargs))
                     else:
                         task_func(*args, **kwargs)
-                    crud_task.update_task_status(task_id, "COMPLETED")
+                    crud_task.update_task_status(self.db, task_id, "COMPLETED")
                 except Exception as e:
                     print(f"Task {task_id} failed: {e}")
-                    crud_task.update_task_status(task_id, "FAILED")
+                    crud_task.update_task_status(self.db, task_id, "FAILED")
                 finally:
                     with self.lock:
                         if task_id in self.running_tasks:
                             del self.running_tasks[task_id]
                     self.task_id_queue.task_done()
-                    crud_task.delete_task(task_id)
+                    crud_task.delete_task(self.db, task_id)
                     self.message_hub.send_task_message('Task deleted')
 
     def add_task(self, collection_id: str, task_name: str, task_func, *args, **kwargs):
         task_id = str(uuid.uuid4())
         start_time = int(time.time())
-        crud_task.create_task(task_id, collection_id, task_name, start_time, "NEW")
+        crud_task.create_task(self.db, task_id, collection_id, task_name, start_time, "NEW")
         self.message_hub.send_task_message('Task created')
         
 
@@ -77,11 +79,11 @@ class BackgroundTaskDispatcher:
         with self.lock:
             if task_id in self.waiting_tasks:
                 del self.waiting_tasks[task_id]
-                crud_task.update_task_status(task_id, "CANCELLED")
+                crud_task.update_task_status(self.db, task_id, "CANCELLED")
                 return True
             elif task_id in self.running_tasks:
                 self.running_tasks[task_id].set()
-                crud_task.update_task_status(task_id, "CANCELLED")
+                crud_task.update_task_status(self.db, task_id, "CANCELLED")
                 return True
         return False
 

@@ -6,6 +6,7 @@ from sqlite3 import Connection
 
 from app.dependencies import get_db, get_message_hub
 from app.crud import crud_log
+from app.internal.message_hub import MessageHub
 from app.schemas.mcp import Message
 from datetime import datetime
 
@@ -18,25 +19,30 @@ def read_logs(n: int = 10, db: Connection = Depends(get_db)):
     """
     return crud_log.get_latest_log_entries(db=db, n=n)
 
-async def event_generator(request: Request, message_hub):
+async def event_generator(request: Request, message_hub: MessageHub):
+    client_queue = message_hub.register_client()
+    try:
+        while True:
+            # stop when client disconnects
+            if await request.is_disconnected():
+                break
 
-    while True:
-        # stop when client disconnects
-        if await request.is_disconnected():
-            break
+            try:
+                # block in a worker thread until a message is available
+                message = await asyncio.to_thread(client_queue.get)
+                print('-- message sent --', message)
+                yield f"data: {message.model_dump_json()}\n\n"
 
-        try:
-            # block in a worker thread until a message is available
-            message = await asyncio.to_thread(message_hub.get_message)
-            yield f"data: {message.model_dump_json()}\n\n"
+            except asyncio.CancelledError:
+                break
 
-        except asyncio.CancelledError:
-            break
+            except Exception as e:
+                # optional: log unexpected errors
+                print("SSE error:", e)
+                break
 
-        except Exception as e:
-            # optional: log unexpected errors
-            print("SSE error:", e)
-            break
+    finally:
+        message_hub.unregister_client(client_queue)
 
 
 @router.get("/stream")

@@ -9,19 +9,41 @@ from datetime import datetime
 
 class MessageHub:
     def __init__(self, db:Connection):
-        self.message_queue = queue.Queue()
+        self.incoming_message_queue = queue.Queue()
+        self.clients = set()
         self.db = db
         self.id = uuid.uuid4()
-        print('create mh', self.id)
+        print('MH: create', self.id)
+
+    def register_client(self):
+        print('MH: add client')
+        q = queue.Queue()
+        self.clients.add(q)
+        return q
+    
+    def unregister_client(self, q):
+        print('MH: unregister client')
+        self.clients.discard(q)
+
+    def broadcast_loop(self):
+        print('MH: Starting broadcast loop')
+        while True:
+            msg = self.incoming_message_queue.get()
+            # send to all clients
+            for q in list(self.clients):
+                try:
+                    q.put(msg)
+                except:
+                    pass
 
     def send_task_message(self, message:str):
         self.send_message("","",MessageType.TASK, message)
 
     def send_message(self, collection_id: str, collection_name: str, topic: MessageType, message: str):
-        
+        print('MH: send message', topic, message)
         if topic == MessageType.LOG:
             log_message = crud_log.create_log(self.db, collection_id, collection_name, topic.name, message)
-            self.message_queue.put(log_message)
+            self.incoming_message_queue.put(log_message)
         else:
             msg = Message(
                 id=str(uuid.uuid4()),
@@ -30,9 +52,8 @@ class MessageHub:
                 collectionName=collection_name,
                 topic=topic.name,
                 message=message)
-            self.message_queue.put(msg)
-
+            self.incoming_message_queue.put(msg)
     def get_message(self) -> Message:
-      msg = self.message_queue.get()
+      msg = self.incoming_message_queue.get()
       print("GET popped", self.id, msg.topic, msg.message, threading.get_ident())
       return msg

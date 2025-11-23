@@ -29,7 +29,6 @@ export class TaskCachingService implements OnDestroy {
         })
       )
       .subscribe(() => {
-        console.log('subscription');
       });
 
     this.fetchTasks();
