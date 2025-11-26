@@ -6,7 +6,6 @@ export type Message = {
     id: string;
     timestamp: string;
     collectionId?: (string | null);
-    collectionName?: (string | null);
     topic: string;
     message: string;
 };

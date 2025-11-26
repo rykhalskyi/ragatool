@@ -34,7 +34,7 @@ async def import_file(collection_id: str, import_params: str = Form(...), file: 
         file_content_bytes = await file.read()
         message_hub.send_task_message('START IMPORT')
 
-        task_dispatcher.add_task(collection_id, task_name, FileImport().import_data, collection.name, file.filename, file_content_bytes, import_params_model, message_hub)
+        task_dispatcher.add_task(collection_id, task_name, FileImport().import_data, file.filename, file_content_bytes, import_params_model, message_hub)
         
         if collection and collection.import_type == ImportType.NONE:
             crud_collection.update_collection_import_type(db, collection_id, import_params_model)

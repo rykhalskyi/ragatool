@@ -1,11 +1,14 @@
-from sqlite3 import Connection
+import chromadb
+from sqlite3 import Connection, IntegrityError
 from typing import List, Optional
-import uuid
 
 from app.database import get_db_connection
 from app.schemas.collection import Collection, CollectionCreate, ImportType
 from app.schemas.imports import Import
 
+
+from app.internal.exceptions import DuplicateCollectionError
+from app.internal.utils import prepare_collection_name
 
 def get_collections(db: Connection) -> List[Collection]:
     cursor = db.cursor()
@@ -23,21 +26,41 @@ def get_collection(db: Connection, collection_id: str) -> Optional[Collection]:
 
 def get_collection_by_name(db: Connection, collection_name: str) -> Optional[Collection]:
     cursor = db.cursor()
-    cursor.execute("SELECT id, name, description, enabled, import_type, model, settings FROM collections WHERE name = ?", (collection_name,))
+    # Query using the prepared name for uniqueness checks, but the name stored in DB is the original
+    prepared_name_for_query = prepare_collection_name(collection_name)
+    cursor.execute("SELECT id, name, description, enabled, import_type, model, settings FROM collections WHERE id = ?", (prepared_name_for_query,))
     collection = cursor.fetchone()
     if collection is None:
         return None
     return Collection(**collection)
 
 def create_collection(db: Connection, collection: CollectionCreate) -> Collection:
-    new_id = str(uuid.uuid4())
+    prepared_name = prepare_collection_name(collection.name)
+    # Check if a collection with the prepared name already exists
+    # Use a raw SQL query to check the 'name_for_query' column
+    cursor_check = db.cursor()
+    cursor_check.execute("SELECT COUNT(*) FROM collections WHERE id = ?", (prepared_name,))
+    if cursor_check.fetchone()[0] > 0:
+        raise DuplicateCollectionError()
+
     cursor = db.cursor()
-    cursor.execute(
-        "INSERT INTO collections (id, name, description, enabled, model, settings) VALUES (?, ?, ?, ?, ?, ?)",
-        (new_id, collection.name, collection.description, collection.enabled, collection.model, collection.settings),
-    )
-    db.commit()
-    return Collection(id=new_id, **collection.model_dump())
+    try:
+        cursor.execute(
+            "INSERT INTO collections (id, name, description, enabled, model, settings) VALUES (?, ?, ?, ?, ?, ?)",
+            (prepared_name, collection.name, collection.description, collection.enabled, collection.model, collection.settings),
+        )
+        db.commit()
+
+        # Create the collection in ChromaDB
+        client = chromadb.PersistentClient(path="./chroma_data")
+        client.get_or_create_collection(name=prepared_name)
+
+    except IntegrityError:
+        # This catch might not be strictly necessary if the COUNT(*) check is always reliable,
+        # but it's good for robustness against race conditions or unexpected DB states.
+        raise DuplicateCollectionError()
+    
+    return Collection(id=prepared_name, **collection.model_dump())
 
 def update_collection_description_and_enabled(db: Connection, collection_id: str, collection: CollectionCreate) -> Optional[Collection]:
     cursor = db.cursor()
@@ -74,12 +97,20 @@ def update_collection_import_settings(db: Connection, collection_id: str, import
     return {"message": "Collection updated successfully"}
 
 def delete_collection(db: Connection, collection_id: str):
+    # First, get the collection to be able to return its data
+    collection_to_delete = get_collection(db, collection_id)
+    if collection_to_delete is None:
+        return None
+
     cursor = db.cursor()
     cursor.execute("DELETE FROM collections WHERE id = ?", (str(collection_id),))
     db.commit()
+    
     if cursor.rowcount == 0:
+        # This case should ideally not be hit if get_collection found it, but for safety:
         return None
-    return {"message": "Collection deleted successfully"}
+        
+    return collection_to_delete
 
 import json
 

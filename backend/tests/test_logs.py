@@ -23,7 +23,7 @@ def get_test_db():
     
     # Create some test data
     for i in range(15):
-        create_log(conn, f"coll_id_{i}", f"coll_name_{i}", "test", f"test message {i}")
+        create_log(conn, f"coll_id_{i}", "test", f"test message {i}")
     
     yield conn
     conn.close()
