@@ -41,23 +41,19 @@ def update_existing_collection(collection_id: str, collection: CollectionCreate,
 
 @router.delete("/{collection_id}")
 def delete_existing_collection(collection_id: str, db: Connection = Depends(get_db)):
-    deleted_collection = delete_collection(db, collection_id)
-    if deleted_collection is None:
+   
+    result = delete_collection(db, collection_id)
+    if result is None:
         raise HTTPException(status_code=404, detail="Collection not found")
-    
     delete_log_by_collection_id(db, collection_id)
 
     try:
         client = chromadb.PersistentClient(path="./chroma_data")
-        # Use the prepared name for ChromaDB deletion
-        chroma_collection_name = prepare_collection_name(deleted_collection.name)
-        client.delete_collection(name=chroma_collection_name)
-    except Exception as e:
-        # It's better to log the error and decide if this should be a critical failure
-        print(f"Error deleting collection '{deleted_collection.name}' from ChromaDB: {e}")
-        # Depending on requirements, you might not want to raise an HTTP exception
-        # if the primary DB record was successfully deleted.
-        # For now, let's keep it to signal a problem.
-        raise HTTPException(status_code=500, detail=f"Failed to delete collection from vector store: {e}")
+        client.delete_collection(name=collection_id)
         
-    return deleted_collection
+    except Exception as e:
+        print(f"Error deleting collection '{collection_id}' from ChromaDB: {e}")
+        raise HTTPException(status_code=404, detail="Collection not found")  
+    
+    return result
+
