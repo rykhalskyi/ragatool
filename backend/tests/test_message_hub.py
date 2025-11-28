@@ -39,7 +39,6 @@ def test_send_message(mock_crud_log, mock_get_db_connection, message_hub_instanc
         id=test_uuid,
         timestamp=test_timestamp,
         collectionId="test-collection-id",
-        collectionName="test-collection-name",
         topic="LOG",
         message="Test log message"
     )
@@ -47,7 +46,6 @@ def test_send_message(mock_crud_log, mock_get_db_connection, message_hub_instanc
 
     message_hub_instance.send_message( # Using message_hub_instance
         "test-collection-id",
-        "test-collection-name",
         MessageType.LOG,
         "Test log message"
     )
@@ -56,7 +54,6 @@ def test_send_message(mock_crud_log, mock_get_db_connection, message_hub_instanc
     mock_crud_log.assert_called_once_with(
         mock_get_db_connection.return_value,
         "test-collection-id",
-        "test-collection-name",
         "LOG",
         "Test log message"
     )
@@ -71,7 +68,6 @@ def test_get_message(message_hub_instance, clear_message_hub_queue): # Modified 
         id=test_uuid,
         timestamp=test_timestamp,
         collectionId="test-collection-id",
-        collectionName="test-collection-name",
         topic="LOG",
         message="Test log message"
     )

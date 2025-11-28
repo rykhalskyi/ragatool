@@ -37,19 +37,18 @@ class MessageHub:
                     pass
 
     def send_task_message(self, message:str):
-        self.send_message("","",MessageType.TASK, message)
+        self.send_message("GLOBAL", MessageType.TASK, message)
 
-    def send_message(self, collection_id: str, collection_name: str, topic: MessageType, message: str):
+    def send_message(self, collection_id: str, topic: MessageType, message: str):
         print('MH: send message', topic, message)
         if topic == MessageType.LOG:
-            log_message = crud_log.create_log(self.db, collection_id, collection_name, topic.name, message)
+            log_message = crud_log.create_log(self.db, collection_id, topic.name, message)
             self.incoming_message_queue.put(log_message)
         else:
             msg = Message(
                 id=str(uuid.uuid4()),
                 timestamp=datetime.now(),
                 collectionId=collection_id, 
-                collectionName=collection_name,
                 topic=topic.name,
                 message=message)
             self.incoming_message_queue.put(msg)

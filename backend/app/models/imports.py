@@ -17,7 +17,7 @@ class ImportBase(ABC):
         pass
 
     @abstractmethod
-    async def import_data(self, collection_id: str, collection_name: str, file_name: str, file_content_bytes: bytes, import_params: Import, message_hub:MessageHub, cancel_event:Event) -> None: # Modified signature
+    async def import_data(self, collection_id: str, file_name: str, file_content_bytes: bytes, import_params: Import, message_hub:MessageHub, cancel_event:Event) -> None: # Modified signature
         pass
 
 from app.schemas.imports import Import, FileImportSettings
@@ -40,11 +40,11 @@ class FileImport(ImportBase):
     def create_chunks(self, text: str, chunk_size: int, chunk_overlap: int) -> List[str]:
         return [text[i:i+chunk_size] for i in range(0, len(text), chunk_size - chunk_overlap)]
 
-    async def import_data(self, collection_id: str, collection_name: str, file_name: str, file_content_bytes: bytes, import_params: Import, message_hub:MessageHub, cancel_event: Event) -> None: # Modified signature
+    async def import_data(self, collection_id: str, file_name: str, file_content_bytes: bytes, import_params: Import, message_hub:MessageHub, cancel_event: Event) -> None: # Modified signature
         try:
-            message_hub.send_message(collection_id, collection_name, MessageType.LOCK, f"Starting import of {file_name}")
+            message_hub.send_message(collection_id,  MessageType.LOCK, f"Starting import of {file_name}")
                        
-            collection_name = collection_name.lower().replace(' ','_')
+    
             text_content = file_content_bytes.decode("utf-8")
 
             chunks = []
@@ -53,14 +53,14 @@ class FileImport(ImportBase):
             else:
                 chunks = [text_content]
 
-            message_hub.send_message(collection_id, collection_name, MessageType.INFO, f"Created {len(chunks)} chunks. Embedding....")
+            message_hub.send_message(collection_id, MessageType.INFO, f"Created {len(chunks)} chunks. Embedding....")
 
             model = SentenceTransformer(import_params.model, trust_remote_code=True)
             embeddings = model.encode(chunks)
-            message_hub.send_message(collection_id, collection_name, MessageType.INFO, "Embeddings created. Saving to Database....")
+            message_hub.send_message(collection_id, MessageType.INFO, "Embeddings created. Saving to Database....")
 
             client = chromadb.PersistentClient(path="./chroma_data")
-            collection = client.get_or_create_collection(name=collection_name)
+            collection = client.get_or_create_collection(name=collection_id)
 
             ts = int(time.time())
             # ---- batching logic ----
@@ -85,15 +85,15 @@ class FileImport(ImportBase):
                     ids=batch_ids
                 )
 
-                message_hub.send_message(collection_id, collection_name, MessageType.INFO, f"Import of batch {batch_num} completed successfully")
+                message_hub.send_message(collection_id, MessageType.INFO, f"Import of batch {batch_num} completed successfully")
                 batch_num += 1
                 
-            message_hub.send_message(collection_id, collection_name, MessageType.UNLOCK, f"Import of {file_name} completed successfully")
-            message_hub.send_message(collection_id, collection_name, MessageType.LOG, f"SUCCESSFUL imported from {file_name} {len(chunks)} chunks of length {import_params.settings.chunk_size}, overlap {import_params.settings.chunk_overlap}.")
+            message_hub.send_message(collection_id, MessageType.UNLOCK, f"Import of {file_name} completed successfully")
+            message_hub.send_message(collection_id, MessageType.LOG, f"SUCCESSFUL imported from {file_name} {len(chunks)} chunks of length {import_params.settings.chunk_size}, overlap {import_params.settings.chunk_overlap}.")
         except Exception as e:
             print("FAIL import_data", e)
-            message_hub.send_message(collection_id, collection_name, MessageType.UNLOCK, f"Import of {file_name} failed: {e}")
-            message_hub.send_message(collection_id, collection_name, MessageType.LOG, f"FAILED import from {file_name}. Chunk size {import_params.settings.chunk_size}, overlap {import_params.settings.chunk_overlap}. Exception {e}")
+            message_hub.send_message(collection_id, MessageType.UNLOCK, f"Import of {file_name} failed: {e}")
+            message_hub.send_message(collection_id, MessageType.LOG, f"FAILED import from {file_name}. Chunk size {import_params.settings.chunk_size}, overlap {import_params.settings.chunk_overlap}. Exception {e}")
             
 
             

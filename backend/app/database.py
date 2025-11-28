@@ -50,7 +50,6 @@ def create_tables(conn: Optional[Connection] = None):
         id TEXT PRIMARY KEY,
         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
         collectionId TEXT,
-        collectionName TEXT,
         topic TEXT,
         message TEXT
     )

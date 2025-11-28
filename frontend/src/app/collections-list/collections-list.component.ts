@@ -28,6 +28,7 @@ export class CollectionsListComponent implements OnInit, OnDestroy {
     this.refreshSubscription = this.collectionRefreshService.refreshNeeded$
     .pipe(untilDestroyed(this))
     .subscribe(() => {
+      console.log('refresh triggered');
       this.fetchCollections();
     });
   }

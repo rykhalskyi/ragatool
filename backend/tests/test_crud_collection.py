@@ -6,14 +6,21 @@ from app.schemas.collection import Collection, CollectionCreate, ImportType
 from app.schemas.imports import Import, FileImportSettings
 from app.database import create_tables
 import uuid
+import chromadb
+import tempfile
+import shutil
+from unittest.mock import patch
 
 @pytest.fixture
 def db_connection():
-    conn = sqlite3.connect(":memory:")
-    conn.row_factory = sqlite3.Row
-    create_tables(conn)
-    yield conn
-    conn.close()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        with patch('chromadb.PersistentClient') as mock_persistent_client:
+            mock_persistent_client.return_value = chromadb.PersistentClient(path=tmpdir)
+            conn = sqlite3.connect(":memory:")
+            conn.row_factory = sqlite3.Row
+            create_tables(conn)
+            yield conn
+            conn.close()
 
     # Tests will go here
 
@@ -31,7 +38,7 @@ def test_create_collection(db_connection):
     assert collection.enabled is True
     assert collection.model == "some_model"
     assert collection.settings == "{}"
-    assert isinstance(collection.id, uuid.UUID)
+
 
 def test_get_collection(db_connection):
     collection_data = CollectionCreate(
@@ -151,7 +158,7 @@ def test_delete_collection(db_connection):
     )
     created_collection = crud_collection.create_collection(db_connection, collection_data)
     result = crud_collection.delete_collection(db_connection, created_collection.id)
-    assert result == {"message": "Collection deleted successfully"}
+    assert result.model_dump() == created_collection.model_dump()
     deleted_collection = crud_collection.get_collection(db_connection, created_collection.id)
     assert deleted_collection is None
 

@@ -18,6 +18,6 @@ class CollectionCreate(CollectionBase):
     pass
 
 class Collection(CollectionBase):
-    id: uuid.UUID
+    id: str
 
     model_config = ConfigDict(from_attributes=True)

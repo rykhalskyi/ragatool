@@ -86,11 +86,11 @@ export class SelectedCollectionComponent implements OnInit {
           description:  this.editedDescription,
           enabled: this.isEnabled });
         console.log('Collection enabled status updated.');
-        this.collectionRefreshService.triggerRefresh();
       } catch (error) {
         console.error('Error updating collection enabled status:', error);
         this.isEnabled = !this.isEnabled;
       }
+      this.collectionRefreshService.triggerRefresh();
     }
   }
 
@@ -105,15 +105,16 @@ export class SelectedCollectionComponent implements OnInit {
       if (result) {
         try {
           if (this.collection) {
+            console.log(`delete .${this.collection.id}.`)
             await CollectionsService.deleteExistingCollectionCollectionsCollectionIdDelete(this.collection.id);
             console.log('Collection deleted successfully.');
-            this.collectionRefreshService.triggerRefresh();
             this.router.navigate(['/']);
           }
         } catch (error) {
           console.error('Error deleting collection:', error);
         }
-      }
+      
+        this.collectionRefreshService.triggerRefresh();}
     });
   }
 

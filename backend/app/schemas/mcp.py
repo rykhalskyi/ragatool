@@ -9,6 +9,5 @@ class Message(BaseModel):
     id: str
     timestamp: datetime
     collectionId: Optional[str] = None
-    collectionName: Optional[str] = None
     topic: str
     message: str

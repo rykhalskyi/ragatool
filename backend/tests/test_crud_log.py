@@ -26,16 +26,14 @@ def test_create_log(mock_db_connection):
         log_message = create_log(
             mock_db_connection,
             "test-collection-id",
-            "test-collection-name",
             "LOG",
             "Test log message"
         )
         mock_db_connection.cursor.return_value.execute.assert_any_call(
-            "INSERT INTO logs (id, collectionId, collectionName, topic, message) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO logs (id, collectionId, topic, message) VALUES (?, ?, ?, ?)",
             (
                 str(test_uuid),
                 "test-collection-id",
-                "test-collection-name",
                 "LOG",
                 "Test log message"
             ),
@@ -44,7 +42,6 @@ def test_create_log(mock_db_connection):
         assert isinstance(log_message, Message)
         assert log_message.id == str(test_uuid)
         assert log_message.collectionId == "test-collection-id"
-        assert log_message.collectionName == "test-collection-name"
         assert log_message.topic == "LOG"
         assert log_message.message == "Test log message"
         assert isinstance(log_message.timestamp, datetime)
@@ -53,17 +50,17 @@ def test_get_latest_log_entries(in_memory_db):
     # Insert some log entries
     now = datetime.now()
     log_entries_data = [
-        {"id": str(uuid.uuid4()), "timestamp": (now - timedelta(seconds=3)).isoformat(), "collectionId": "c1", "collectionName": "n1", "topic": "T1", "message": "M1"},
-        {"id": str(uuid.uuid4()), "timestamp": (now - timedelta(seconds=2)).isoformat(), "collectionId": "c2", "collectionName": "n2", "topic": "T2", "message": "M2"},
-        {"id": str(uuid.uuid4()), "timestamp": (now - timedelta(seconds=1)).isoformat(), "collectionId": "c3", "collectionName": "n3", "topic": "T3", "message": "M3"},
-        {"id": str(uuid.uuid4()), "timestamp": now.isoformat(), "collectionId": "c4", "collectionName": "n4", "topic": "T4", "message": "M4"},
+        {"id": str(uuid.uuid4()), "timestamp": (now - timedelta(seconds=3)).isoformat(), "collectionId": "c1", "topic": "T1", "message": "M1"},
+        {"id": str(uuid.uuid4()), "timestamp": (now - timedelta(seconds=2)).isoformat(), "collectionId": "c2", "topic": "T2", "message": "M2"},
+        {"id": str(uuid.uuid4()), "timestamp": (now - timedelta(seconds=1)).isoformat(), "collectionId": "c3", "topic": "T3", "message": "M3"},
+        {"id": str(uuid.uuid4()), "timestamp": now.isoformat(), "collectionId": "c4", "topic": "T4", "message": "M4"},
     ]
 
     cursor = in_memory_db.cursor()
     for entry in log_entries_data:
         cursor.execute(
-            "INSERT INTO logs (id, timestamp, collectionId, collectionName, topic, message) VALUES (?, ?, ?, ?, ?, ?)",
-            (entry["id"], entry["timestamp"], entry["collectionId"], entry["collectionName"], entry["topic"], entry["message"]),
+            "INSERT INTO logs (id, timestamp, collectionId, topic, message) VALUES (?, ?, ?, ?, ?)",
+            (entry["id"], entry["timestamp"], entry["collectionId"], entry["topic"], entry["message"]),
         )
     in_memory_db.commit()
 
