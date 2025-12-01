@@ -1,52 +1,51 @@
-from abc import ABC, abstractmethod
 from threading import Event
-from typing import List
-from sentence_transformers import SentenceTransformer
-import chromadb
 import time
+
+import chromadb
+from sentence_transformers import SentenceTransformer
+from app.internal import simple_crawler
 from app.internal.message_hub import MessageHub
+from app.models.imports import ImportBase
 from app.models.messages import MessageType
-from app.schemas.imports import Import
+from app.schemas.imports import FileImportSettings, Import
 
-class ImportBase(ABC):
-    name: str
-    settings: Import
 
-    @abstractmethod
-    async def import_data(self, collection_id: str, file_name: str, file_content_bytes: bytes, import_params: Import, message_hub:MessageHub, cancel_event:Event) -> None: # Modified signature
-        pass
+class UrlImport(ImportBase):
+    name = 'URL'
 
-    def create_chunks(self, text: str, chunk_size: int, chunk_overlap: int) -> List[str]:
-        return [text[i:i+chunk_size] for i in range(0, len(text), chunk_size - chunk_overlap)]
-
-from app.schemas.imports import Import, FileImportSettings
-
-class FileImport(ImportBase):
-    name = "FILE"
 
     @staticmethod
     def getDefault() -> Import:
         return Import(
-            name="FILE",
+            name="URL",
             model="all-MiniLM-L6-v2",
             settings=FileImportSettings(
                 chunk_size=800,
-                chunk_overlap=10,
-                no_chunks=False
+                chunk_overlap=40,
+                no_chunks=True
             )
         )
-
+    
     async def import_data(self, collection_id: str, file_name: str, file_content_bytes: bytes, import_params: Import, message_hub:MessageHub, cancel_event: Event) -> None: # Modified signature
-        try:
-            message_hub.send_message(collection_id,  MessageType.LOCK, f"Starting import of {file_name}")
-                          
-            text_content = file_content_bytes.decode("utf-8")
+        message_hub.send_message(collection_id,  MessageType.LOCK, f"Starting import of {file_name}")
+        message_hub.send_message(collection_id, MessageType.INFO, f"Crawling and parsing {file_name} ....")
+        pages = simple_crawler.simple_crawl(file_name)
 
+        message_hub.send_message(collection_id, MessageType.INFO, f"Parsed {len(pages)} pages")
+
+        for page in pages:
+            await self.__import_data_internal(collection_id, page["url"], page["text"], import_params, message_hub,cancel_event )
+
+        message_hub.send_message(collection_id, MessageType.UNLOCK, f"Import of {file_name} completed.")
+
+    async def __import_data_internal(self, collection_id: str, file_name: str, page_content: str, import_params: Import, message_hub:MessageHub, cancel_event: Event) -> None: # Modified signature
+        try:
+           
             chunks = []
             if not import_params.settings.no_chunks:
-                chunks = self.create_chunks(text_content, import_params.settings.chunk_size, import_params.settings.chunk_overlap)
+                chunks = self.create_chunks(page_content, import_params.settings.chunk_size, import_params.settings.chunk_overlap)
             else:
-                chunks = [text_content]
+                chunks = [page_content]
 
             message_hub.send_message(collection_id, MessageType.INFO, f"Created {len(chunks)} chunks. Embedding....")
 
@@ -69,7 +68,7 @@ class FileImport(ImportBase):
                 batch_embeddings = embeddings[start:end].tolist()
 
                 batch_ids = [
-                    f"{file_name}_{ts}_{i}"
+                    f"{file_name}_{i}"
                     for i in range(start, min(end, len(chunks)))
                 ]
 
@@ -83,13 +82,7 @@ class FileImport(ImportBase):
                 message_hub.send_message(collection_id, MessageType.INFO, f"Import of batch {batch_num} completed successfully")
                 batch_num += 1
                 
-            message_hub.send_message(collection_id, MessageType.UNLOCK, f"Import of {file_name} completed successfully")
             message_hub.send_message(collection_id, MessageType.LOG, f"SUCCESSFUL imported from {file_name} {len(chunks)} chunks of length {import_params.settings.chunk_size}, overlap {import_params.settings.chunk_overlap}.")
         except Exception as e:
             print("FAIL import_data", e)
-            message_hub.send_message(collection_id, MessageType.UNLOCK, f"Import of {file_name} failed: {e}")
             message_hub.send_message(collection_id, MessageType.LOG, f"FAILED import from {file_name}. Chunk size {import_params.settings.chunk_size}, overlap {import_params.settings.chunk_overlap}. Exception {e}")
-            
-
-            
-        

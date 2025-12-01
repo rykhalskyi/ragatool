@@ -2,7 +2,11 @@
 <form class="import-controls" [formGroup]="importForm">
   <mat-form-field appearance="fill" class="import-control">
     <mat-label>Select Import Type</mat-label>
-    <mat-select formControlName="importType" [compareWith]="compareImportTypes" (selectionChange)="onImportTypeChange($event)" data-testid="import-select" >
+    <mat-select formControlName="importType" 
+    [compareWith]="compareImportTypes" 
+    (selectionChange)="onImportTypeChange($event)" 
+    data-testid="import-select"
+    >
       @for (type of importTypes; track type.name) {
       <mat-option [value]="type">{{ type.name }}</mat-option>
     }

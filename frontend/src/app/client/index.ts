@@ -8,6 +8,7 @@ export { OpenAPI } from './core/OpenAPI';
 export type { OpenAPIConfig } from './core/OpenAPI';
 
 export type { Body_import_file_import__collection_id__post } from './models/Body_import_file_import__collection_id__post';
+export type { Body_import_url_import_url__colletion_id__post } from './models/Body_import_url_import_url__colletion_id__post';
 export type { Collection } from './models/Collection';
 export type { CollectionCreate } from './models/CollectionCreate';
 export type { FileImportSettings } from './models/FileImportSettings';
