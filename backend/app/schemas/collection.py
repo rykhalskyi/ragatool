@@ -5,6 +5,7 @@ from enum import Enum
 class ImportType(str, Enum):
     NONE = "NONE"
     FILE = "FILE"
+    URL  = "URL"
 
 class CollectionBase(BaseModel):
     name: str

@@ -17,6 +17,8 @@ import { Message } from '../../client/models/Message';
 import { MatDialog } from '@angular/material/dialog';
 import { FileImportDialog } from '../file-import-dialog/file-import-dialog';
 import { Body_import_file_import__collection_id__post } from '../../client/models/Body_import_file_import__collection_id__post';
+import { UrlImportDialog } from '../url-import-dialog/url-import-dialog';
+import { Body_import_url_import_url__colletion_id__post } from '../../client/models/Body_import_url_import_url__colletion_id__post';
 
 @Component({
   selector: 'app-selected-collection-import',
@@ -186,7 +188,47 @@ export class SelectedCollectionImportComponent implements OnInit, OnChanges{
           );
         }
       });
-    } else {
+    }
+    else if (selectedImportType && selectedImportType.name === 'URL'){
+        this.dialog.open(UrlImportDialog, {
+        data: {
+          collectionName: this.collection?.name,
+          collectionId: this.collection?.id,
+          model: this.collectionIsSaved() ? this.collection!.model! : selectedImportType.model,
+          settings: this.collectionIsSaved() ? JSON.parse(this.collection!.settings!) : selectedImportType.settings,
+          saved: this.collection?.saved
+        }}).afterClosed().subscribe(result =>{
+          
+          if (result) {
+            const formData: Body_import_url_import_url__colletion_id__post = {
+              import_params: JSON.stringify({
+                name: selectedImportType.name,
+                model: result.model,
+                settings: {
+                  chunk_size: result.chunkSize,
+                  chunk_overlap: result.chunkOverlap,
+                  no_chunks: false
+                }
+              })
+            };
+             
+            ImportService.importUrlImportUrlColletionIdPost(
+              result.collectionId,
+              result.url,
+              formData).then(
+                (response: any) => {
+                  console.log('Url imported successfully:', response);
+                },
+                (error: any) => {
+                  console.error('Error importing Url:', error);
+                }
+              );
+          }
+        }
+         
+        );
+    }
+    else {
       console.log('Other import types are not yet implemented.');
     }
   }
