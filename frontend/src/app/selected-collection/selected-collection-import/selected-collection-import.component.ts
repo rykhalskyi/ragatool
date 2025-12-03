@@ -207,7 +207,7 @@ export class SelectedCollectionImportComponent implements OnInit, OnChanges{
                 settings: {
                   chunk_size: result.chunkSize,
                   chunk_overlap: result.chunkOverlap,
-                  no_chunks: false
+                  no_chunks: result.no_chunks
                 }
               })
             };
