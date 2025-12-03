@@ -3,7 +3,7 @@ from sqlite3 import Connection, IntegrityError
 from typing import List, Optional
 
 from app.database import get_db_connection
-from app.schemas.collection import Collection, CollectionCreate, ImportType
+from app.schemas.collection import Collection, CollectionCreate, ImportType, CollectionDetails
 from app.schemas.imports import Import
 
 
@@ -111,6 +111,35 @@ def delete_collection(db: Connection, collection_id: str):
         return None
         
     return collection_to_delete
+
+def get_collection_details(db: Connection, collection_id: str) -> Optional[CollectionDetails]:
+    # Get base collection data from SQLite
+    collection_base = get_collection(db, collection_id)
+    if collection_base is None:
+        return None
+
+    try:
+        # Connect to ChromaDB to get more details
+        client = chromadb.PersistentClient(path="./chroma_data")
+        chroma_collection = client.get_collection(name=collection_id)
+
+        # Get count and metadata
+        count = chroma_collection.count()
+        metadata = chroma_collection.metadata
+
+        # Create the detailed response object
+        collection_details = CollectionDetails(
+            **collection_base.model_dump(),
+            count=count,
+            metadata=metadata
+        )
+        return collection_details
+
+    except Exception as e:
+        # If ChromaDB fails, we can decide to return partial data or nothing.
+        # For now, we'll return what we have from SQLite and mark the rest as None.
+        print(f"Could not retrieve details from ChromaDB for {collection_id}: {e}")
+        return CollectionDetails(**collection_base.model_dump(), count=None, metadata=None)
 
 import json
 

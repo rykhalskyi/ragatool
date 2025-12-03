@@ -22,3 +22,9 @@ class Collection(CollectionBase):
     id: str
 
     model_config = ConfigDict(from_attributes=True)
+
+from typing import Optional, Dict, Any
+
+class CollectionDetails(Collection):
+    metadata: Optional[Dict[str, Any]] = None
+    count: Optional[int] = None

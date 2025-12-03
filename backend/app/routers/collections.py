@@ -5,8 +5,8 @@ from typing import List
 from sqlite3 import Connection
 
 from app.crud.crud_log import delete_log_by_collection_id
-from app.schemas.collection import Collection, CollectionCreate
-from app.crud.crud_collection import get_collections, create_collection, update_collection_description_and_enabled, delete_collection, get_collection
+from app.schemas.collection import Collection, CollectionCreate, CollectionDetails
+from app.crud.crud_collection import get_collections, create_collection, update_collection_description_and_enabled, delete_collection, get_collection, get_collection_details
 from app.dependencies import get_db
 from app.internal.exceptions import DuplicateCollectionError
 from app.internal.utils import prepare_collection_name
@@ -24,6 +24,13 @@ def read_collection(collection_id: str, db: Connection = Depends(get_db)):
     if db_collection is None:
         raise HTTPException(status_code=404, detail="Collection not found")
     return db_collection
+
+@router.get("/{collection_id}/details", response_model=CollectionDetails)
+def read_collection_details(collection_id: str, db: Connection = Depends(get_db)):
+    db_collection_details = get_collection_details(db, collection_id=collection_id)
+    if db_collection_details is None:
+        raise HTTPException(status_code=404, detail="Collection not found")
+    return db_collection_details
 
 @router.post("/", response_model=Collection)
 def create_new_collection(collection: CollectionCreate, db: Connection = Depends(get_db)):

@@ -125,3 +125,36 @@ def test_delete_collection(client):
     get_response = client.get(f"/collections/{collection_id}")
     assert get_response.status_code == 404
 
+
+def test_read_collection_details(client):
+    # Create a collection
+    create_response = client.post("/collections/", json={
+        "name": "Details Test",
+        "description": "Details description",
+        "enabled": True,
+        "model": "details_model",
+        "settings": "{}"
+    })
+    collection_id = create_response.json()["id"]
+
+    # Mock ChromaDB response for the details endpoint
+    with patch('chromadb.PersistentClient') as mock_persistent_client:
+        mock_collection = mock_persistent_client.return_value.get_collection.return_value
+        mock_collection.count.return_value = 42
+        mock_collection.metadata = {"source": "api_test"}
+
+        # Test successful retrieval
+        response = client.get(f"/collections/{collection_id}/details")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["id"] == collection_id
+        assert data["name"] == "Details Test"
+        assert data["count"] == 42
+        assert data["metadata"] == {"source": "api_test"}
+
+    # Test not found for a non-existent collection
+    import uuid
+    non_existent_id = str(uuid.uuid4())
+    response = client.get(f"/collections/{non_existent_id}/details")
+    assert response.status_code == 404
+

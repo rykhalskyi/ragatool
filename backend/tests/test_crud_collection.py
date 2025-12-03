@@ -197,6 +197,44 @@ def test_get_enabled_collections_for_mcp(db_connection):
     assert mcp_collection["properties"] == "text is divided to chunks of 256 symbols and 30 overlap"
 
 
+def test_get_collection_details(db_connection):
+    # 1. Test case where collection exists in both SQLite and ChromaDB
+    collection_data = CollectionCreate(
+        name="Test Collection Details",
+        description="A collection for details testing",
+        enabled=True,
+        model="details_model",
+        settings="{}"
+    )
+    created_collection = crud_collection.create_collection(db_connection, collection_data)
+
+    with patch('chromadb.PersistentClient') as mock_persistent_client:
+        mock_collection = mock_persistent_client.return_value.get_collection.return_value
+        mock_collection.count.return_value = 123
+        mock_collection.metadata = {"source": "test"}
+
+        details = crud_collection.get_collection_details(db_connection, created_collection.id)
+        assert details is not None
+        assert details.id == created_collection.id
+        assert details.count == 123
+        assert details.metadata == {"source": "test"}
+
+    # 2. Test case where collection exists in SQLite but not in ChromaDB
+    with patch('chromadb.PersistentClient') as mock_persistent_client:
+        mock_persistent_client.return_value.get_collection.side_effect = Exception("Collection not found")
+
+        details = crud_collection.get_collection_details(db_connection, created_collection.id)
+        assert details is not None
+        assert details.id == created_collection.id
+        assert details.count is None
+        assert details.metadata is None
+
+    # 3. Test case where collection does not exist in SQLite
+    non_existent_id = str(uuid.uuid4())
+    details = crud_collection.get_collection_details(db_connection, non_existent_id)
+    assert details is None
+
+
 
 
 
