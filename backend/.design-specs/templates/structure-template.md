@@ -145,5 +145,5 @@ src/
 - Follow language-specific documentation conventions
 
 ### Restrictions
-- Do not make a structure of dependencies like venv in python or node_modules in angular
+- Do not make a structure of dependencies like venv in python or node modules in angular
 - make structure only for users files in the app
