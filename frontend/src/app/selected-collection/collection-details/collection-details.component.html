@@ -1,0 +1,31 @@
+
+@if (collectionDetails) {
+  <div>
+    <p>Collection Details</p>
+    <div>
+      <mat-list>
+        <mat-list-item>
+          <span matListItemTitle>ID: {{ collectionDetails.id }}</span>
+        </mat-list-item>
+        @if (collectionDetails.count) {
+          <mat-list-item>
+            <span matListItemTitle>Count: {{ collectionDetails.count }}</span>
+          </mat-list-item>
+        }
+        
+        @if (collectionDetails.metadata) {
+          <mat-list-item>
+            <span matListItemTitle>Metadata</span>
+          </mat-list-item>
+          <mat-list>
+            @for (item of collectionDetails.metadata | keyvalue; track item.key) {
+              <mat-list-item class="metadata-item">
+                <span matListItemTitle>{{ item.key }}: {{ item.value }}</span>
+              </mat-list-item>
+            }
+          </mat-list>
+        }
+      </mat-list>
+    </div>
+  </div>
+}

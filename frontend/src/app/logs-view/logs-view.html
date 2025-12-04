@@ -1,0 +1,21 @@
+<div>
+
+    <h2>Logs</h2>
+    <div class="log-container">
+     
+        @for (log of logs; track logs){         
+            <div class="log-item">
+              <p><strong>></strong> {{ log.timestamp }} {{ log.topic }} {{ log.message }}</p>
+            </div>     
+        }
+       
+        @if (logs.length === 0)
+        {
+          <mat-list-item>
+            <p>No logs to display.</p>
+          </mat-list-item>
+        }
+     
+    </div>
+
+</div>

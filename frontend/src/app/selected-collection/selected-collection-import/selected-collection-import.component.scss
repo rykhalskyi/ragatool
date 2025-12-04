@@ -1,0 +1,15 @@
+.import-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+  gap: 16px;
+  padding: 16px;
+}
+
+.import-control{
+  width: 250px;
+}
+
+.import-progress-bar{
+  margin: 16px;
+}

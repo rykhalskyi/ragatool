@@ -1,0 +1,32 @@
+.content {
+  padding-top: 64px; /* Match topbar height */
+  height: calc(100vh - 64px);
+
+  .main-container {
+    display: flex;
+    height: 100%;
+  }
+
+  .topic-list {
+    width: var(--topic-list-width, 20%);
+    height: 100%;
+    overflow-y: auto;
+  }
+
+  .vertical-divider {
+    width: 5px;
+    background-color: #ccc;
+    cursor: col-resize;
+    transition: background-color 0.3s;
+  }
+
+  .vertical-divider:hover {
+    background-color: #aaa;
+  }
+
+  .selected-topic {
+    flex-grow: 1;
+    height: 100%;
+    overflow-y: auto;
+  }
+}

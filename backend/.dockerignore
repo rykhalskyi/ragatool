@@ -1,0 +1,31 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Python virtual environments
+venv/
+.venv/
+
+# system
+.git/
+.gitignore
+Dockerfile
+docker-compose.yml
+
+# caches
+.cache/
+pytest_cache/
+
+# Node junk (if any)
+node_modules/
+
+# Large directories
+.design-specs/
+.gemini/
+.pytest_cache/
+chroma_data/
+test-text/
+tests/
+ragatouille.db
+requirements-win.txt

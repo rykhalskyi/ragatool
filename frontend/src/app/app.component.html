@@ -1,0 +1,10 @@
+<app-topbar></app-topbar>
+<main class="content">
+  <div class="main-container">
+    <app-collections-list class="topic-list"></app-collections-list>
+    <div class="vertical-divider" (mousedown)="startDragging($event)"></div>
+    <div class="selected-topic">
+      <router-outlet></router-outlet>
+    </div>
+  </div>
+</main>

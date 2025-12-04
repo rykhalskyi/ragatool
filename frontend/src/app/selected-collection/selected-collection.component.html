@@ -1,0 +1,54 @@
+<div class="selected-collection-container" *ngIf="collection" data-testid="selected-collection-container">
+  <div class="details margin-16">
+    <h2 data-testid="collection-name">{{ collection.name }}</h2>
+
+    <div class="description-container">
+      @if (!isEditingDescription)
+      {
+        <div class="description-container" data-testid="description-view">
+          @if (collection.description){
+            <span data-testid="collection-description">{{ collection.description }}</span>
+          }@else {
+            <span class="gray" data-testid="collection-description-empty">no description</span>
+          }
+            
+            <button mat-icon-button (click)="startEditingDescription()" data-testid="edit-description-button">
+              <mat-icon>edit</mat-icon>
+            </button>
+        </div>
+      }@else{
+      <div data-testid="description-edit">
+        <mat-form-field class="full-width">
+          <textarea matInput [(ngModel)]="editedDescription" data-testid="description-textarea"></textarea>
+        </mat-form-field>
+        <button mat-button (click)="saveDescription()" data-testid="save-description-button">Save</button>
+        <button mat-button (click)="cancelEditingDescription()" data-testid="cancel-description-button">Cancel</button>
+      </div>
+      }
+  
+    </div>
+
+  </div>
+
+  <div class="controls margin-8" data-testid="collection-controls">
+    <mat-slide-toggle [(ngModel)]="isEnabled" (change)="onToggleChange()" data-testid="enabled-toggle">Enabled</mat-slide-toggle>
+    <button mat-icon-button color="warn" (click)="deleteCollection()" data-testid="delete-collection-button">
+      <mat-icon>delete</mat-icon>
+    </button>
+  </div>
+  
+  <!--
+  <div class="full-row margin-16">
+    <app-collection-details [collectionDetails]="collectionDetails()"></app-collection-details>
+  </div>-->
+
+  <div class="full-row margin-16">
+    <app-selected-collection-import [collection]="collection" data-testid="collection-import"></app-selected-collection-import>
+     <app-collection-details [collectionDetails]="collectionDetails()"></app-collection-details>
+  </div>
+  
+  <div class="full-row-2 margin-16">
+    <app-logs-view [collectionId]="collection.id" data-testid="collection-logs"></app-logs-view>
+  </div>
+ 
+</div>
