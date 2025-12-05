@@ -10,8 +10,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements-linux.txt .
-
 # Install everything normally (no wheel build)
 
 RUN pip install --upgrade pip 
