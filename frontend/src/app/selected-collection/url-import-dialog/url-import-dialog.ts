@@ -52,8 +52,10 @@ export class UrlImportDialog implements OnInit {
       no_chunks: false
     });
 
-    if (this.data.saved)
+    //if (this.data.saved)
       this.importForm.get('model')?.disable()
+
+
   }
 
   onNoClick(): void {

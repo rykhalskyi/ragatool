@@ -54,7 +54,7 @@ export class FileImportDialog implements OnInit {
       file: [null, Validators.required]
     });
 
-    if (this.data.saved)
+    //if (this.data.saved)
       this.importForm.get('model')?.disable()
   }
 

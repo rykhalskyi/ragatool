@@ -32,7 +32,7 @@ class FileImport(ImportBase):
             model="all-MiniLM-L6-v2",
             settings=FileImportSettings(
                 chunk_size=800,
-                chunk_overlap=10,
+                chunk_overlap=80,
                 no_chunks=False
             )
         )
