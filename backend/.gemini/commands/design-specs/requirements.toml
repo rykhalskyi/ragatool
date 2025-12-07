@@ -1,7 +1,7 @@
 description = "Creates requirements.md based on issue ticket from github for <issue_number>"
 prompt = """
 Create a file requiements-{{args}}.md in folder .design-specs/specs/ int the root directory of this
-project. the folder have already existed.
+project. the folder have already existed. **No code implementation in this command.**
 
 Follow this steps:
 
@@ -14,7 +14,7 @@ PHASE 1: Requirements Creation
 3. Find issue ticket with {{args}} number
 4. If there's no ticket with {{args}} number on git hub notify user and return.
 
-### Creating requirements 
+### Creating requirements .design-specs/specs/requirements-{{args}}.md
 
 1. check local folder .design-specs on the root of project. If folder does not exist notify user and return.
 Use the exact structure from `.design-specs/templates/requirements-template.md`
@@ -34,7 +34,7 @@ Use the exact structure from `.design-specs/templates/requirements-template.md`
 3. Create .design-specs/specs/requirements-{{args}}.md if file already exists update it. Write created requirements to it. if there's Backend block. use only it
 4. Show to user changes you going to apply and ask if they are ok. After confirmation apply changes
 
-## PHASE 2: Design Creation
+## PHASE 2: Design Creation .design-specs/specs/requirements-{{args}}.md
 
 **Template to Follow**: Use the exact structure from `.design-specs/templates/design-template.md`
 
