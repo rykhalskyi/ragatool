@@ -14,7 +14,8 @@ from app.internal.temp_file_helper import TempFileHelper
 
 # Import LangChain loaders
 from langchain_community.document_loaders import Docx2txtLoader
-from langchain_community.document_loaders import PDFPlumberLoader
+from langchain_community.document_loaders import PyPDFLoader
+#from langchain_community.document_loaders import PyMuPDFLoader
 
 class ImportBase(ABC):
     name: str
@@ -41,15 +42,19 @@ class ImportBase(ABC):
                 temp_file_path = TempFileHelper.save_temp(file_content_bytes, file_name)
 
                 try:
+                    loader = None
                     if file_extension == ".docx":
                         loader = Docx2txtLoader(temp_file_path)
                         message_hub.send_message(collection_id, MessageType.INFO, f"Parsing DOCX file '{file_name}' with Docx2txtLoader.")
                     elif file_extension == ".pdf":
-                        loader = PDFPlumberLoader(temp_file_path)
+                        
+                        loader = PyPDFLoader(temp_file_path)
                         message_hub.send_message(collection_id, MessageType.INFO, f"Parsing PDF file '{file_name}' with PDFPlumberLoader.")
                     
-                    docs = loader.load()
-                    extracted_text = "\n".join([doc.page_content for doc in docs])
+                    if loader != None:
+                        docs = loader.load() 
+                        extracted_text = "\n".join([doc.page_content.replace('\n','') for doc in docs])
+
                 except Exception as e:
                     message_hub.send_message(collection_id, MessageType.INFO, f"Error parsing {file_extension.upper()} file '{file_name}': {e}")
                     raise RuntimeError(f"Failed to parse {file_extension.upper()} file '{file_name}': {e}") from e
@@ -80,12 +85,20 @@ class FileImport(ImportBase):
             )
         )
 
+    def normalize(self, arr):
+        return arr / np.linalg.norm(arr, axis=1, keepdims=True)
+
     async def import_data(self, collection_id: str, file_name: str, file_content_bytes: bytes, import_params: Import, message_hub:MessageHub, cancel_event: Event) -> None: # Modified signature
         file_extension = Path(file_name).suffix.lower()
         try:
             message_hub.send_message(collection_id,  MessageType.LOCK, f"Starting import of {file_name}")
                           
             text_content = await self.prepare_data(collection_id, file_name, file_content_bytes, message_hub)
+
+            # This will create 'newfile.txt' if it doesn't exist
+            with open("parsed_pdf.txt", "w") as file:
+                 file.write(text_content)
+
 
             chunks = []
             if not import_params.settings.no_chunks:
@@ -97,12 +110,12 @@ class FileImport(ImportBase):
 
             #new embedder
             embedder = TextEmbedding("sentence-transformers/all-MiniLM-L6-v2")
-            embeddings = np.array(list(embedder.embed(chunks)))
+            embeddings = self.normalize(np.array(list(embedder.embed(chunks))))
 
             message_hub.send_message(collection_id, MessageType.INFO, "Embeddings created. Saving to Database....")
 
             client = chromadb.PersistentClient(path="./chroma_data")
-            collection = client.get_or_create_collection(name=collection_id)
+            collection = client.get_or_create_collection(name=collection_id, metadata={"hnsw:space": "cosine"} )
 
             ts = int(time.time())
             # ---- batching logic ----

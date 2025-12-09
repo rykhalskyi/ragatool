@@ -17,7 +17,7 @@ RUN pip install --upgrade pip
 RUN pip install fastembed beautifulsoup4 \ 
  && pip install fastapi uvicorn\ 
  && pip install chromadb fastmcp python-multipart\
- && pip install langchain_community pdfplumber docx2txt
+ && pip install langchain_community pypdf docx2txt
 
 ###########################################
 # Stage 2 — Lightweight runtime
