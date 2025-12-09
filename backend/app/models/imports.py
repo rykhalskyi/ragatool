@@ -85,20 +85,12 @@ class FileImport(ImportBase):
             )
         )
 
-    def normalize(self, arr):
-        return arr / np.linalg.norm(arr, axis=1, keepdims=True)
-
     async def import_data(self, collection_id: str, file_name: str, file_content_bytes: bytes, import_params: Import, message_hub:MessageHub, cancel_event: Event) -> None: # Modified signature
         file_extension = Path(file_name).suffix.lower()
         try:
             message_hub.send_message(collection_id,  MessageType.LOCK, f"Starting import of {file_name}")
                           
             text_content = await self.prepare_data(collection_id, file_name, file_content_bytes, message_hub)
-
-            # This will create 'newfile.txt' if it doesn't exist
-            with open("parsed_pdf.txt", "w") as file:
-                 file.write(text_content)
-
 
             chunks = []
             if not import_params.settings.no_chunks:
@@ -110,7 +102,7 @@ class FileImport(ImportBase):
 
             #new embedder
             embedder = TextEmbedding("sentence-transformers/all-MiniLM-L6-v2")
-            embeddings = self.normalize(np.array(list(embedder.embed(chunks))))
+            embeddings = np.array(list(embedder.embed(chunks)))
 
             message_hub.send_message(collection_id, MessageType.INFO, "Embeddings created. Saving to Database....")
 

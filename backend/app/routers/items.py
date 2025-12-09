@@ -29,7 +29,7 @@ def query_database(collection_id: str, payload: QueryRequest):
         collection = client.get_collection(name=collection_id)
         embedder = TextEmbedding("sentence-transformers/all-MiniLM-L6-v2")
 
-        query_emb = normalize(np.array(list(embedder.embed([payload.query]))))
+        query_emb = np.array(list(embedder.embed([payload.query])))
 
 
         results = collection.query(query_embeddings=query_emb.tolist(), n_results=payload.n_results)
@@ -39,5 +39,6 @@ def query_database(collection_id: str, payload: QueryRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-def normalize(arr):
-        return arr / np.linalg.norm(arr, axis=1, keepdims=True)
+#Normalization if needed
+#def normalize(arr):
+#        return arr / np.linalg.norm(arr, axis=1, keepdims=True)
