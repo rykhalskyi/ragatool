@@ -1,24 +1,25 @@
 description = "Creates requirements.md based on issue ticket from github for <issue_number>"
 prompt = """
-Create a file requiements-{{args}}.md in folder .design-specs/specs/ int the root directory of this
-project. the folder have already existed. **No code implementation in this command.**
+
+Create a file requiements-{{args}}.md and design-{{args}}.md in folder .design-specs/specs/ int the root directory of this
+project. the folder have already existed. 
+
+**If exists BACKEND section in ticket, use it only**
+**Important: DO NOT IMPLEMENT CODE IN THIS COMMAND!!**
 
 Follow this steps:
 
-PHASE 1: Requirements Creation
-
-### Download ticket from github
+## PHASE 1: Requirements Creation 
 
 1. Use gitHub mcp server.
 2. Check my projects and then check issues of ragatouille project.
 3. Find issue ticket with {{args}} number
 4. If there's no ticket with {{args}} number on git hub notify user and return.
 
-### Creating requirements .design-specs/specs/requirements-{{args}}.md
-
-1. check local folder .design-specs on the root of project. If folder does not exist notify user and return.
+5. check local folder .design-specs on the root of project. If folder does not exist notify user and return.
 Use the exact structure from `.design-specs/templates/requirements-template.md`
-2. **Generate Requirements Document**
+6. **Generate Requirements Document**
+   - Use fetched from github ticket, if there's BACKEND section - use it only.
    - Use the requirements template structure precisely
    - **Align with product.md**: Ensure requirements support the product vision and goals
    - Create user stories in "As a [role], I want [feature], so that [benefit]" format
@@ -31,10 +32,10 @@ Use the exact structure from `.design-specs/templates/requirements-template.md`
     - **Use exact structure**: Follow all sections and formatting from the template
     - **Include all sections**: Don't omit any required template sections
 
-3. Create .design-specs/specs/requirements-{{args}}.md if file already exists update it. Write created requirements to it. if there's Backend block. use only it
-4. Show to user changes you going to apply and ask if they are ok. After confirmation apply changes
+7. Create .design-specs/specs/requirements-{{args}}.md if file already exists update it. Write created requirements to it.
+8. Show to user changes you going to apply and ask if they are ok. After confirmation apply changes
 
-## PHASE 2: Design Creation .design-specs/specs/requirements-{{args}}.md
+## PHASE 2: Design Creation
 
 **Template to Follow**: Use the exact structure from `.design-specs/templates/design-template.md`
 
@@ -64,7 +65,7 @@ Use the exact structure from `.design-specs/templates/requirements-template.md`
 - **Use exact structure**: Follow all sections and formatting from the template
 - **Include Mermaid diagrams**: Add visual representations as shown in template
 
-4. Show to user changes you going to apply and ask if they are ok. After confirmation apply changes
- - Create a file design-{{args}}.md in folder .design-specs/specs/ , save created design to it
+4. Show to user changes you going to apply and ask if they are ok. Ask about confirmation. After confirmation apply changes
+ - Create a file  .design-specs/specs/design-{{args}}.md in folder .design-specs/specs/ , save created design to it
 
 """

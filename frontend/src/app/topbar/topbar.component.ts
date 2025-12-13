@@ -8,6 +8,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { CollectionRefreshService } from '../collection-refresh.service';
 import { McpService } from '../client';
 import { TaskCachingService } from '../task-caching.service';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-topbar',
@@ -18,9 +19,11 @@ import { TaskCachingService } from '../task-caching.service';
 })
 export class TopbarComponent implements OnInit {
 
+
     constructor(public dialog: MatDialog, 
     private collectionRefreshService: CollectionRefreshService,
-    private taskCashedService: TaskCachingService){}
+    private taskCashedService: TaskCachingService,
+    private router: Router){}
   
   ngOnInit(): void {
     // just to initialize
@@ -57,6 +60,10 @@ export class TopbarComponent implements OnInit {
     console.log('toggle', event.checked);
     await McpService.setMcpEnabledMcpMcpEnabledPut({enabled : event.checked});
 
+  }
+
+  protected settings_click() {
+      this.router.navigate(['/settings']);
   }
 
 }

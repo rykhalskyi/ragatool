@@ -1,0 +1,19 @@
+<div class="settings-container">
+  <div class="header">
+      <h1>Settings</h1>
+      <button mat-raised-button color="primary" type="button" (click)="saveSettings()">Save</button>
+  </div>
+  
+  @if (settings$ | async; as settings) {
+    @for (setting of settings; track setting.name) {
+      <div class="setting-item">
+        <mat-slide-toggle
+          [checked]="setting.value === 'true'"
+          (change)="updateSetting(setting, $event)">
+          {{ setting.name }}
+        </mat-slide-toggle>
+        <p class="setting-description">{{ setting.description }}</p>
+      </div>
+    }
+  }
+</div>

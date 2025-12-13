@@ -18,6 +18,9 @@ export type { Import } from './models/Import';
 export { ImportType } from './models/ImportType';
 export type { MCPEnabledRequest } from './models/MCPEnabledRequest';
 export type { Message } from './models/Message';
+export type { QueryRequest } from './models/QueryRequest';
+export type { Setting } from './models/Setting';
+export type { SettingCreate } from './models/SettingCreate';
 export type { Task } from './models/Task';
 export type { ValidationError } from './models/ValidationError';
 
@@ -26,4 +29,5 @@ export { DefaultService } from './services/DefaultService';
 export { ImportService } from './services/ImportService';
 export { LogsService } from './services/LogsService';
 export { McpService } from './services/McpService';
+export { SettingsService } from './services/SettingsService';
 export { TasksService } from './services/TasksService';

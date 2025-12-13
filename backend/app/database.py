@@ -54,6 +54,19 @@ def create_tables(conn: Optional[Connection] = None):
         message TEXT
     )
     """)
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS settings (
+        name TEXT PRIMARY KEY,
+        value TEXT,
+        description TEXT
+    )
+    """)
+
+    cursor.execute("""
+    INSERT OR IGNORE INTO settings (name, value, description) 
+    VALUES ('TwoStepImport', 'False', 'Divide import to 2 steps. Collect and preview data and then make import')
+    """)
     
     conn.commit()
     if close_conn:
