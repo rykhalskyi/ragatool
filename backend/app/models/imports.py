@@ -25,9 +25,32 @@ class ImportBase(ABC):
     async def import_data(self, collection_id: str, file_name: str, file_content_bytes: bytes, import_params: Import, message_hub:MessageHub, cancel_event:Event) -> None: # Modified signature
         pass
 
+    @abstractmethod
+    async def prepare_data(self, collection_id: str, file_name: str, file_content_bytes: bytes, message_hub: MessageHub) -> str:
+        pass    
+
     def create_chunks(self, text: str, chunk_size: int, chunk_overlap: int) -> List[str]:
         return [text[i:i+chunk_size] for i in range(0, len(text), chunk_size - chunk_overlap)]
 
+
+        
+from app.schemas.imports import Import, FileImportSettings
+
+class FileImport(ImportBase):
+    name = "FILE"
+
+    @staticmethod
+    def getDefault() -> Import:
+        return Import(
+            name="FILE",
+            model="all-MiniLM-L6-v2",
+            settings=FileImportSettings(
+                chunk_size=800,
+                chunk_overlap=80,
+                no_chunks=False
+            )
+        )
+    
     async def prepare_data(self, collection_id: str, file_name: str, file_content_bytes: bytes, message_hub: MessageHub) -> str:
         """
         Prepares file content for chunking.
@@ -67,23 +90,6 @@ class ImportBase(ABC):
                 TempFileHelper.remove_temp(temp_file_path)
         
         return extracted_text
-        
-from app.schemas.imports import Import, FileImportSettings
-
-class FileImport(ImportBase):
-    name = "FILE"
-
-    @staticmethod
-    def getDefault() -> Import:
-        return Import(
-            name="FILE",
-            model="all-MiniLM-L6-v2",
-            settings=FileImportSettings(
-                chunk_size=800,
-                chunk_overlap=80,
-                no_chunks=False
-            )
-        )
 
     async def import_data(self, collection_id: str, file_name: str, file_content_bytes: bytes, import_params: Import, message_hub:MessageHub, cancel_event: Event) -> None: # Modified signature
         file_extension = Path(file_name).suffix.lower()

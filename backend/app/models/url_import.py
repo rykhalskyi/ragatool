@@ -14,7 +14,6 @@ from app.schemas.imports import FileImportSettings, Import
 class UrlImport(ImportBase):
     name = 'URL'
 
-
     @staticmethod
     def getDefault() -> Import:
         return Import(
@@ -26,6 +25,10 @@ class UrlImport(ImportBase):
                 no_chunks=True
             )
         )
+    
+    async def prepare_data(self, collection_id: str, file_name: str, file_content_bytes: bytes, message_hub: MessageHub) -> str:
+         extracted_text = file_content_bytes.decode("utf-8")
+         return extracted_text
     
     async def import_data(self, collection_id: str, file_name: str, file_content_bytes: bytes, import_params: Import, message_hub:MessageHub, cancel_event: Event) -> None: # Modified signature
         message_hub.send_message(collection_id,  MessageType.LOCK, f"Starting import of {file_name}")

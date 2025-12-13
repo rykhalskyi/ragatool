@@ -3,7 +3,7 @@ from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
 from collections import deque
 
-def simple_crawl(start_url, max_depth=2):
+def simple_crawl(start_url, max_depth=1):
     visited = set()
     queue = deque([(start_url, 0)])
     domain = urlparse(start_url).netloc
