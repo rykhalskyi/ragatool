@@ -79,11 +79,13 @@ class BackgroundTaskDispatcher:
         with self.lock:
             if task_id in self.waiting_tasks:
                 del self.waiting_tasks[task_id]
-                crud_task.update_task_status(self.db, task_id, "CANCELLED")
+                crud_task.update_task_status(self.db, task_id, "CANCELLING")
+                self.message_hub.send_task_message('Task cancelled')
                 return True
             elif task_id in self.running_tasks:
                 self.running_tasks[task_id].set()
-                crud_task.update_task_status(self.db, task_id, "CANCELLED")
+                crud_task.update_task_status(self.db, task_id, "CANCELLING")
+                self.message_hub.send_task_message('Task cancelled')
                 return True
         return False
 

@@ -10,7 +10,7 @@ def cancellable_dummy_task(collection_id: str, duration, cancel_event: threading
     while (time.time() - start_time) < duration:
         if cancel_event.is_set():
             # Task was cancelled
-            return "cancelled"
+            return "cancelling"
         time.sleep(0.01)
     return "completed"
 
@@ -59,7 +59,7 @@ class TestBackgroundTaskDispatcher(unittest.TestCase):
             self.assertTrue(dispatcher.cancel_task(task_id_to_cancel))
             
             # Assert that the task status was updated to CANCELLED
-            mock_crud_task.update_task_status.assert_called_with(self.mock_db, task_id_to_cancel, "CANCELLED")
+            mock_crud_task.update_task_status.assert_called_with(self.mock_db, task_id_to_cancel, "CANCELLING")
             
             # Assert that the task is no longer in waiting_tasks
             with dispatcher.lock:
@@ -67,7 +67,7 @@ class TestBackgroundTaskDispatcher(unittest.TestCase):
             
             # Clean up the long running task
             dispatcher.cancel_task(long_task_id)
-            mock_crud_task.update_task_status.assert_called_with(self.mock_db, long_task_id, "CANCELLED")
+            mock_crud_task.update_task_status.assert_called_with(self.mock_db, long_task_id, "CANCELLING")
             dispatcher.stop()
 
     def test_cancel_running_task(self):
@@ -92,7 +92,7 @@ class TestBackgroundTaskDispatcher(unittest.TestCase):
             self.assertTrue(dispatcher.cancel_task(task_id))
             
             # Assert that the task status was updated to CANCELLED
-            mock_crud_task.update_task_status.assert_called_with(self.mock_db, task_id, "CANCELLED")
+            mock_crud_task.update_task_status.assert_called_with(self.mock_db, task_id, "CANCELLING")
             
             # Give the task some time to acknowledge the cancellation
             time.sleep(0.1)

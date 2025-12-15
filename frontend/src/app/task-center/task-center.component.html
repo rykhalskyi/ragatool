@@ -1,0 +1,20 @@
+<div class="list">
+  @for (task of tasks; track tasks) {
+      <div class="item">
+        <div>
+          {{ task.name }}
+        </div>
+        <div class="collection">
+          Collection: {{ task.collectionId}}
+        </div>
+        <div class="status">
+            <span [ngStyle]="{'color': task.status === 'RUNNING' ? 'green' : 'red'}">
+            {{ task.status | uppercase }}
+            </span>
+          <button mat-icon-button (click)="cancelTask(task.id)" >
+            <mat-icon>cancel</mat-icon>
+          </button>
+        </div>
+      </div>
+  }
+</div>

@@ -13,6 +13,7 @@ import { environment } from '../environments/environment'; // Import the environ
   styleUrl: './app.component.scss'
 })
 export class AppComponent {
+
   title = 'ragatouille';
 
   isDragging = false;

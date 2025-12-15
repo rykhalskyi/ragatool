@@ -1,6 +1,6 @@
 <div class="topbar-content">
   <div class="controls" >
-  <img src="assets/ragatouille_logo1_sm.png" height="32" width="32" alt="logo"> 
+  <img src="assets/ragatouille_logo1_sm.png" height="32" width="32" alt="logo">
     <span class="title"> Ragatouille   </span>
 
     <button mat-button class="menu-button" (click)="openAddCollectionDialog()">
@@ -14,8 +14,15 @@
     </button>
 
   </div>
-  
-  
+
+<div>
+    <button #taskCenterButton mat-button class="menu-button" 
+        (click)="openTaskCenter()"
+        matTooltip="TaskCenter" >
+      <mat-icon [matBadge]="taskCount" [matBadgeHidden]="(taskCount < 1)">notifications</mat-icon>
+    </button>
+
     <mat-slide-toggle (change)="onToggleChange($event)">MCP ON</mat-slide-toggle>
-  
+  </div>
+
 </div>

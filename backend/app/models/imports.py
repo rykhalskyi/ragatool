@@ -97,6 +97,11 @@ class FileImport(ImportBase):
             message_hub.send_message(collection_id,  MessageType.LOCK, f"Starting import of {file_name}")
                           
             text_content = await self.prepare_data(collection_id, file_name, file_content_bytes, message_hub)
+            
+            if cancel_event.is_set():
+                 message_hub.send_message(collection_id, MessageType.UNLOCK, f"Import of {file_name} was cancelled")
+                 message_hub.send_message(collection_id, MessageType.LOG, f"CANCELLED Import {file_extension.upper()} from {file_name} {len(chunks)} chunks of length {import_params.settings.chunk_size}, overlap {import_params.settings.chunk_overlap}.")
+                 return
 
             chunks = []
             if not import_params.settings.no_chunks:
@@ -110,6 +115,11 @@ class FileImport(ImportBase):
             embedder = TextEmbedding("sentence-transformers/all-MiniLM-L6-v2")
             embeddings = np.array(list(embedder.embed(chunks)))
 
+            if cancel_event.is_set():
+                 message_hub.send_message(collection_id, MessageType.UNLOCK, f"Import of {file_name} was cancelled")
+                 message_hub.send_message(collection_id, MessageType.LOG, f"CANCELLED Import {file_extension.upper()} from {file_name} {len(chunks)} chunks of length {import_params.settings.chunk_size}, overlap {import_params.settings.chunk_overlap}.")
+                 return
+
             message_hub.send_message(collection_id, MessageType.INFO, "Embeddings created. Saving to Database....")
 
             client = chromadb.PersistentClient(path="./chroma_data")
@@ -121,6 +131,11 @@ class FileImport(ImportBase):
 
             batch_num = 1
             for start in range(0, len(chunks), max_batch_size):
+                if cancel_event.is_set():
+                    message_hub.send_message(collection_id, MessageType.UNLOCK, f"Import of {file_name} was cancelled")
+                    message_hub.send_message(collection_id, MessageType.LOG, f"CANCELLED Import {file_extension.upper()} from {file_name} {len(chunks)} chunks of length {import_params.settings.chunk_size}, overlap {import_params.settings.chunk_overlap}.")
+                    return
+
                 end = start + max_batch_size
 
                 batch_chunks = chunks[start:end]

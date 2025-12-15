@@ -8,6 +8,7 @@ import { LogStreamService } from './log-stream.service';
 @Injectable({
   providedIn: 'root',
 })
+
 export class TaskCachingService implements OnDestroy {
   private tasksSubject = new BehaviorSubject<Task[]>([]);
   tasks$ = this.tasksSubject.asObservable();
