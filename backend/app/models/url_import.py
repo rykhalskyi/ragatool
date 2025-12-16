@@ -33,11 +33,20 @@ class UrlImport(ImportBase):
     async def import_data(self, collection_id: str, file_name: str, file_content_bytes: bytes, import_params: Import, message_hub:MessageHub, cancel_event: Event) -> None: # Modified signature
         message_hub.send_message(collection_id,  MessageType.LOCK, f"Starting import of {file_name}")
         message_hub.send_message(collection_id, MessageType.INFO, f"Crawling and parsing {file_name} ....")
-        pages = simple_crawler.simple_crawl(file_name)
+        pages = simple_crawler.simple_crawl(file_name, cancel_event)
+
+        if pages == None:
+             message_hub.send_message(collection_id, MessageType.LOG, f"NOTHING imported from {file_name}. Parsed no pages.")
+             return
 
         message_hub.send_message(collection_id, MessageType.INFO, f"Parsed {len(pages)} pages")
 
         for page in pages:
+            if cancel_event.is_set():
+                 message_hub.send_message(collection_id, MessageType.UNLOCK, f"Import of {file_name} was cancelled")
+                 message_hub.send_message(collection_id, MessageType.LOG, f"CANCELLED Import from {file_name} chunks of length {import_params.settings.chunk_size}, overlap {import_params.settings.chunk_overlap}.") 
+                 return
+            
             await self.__import_data_internal(collection_id, page["url"], page["text"], import_params, message_hub,cancel_event )
 
         message_hub.send_message(collection_id, MessageType.UNLOCK, f"Import of {file_name} completed.")
@@ -57,6 +66,11 @@ class UrlImport(ImportBase):
             embeddings = np.array(list(embedder.embed(chunks)))
             message_hub.send_message(collection_id, MessageType.INFO, "Embeddings created. Saving to Database....")
 
+            if cancel_event.is_set():
+                 message_hub.send_message(collection_id, MessageType.UNLOCK, f"Import of {file_name} was cancelled")
+                 message_hub.send_message(collection_id, MessageType.LOG, f"CANCELLED Import from {file_name} {len(chunks)} chunks of length {import_params.settings.chunk_size}, overlap {import_params.settings.chunk_overlap}.")
+                 return
+
             client = chromadb.PersistentClient(path="./chroma_data")
             collection = client.get_or_create_collection(name=collection_id)
 
@@ -66,6 +80,11 @@ class UrlImport(ImportBase):
 
             batch_num = 1
             for start in range(0, len(chunks), max_batch_size):
+                if cancel_event.is_set():
+                    message_hub.send_message(collection_id, MessageType.UNLOCK, f"Import of {file_name} was cancelled")
+                    message_hub.send_message(collection_id, MessageType.LOG, f"CANCELLED Import from {file_name} {len(chunks)} chunks of length {import_params.settings.chunk_size}, overlap {import_params.settings.chunk_overlap}.")
+                    return
+
                 end = start + max_batch_size
 
                 batch_chunks = chunks[start:end]

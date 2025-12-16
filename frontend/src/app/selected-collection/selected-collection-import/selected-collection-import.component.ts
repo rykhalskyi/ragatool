@@ -4,6 +4,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule, MatSelectChange } from '@angular/material/select'; // Import MatSelectChange
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { ImportService } from '../../client/services/ImportService';
@@ -20,7 +21,8 @@ import { Body_import_file_import__collection_id__post } from '../../client/model
 import { UrlImportDialog } from '../url-import-dialog/url-import-dialog';
 import { Body_import_url_import_url__colletion_id__post } from '../../client/models/Body_import_url_import_url__colletion_id__post';
 import { CollectionDetailsComponent } from '../collection-details/collection-details.component';
-import { CollectionDetails } from '../../client';
+import { CollectionDetails, Task } from '../../client';
+import { TaskCenterService } from '../../task-center/task-center.service';
 
 @Component({
   selector: 'app-selected-collection-import',
@@ -33,7 +35,8 @@ import { CollectionDetails } from '../../client';
     MatButtonModule,
     ReactiveFormsModule,
     MatProgressBarModule,
-    CollectionDetailsComponent
+    CollectionDetailsComponent,
+    MatIconModule
   ],
   templateUrl: './selected-collection-import.component.html',
   styleUrl: './selected-collection-import.component.scss',
@@ -42,20 +45,22 @@ import { CollectionDetails } from '../../client';
 
 @UntilDestroy()
 export class SelectedCollectionImportComponent implements OnInit, OnChanges{
+
   @Input() collection: ExtendedCollection | undefined;
   @Input() collectionDetails: WritableSignal<CollectionDetails | null> = signal(null);
 
   importForm!: FormGroup;
   importTypes: Import[] = [];
   showProgressBar = signal(false);
+  task = signal<Task | undefined>(undefined);
   infoString = signal<string>("");
   
-
   constructor(
     private fb: FormBuilder,
     private logStreamService: LogStreamService,
     private taskCachingService: TaskCachingService,
-    private dialog: MatDialog
+    private dialog: MatDialog,
+    private readonly taskCenterService: TaskCenterService
   ) {}
 
   async ngOnInit(): Promise<void> {
@@ -80,6 +85,7 @@ export class SelectedCollectionImportComponent implements OnInit, OnChanges{
       .subscribe(tasks => {
         const task = tasks.find(i => i.collectionId === this.collection?.id);
         this.showProgressBar.set(task ? true : false);
+        this.task.set(task);
       });
 
      if (this.collection?.saved && this.collection?.import_type)
@@ -249,5 +255,9 @@ export class SelectedCollectionImportComponent implements OnInit, OnChanges{
   private collectionIsSaved(): boolean {
     return (this.collection?.saved) ?? false;
   }
+
+  async cancelTask(arg0: any) {
+      await this.taskCenterService.cancelTask(this.task()!.id);
+  } 
 }
 

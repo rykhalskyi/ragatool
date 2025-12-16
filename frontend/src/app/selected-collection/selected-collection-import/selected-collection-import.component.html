@@ -26,10 +26,20 @@
       <app-collection-details [collectionDetails]="collectionDetails()"></app-collection-details>
 
   </div>
- @if (showProgressBar()) {
+ @if (showProgressBar() && task() !== undefined) {
     <div class="import-progress-bar" data-testid="import-progress-bar">
-      <mat-progress-bar mode="indeterminate"></mat-progress-bar>
-      <p>{{ infoString() }}</p>
+      <div class="progressbar-line">
+        <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+        <button mat-icon-button (click)="cancelTask(task()!.id)" >
+            <mat-icon>cancel</mat-icon>
+        </button>
+      </div>
+      <p>
+        <span [ngStyle]="{'color': task()!.status === 'RUNNING' ? 'green' : 'red'}">
+            {{ task()!.status | uppercase }}
+         </span> 
+         {{ infoString() }}
+      </p>
     </div>
   }
 </div>

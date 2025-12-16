@@ -1,9 +1,10 @@
+from threading import Event
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
 from collections import deque
 
-def simple_crawl(start_url, max_depth=1):
+def simple_crawl(start_url, cancel_event: Event, max_depth=1):
     visited = set()
     queue = deque([(start_url, 0)])
     domain = urlparse(start_url).netloc
@@ -11,6 +12,9 @@ def simple_crawl(start_url, max_depth=1):
     results = []   # ← list of {url, text}
 
     while queue:
+        if cancel_event.is_set():
+            return
+
         url, depth = queue.popleft()
         if url in visited or depth > max_depth:
             continue
@@ -37,6 +41,9 @@ def simple_crawl(start_url, max_depth=1):
 
         # Extract and process internal links
         for a in soup.find_all("a", href=True):
+            if cancel_event.is_set():
+                return 
+
             link = urljoin(url, a["href"])
             parsed = urlparse(link)
 

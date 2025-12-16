@@ -18,3 +18,10 @@
   display: flex;
   flex-direction: row;
 }
+
+.progressbar-line{
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 16px;
+}
