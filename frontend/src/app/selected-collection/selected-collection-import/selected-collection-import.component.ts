@@ -48,6 +48,7 @@ export class SelectedCollectionImportComponent implements OnInit, OnChanges{
 
   @Input() collection: ExtendedCollection | undefined;
   @Input() collectionDetails: WritableSignal<CollectionDetails | null> = signal(null);
+  @Input() filesImported: boolean = false;
 
   importForm!: FormGroup;
   importTypes: Import[] = [];

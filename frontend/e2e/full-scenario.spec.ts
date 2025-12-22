@@ -67,14 +67,12 @@ test.describe('Full E2E Scenario', () => {
       await page.getByText('Dracula').click();
       await expect(page).toHaveURL(/\/collection\/.*/);
 
-      await page.getByTestId('import-select').click();
-      await page.getByRole('option', { name: 'FILE' }).click();
+      await page.getByTestId('import-button').click();
+      await page.getByRole('button', { name: 'Pick File' }).click();
 
       // Close the dropdown by pressing Escape
-      await page.keyboard.press('Escape');
+     // await page.keyboard.press('Escape');
 
-      // Click the Import File button to open the dialog
-      await page.getByRole('button', { name: 'Import File' }).click();
       
       // Assert that the import dialog is shown
       await expect(page.getByRole('heading', { name: /Import File to .*/ })).toBeVisible();
@@ -83,7 +81,7 @@ test.describe('Full E2E Scenario', () => {
       const fileChooser = await fileChooserPromise;
       await fileChooser.setFiles(draculaFilePath);
 
-      await page.getByRole('button', { name: 'Import' }).click();
+      await page.getByRole('button', { name: 'Pick File' }).click();
 
       await expect(page.getByText('Import completed')).toBeVisible({ timeout: 60000 });
       await page.getByRole('button', { name: 'Close' }).click();

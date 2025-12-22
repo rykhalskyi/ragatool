@@ -23,7 +23,7 @@
       <button mat-raised-button type="button" class="import-control" color="accent" (click)="openSelectedImportDialog()" [disabled]="!importForm.get('importType')?.value" data-testid="import-button">Import</button>
     </form>
 
-      <app-collection-details [collectionDetails]="collectionDetails()"></app-collection-details>
+      <app-collection-details [collectionDetails]="collectionDetails()" [filesImported]="filesImported"></app-collection-details>
 
   </div>
  @if (showProgressBar() && task() !== undefined) {

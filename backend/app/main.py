@@ -2,7 +2,7 @@ import os
 import threading
 from fastapi import FastAPI
 from app.dependencies import get_message_hub, get_message_hub_instance
-from app.routers import items, collections, tasks, imports, mcp, logs, settings
+from app.routers import items, collections, tasks, imports, mcp, logs, settings, files
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import create_tables, get_db_connection
 from contextlib import asynccontextmanager
@@ -59,6 +59,7 @@ app.include_router(imports.router, prefix="/import", tags=["import"])
 app.include_router(mcp.router, prefix="/mcp", tags=["mcp"])
 app.include_router(logs.router, prefix="/logs", tags=["logs"])
 app.include_router(settings.router, prefix="/settings", tags=["settings"])
+app.include_router(files.router, prefix="/files", tags=["files"])
 
 @app.get("/")
 def read_root():

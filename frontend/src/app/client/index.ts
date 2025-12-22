@@ -14,6 +14,7 @@ export type { Body_import_url_import_url__colletion_id__post } from './models/Bo
 export type { Collection } from './models/Collection';
 export type { CollectionCreate } from './models/CollectionCreate';
 export type { CollectionDetails } from './models/CollectionDetails';
+export type { File } from './models/File';
 export type { FileImportSettings } from './models/FileImportSettings';
 export type { HTTPValidationError } from './models/HTTPValidationError';
 export type { Import } from './models/Import';
@@ -28,6 +29,7 @@ export type { ValidationError } from './models/ValidationError';
 
 export { CollectionsService } from './services/CollectionsService';
 export { DefaultService } from './services/DefaultService';
+export { FilesService } from './services/FilesService';
 export { ImportService } from './services/ImportService';
 export { LogsService } from './services/LogsService';
 export { McpService } from './services/McpService';

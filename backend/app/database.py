@@ -72,7 +72,7 @@ def create_tables(conn: Optional[Connection] = None):
     CREATE TABLE IF NOT EXISTS files (
         id TEXT PRIMARY KEY,
         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-        collectionId TEXT,
+        collection_id TEXT,
         path TEXT,
         source TEXT
     )

@@ -16,6 +16,7 @@ import { DeleteConfirmationDialogComponent } from '../delete-confirmation-dialog
 import { SelectedCollectionImportComponent } from './selected-collection-import/selected-collection-import.component';
 import { LogsViewComponent } from '../logs-view/logs-view';
 import { UntilDestroy, untilDestroyed } from '@ngneat/until-destroy';
+import { File, FilesService } from '../client';
 
 
 export interface ExtendedCollection extends Collection {
@@ -44,6 +45,7 @@ export interface ExtendedCollection extends Collection {
 export class SelectedCollectionComponent implements OnInit {
   collection: ExtendedCollection | undefined;
   collectionDetails = signal<CollectionDetails | null>(null);
+  collectionFiles  = signal<File[] | null>(null);
   isEnabled: boolean = false;
   isEditingDescription = false;
   editedDescription = '';
@@ -63,6 +65,9 @@ export class SelectedCollectionComponent implements OnInit {
         this.fetchCollection(collectionId);
         CollectionsService.readCollectionDetailsCollectionsCollectionIdDetailsGet(collectionId)
         .then(res => this.collectionDetails.set(res));
+
+        FilesService.readFilesFilesCollectionIdGet(collectionId)
+        .then(res => this.collectionFiles.set(res));
       }
     });
   }
