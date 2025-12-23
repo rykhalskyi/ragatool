@@ -29,6 +29,6 @@ class SettingsManager:
         self._cache[name] = value
 
     def check(self, name: SettingsName, value: str) -> bool:
-        return self.get_setting(name) == value 
+        return self.get_setting(name) == value.lower() 
             
             

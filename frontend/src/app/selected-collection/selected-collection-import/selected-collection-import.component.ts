@@ -23,6 +23,7 @@ import { Body_import_url_import_url__colletion_id__post } from '../../client/mod
 import { CollectionDetailsComponent } from '../collection-details/collection-details.component';
 import { CollectionDetails, Task } from '../../client';
 import { TaskCenterService } from '../../task-center/task-center.service';
+import { SettingsService } from '../../settings.service';
 
 @Component({
   selector: 'app-selected-collection-import',
@@ -55,13 +56,15 @@ export class SelectedCollectionImportComponent implements OnInit, OnChanges{
   showProgressBar = signal(false);
   task = signal<Task | undefined>(undefined);
   infoString = signal<string>("");
+  twoStepImport = signal<boolean>(false);
   
   constructor(
     private fb: FormBuilder,
     private logStreamService: LogStreamService,
     private taskCachingService: TaskCachingService,
     private dialog: MatDialog,
-    private readonly taskCenterService: TaskCenterService
+    private readonly taskCenterService: TaskCenterService,
+    private readonly settingsService: SettingsService
   ) {}
 
   async ngOnInit(): Promise<void> {
@@ -99,6 +102,15 @@ export class SelectedCollectionImportComponent implements OnInit, OnChanges{
         this.importForm.get('importType')?.setValue(collectionImport);
      }
 
+     this.settingsService.settings$
+     .pipe(untilDestroyed(this))
+     .subscribe(settings => {
+      const twoStepImort = settings.find(i=>i.name == "TwoStepImport");
+      this.twoStepImport.set(twoStepImort?.value === "true");
+    });
+
+     const twoStepImort = this.settingsService.settings.find(i=>i.name == "TwoStepImport");
+     this.twoStepImport.set(twoStepImort?.value === "true");
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -170,7 +182,8 @@ export class SelectedCollectionImportComponent implements OnInit, OnChanges{
           collectionId: this.collection?.id,
           model: this.collectionIsSaved() ? this.collection!.model! : selectedImportType.model,
           settings: this.collectionIsSaved() ? JSON.parse(this.collection!.settings!) : selectedImportType.settings,
-          saved: this.collection?.saved
+          saved: this.collection?.saved,
+          twoStepImport: this.twoStepImport()
         }
       }).afterClosed().subscribe(result => {
         if (result) {
@@ -187,7 +200,22 @@ export class SelectedCollectionImportComponent implements OnInit, OnChanges{
             })
           };
 
-          ImportService.importFileImportCollectionIdPost(
+          if (this.twoStepImport())
+          {
+            ImportService.importFileStep1ImportStep1CollectionIdPost(
+              result.collectionId,
+              formData
+            ).then(
+              (response: any) => {
+                console.log('File imported successfully:', response);
+              },
+              (error: any) => {
+                console.error('Error importing file:', error);
+              }
+            );
+          }
+          else{
+            ImportService.importFileImportCollectionIdPost(
             result.collectionId,
             formData
           ).then(
@@ -198,6 +226,10 @@ export class SelectedCollectionImportComponent implements OnInit, OnChanges{
               console.error('Error importing file:', error);
             }
           );
+          }
+          
+
+
         }
       });
     }

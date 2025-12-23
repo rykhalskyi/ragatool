@@ -68,14 +68,13 @@ test.describe('Full E2E Scenario', () => {
       await expect(page).toHaveURL(/\/collection\/.*/);
 
       await page.getByTestId('import-button').click();
+      await expect(page.getByRole('heading', { name: /Import File to .*/ })).toBeVisible();
+
       await page.getByRole('button', { name: 'Pick File' }).click();
 
       // Close the dropdown by pressing Escape
      // await page.keyboard.press('Escape');
-
-      
-      // Assert that the import dialog is shown
-      await expect(page.getByRole('heading', { name: /Import File to .*/ })).toBeVisible();
+                
 
       const fileChooserPromise = page.waitForEvent('filechooser');
       const fileChooser = await fileChooserPromise;
