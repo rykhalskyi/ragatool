@@ -1,8 +1,10 @@
 description = "Creates tasks from requirements for <issue_number>"
 prompt = """
 
+**Important: DO NOT IMPLEMENT CODE IN THIS COMMAND!!**
+
 Analyze .design-specs/specs/requirements-{{args}}.md and .design-specs/specs/design-{{args}}.md and create a file tasks-{{args}}.md in folder .design-specs/specs/ int the root directory of this
-project. The folder have already existed
+project. The folder have already exist
 
 ## Tasks Creation
 

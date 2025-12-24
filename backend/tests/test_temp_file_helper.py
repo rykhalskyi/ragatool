@@ -1,3 +1,4 @@
+import builtins
 import os
 import pytest
 from pathlib import Path
@@ -92,3 +93,34 @@ def test_remove_temp_handles_os_error(tmp_path, monkeypatch):
 
     with pytest.raises(OSError, match="Permission denied"):
         TempFileHelper.remove_temp(str(file_path))
+
+def test_get_temp_file_content(monkeypatch):
+    """
+    Test that get_temp_file_content correctly retrieves content and handles errors.
+    """
+    # 1. Test successful content retrieval
+    test_content = "Hello, this is a test."
+    test_file_id = "my_test_file.txt"
+    
+    # Mock tempfile.gettempdir() to control the temporary directory
+    mock_temp_dir = "/fake/temp/dir"
+    monkeypatch.setattr(TempFileHelper.get_temp_file_content.__globals__['tempfile'], 'gettempdir', lambda: mock_temp_dir)
+    
+    # Mock os.path.exists and open
+    full_path = os.path.join(mock_temp_dir, test_file_id)
+    monkeypatch.setattr(os.path, 'exists', lambda path: path == full_path)
+    
+    mock_file_handle = mock.mock_open(read_data=test_content)
+    monkeypatch.setattr(builtins, 'open', mock_file_handle)
+    
+    retrieved_content = TempFileHelper.get_temp_file_content(test_file_id)
+    assert retrieved_content == test_content
+    mock_file_handle.assert_called_once_with(full_path, 'r', encoding='utf-8')
+
+    # 2. Test FileNotFoundError for a non-existent file
+    monkeypatch.setattr(os.path, 'exists', lambda path: False)
+    
+    with pytest.raises(FileNotFoundError):
+        TempFileHelper.get_temp_file_content("non_existent_file.txt")
+
+    
