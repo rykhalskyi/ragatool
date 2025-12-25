@@ -87,7 +87,7 @@ class TempFileHelper:
             raise
 
     @staticmethod
-    def get_temp_file_content(file_id: str) -> str:
+    def get_temp_file_content(file_path: str) -> str:
         """
         Retrieves the content of a temporary file.
 
@@ -101,8 +101,8 @@ class TempFileHelper:
             FileNotFoundError: If the temporary file does not exist.
         """
         try:
-            temp_dir = tempfile.gettempdir()
-            file_path = os.path.join(temp_dir, file_id)
+           # temp_dir = tempfile.gettempdir()
+           # file_path = os.path.join(temp_dir, file_id)
             
             if not os.path.exists(file_path):
                 raise FileNotFoundError(f"Temporary file not found: {file_path}")
@@ -113,11 +113,11 @@ class TempFileHelper:
             logger.info(f"Read content from temporary file: {file_path}")
             return content
         except FileNotFoundError:
-            logger.warning(f"Temporary file not found: {file_id}")
+            logger.warning(f"Temporary file not found: {file_path}")
             raise
         except IOError as e:
-            logger.error(f"Failed to read temporary file {file_id}: {e}")
+            logger.error(f"Failed to read temporary file {file_path}: {e}")
             raise
         except Exception as e:
-            logger.error(f"An unexpected error occurred while reading temporary file {file_id}: {e}")
+            logger.error(f"An unexpected error occurred while reading temporary file {file_path}: {e}")
             raise

@@ -2,11 +2,8 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type File = {
-    id: string;
-    timestamp: string;
-    collection_id: string;
-    path: string;
-    source: string;
+export type ChunkPreviewResponse = {
+    chunks: Array<string>;
+    more_chunks: boolean;
 };
 

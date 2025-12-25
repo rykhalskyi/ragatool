@@ -3,7 +3,7 @@ from sqlite3 import Connection
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.crud.crud_files import get_files_for_collection
+from app.crud.crud_files import get_file, get_files_for_collection
 from app.dependencies import get_db
 from app.internal.temp_file_helper import TempFileHelper
 from app.models.imports import FileImport
@@ -17,9 +17,10 @@ def read_files(collection_id: str, db: Connection = Depends(get_db)):
     return get_files_for_collection(db, collection_id)
 
 @router.post("/content", response_model=ChunkPreviewResponse)
-def get_chunk_preview(request: ChunkPreviewRequest):
+def get_chunk_preview(request: ChunkPreviewRequest, db: Connection = Depends(get_db)):
     try:
-        content = TempFileHelper.get_temp_file_content(request.file_id)
+        filename = get_file(db, request.file_id)
+        content = TempFileHelper.get_temp_file_content(filename.path)
         
         importer = FileImport()
         all_chunks = []

@@ -1,0 +1,83 @@
+<div class="container-margin">
+  <h1 mat-dialog-title>Review and Import</h1>
+  <div mat-dialog-content class="dialog-content">
+    <div class="file-list-container">
+      <p>Prepared Files</p>
+      <div *ngIf="isLoading">Loading files...</div>
+      <div *ngIf="error">{{ error }}</div>
+      <mat-nav-list *ngIf="!isLoading && !error">
+        <a mat-list-item *ngFor="let file of files" (click)="onFileSelected(file)">
+          {{ file.source }}
+        </a>
+      </mat-nav-list>
+      <div *ngIf="!isLoading && !error && files.length === 0">
+        No prepared files found.
+      </div>
+    </div>
+    <div class="content-viewer-container">
+      <div class="form-container">
+
+        <!-- Chunking form will go here -->
+<form class="import-form" [formGroup]="importForm" (ngSubmit)="onImportSubmit()">
+      
+      <div class="row1">
+        <div class="parameters">
+          <mat-form-field appearance="fill" >
+            <mat-label>Model</mat-label>
+            <input matInput formControlName="model" placeholder="Enter model name" [disabled]="true">
+            @if (importForm.get('model')?.hasError('required') && importForm.get('model')?.touched) {
+              <mat-error>
+                Model is required.
+              </mat-error>
+            }
+          </mat-form-field>
+  
+          <mat-form-field appearance="fill" >
+            <mat-label>Chunk Size</mat-label>
+            <input matInput type="number" formControlName="chunkSize" placeholder="Enter chunk size">
+            @if (importForm.get('chunkSize')?.hasError('required') && importForm.get('chunkSize')?.touched) {
+              <mat-error>
+                Chunk size is required.
+              </mat-error>
+            }
+            @if (importForm.get('chunkSize')?.hasError('min') && importForm.get('chunkSize')?.touched) {
+              <mat-error>
+                  Chunk size must be at least 1.
+              </mat-error>
+            }
+          </mat-form-field>
+  
+          <mat-form-field appearance="fill">
+            <mat-label>Chunk Overlap</mat-label>
+            <input matInput type="number" formControlName="chunkOverlap" placeholder="Enter chunk overlap">
+            @if (importForm.get('chunkOverlap')?.hasError('required') && importForm.get('chunkOverlap')?.touched) {
+              <mat-error>
+                Chunk overlap is required.
+              </mat-error>
+            }
+            @if (importForm.get('chunkOverlap')?.hasError('min') && importForm.get('chunkOverlap')?.touched) {
+              <mat-error *ngIf="">
+               Chunk overlap must be at least 0.
+              </mat-error>
+            }
+          </mat-form-field>
+        </div>
+      </div>
+    </form>
+
+        <!-- End of chunking form-->
+      </div>
+      <div class="chunk-viewer">
+        <p>{{ chunk() }}</p>
+      </div>
+      <div>
+        <button mat-button (click)="onPrevious()">prev</button>
+        <button mat-button (click)="onNext()">next</button>
+      </div>
+    </div>
+  </div>
+  <div mat-dialog-actions>
+    <button mat-button (click)="onCancel()">Cancel</button>
+    <button mat-button color="primary" (click)="onImport()">Import</button>
+  </div>
+</div>

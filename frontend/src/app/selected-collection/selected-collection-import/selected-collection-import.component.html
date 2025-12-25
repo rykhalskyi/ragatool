@@ -26,7 +26,7 @@
       @else {
         @if (filesImported)
         {
-            <button mat-raised-button type="button" class="import-control" color="accent" (click)="openSelectedImportDialog()" [disabled]="!importForm.get('importType')?.value" data-testid="import-button">2. Review and vectorize</button>
+            <button mat-raised-button type="button" class="import-control" color="accent" (click)="openPreviewDialog()" [disabled]="!importForm.get('importType')?.value" data-testid="import-button">2. Review and vectorize</button>
         }
         @else {
           <button mat-raised-button type="button" class="import-control" color="accent" (click)="openSelectedImportDialog()" [disabled]="!importForm.get('importType')?.value" data-testid="import-button">1. Load to files</button>

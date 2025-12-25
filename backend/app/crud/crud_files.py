@@ -21,6 +21,12 @@ def get_files_for_collection(db: Connection, collection_id: str) -> List[File]:
     files_rows = cursor.fetchall()
     return [File(**row) for row in files_rows]
 
+def get_file(db:Connection, file_id: str) -> File:
+    db.row_factory = sqlite3.Row
+    cursor = db.execute("SELECT id, timestamp, collection_id, path, source FROM files WHERE id=?", (file_id,))
+    file = cursor.fetchone()
+    return File(**file)
+
 def delete_files_by_collection_id(db: Connection, collection_id: str):
     cursor = db.cursor()
     cursor.execute("DELETE FROM files WHERE collection_id = ?", (collection_id,))
