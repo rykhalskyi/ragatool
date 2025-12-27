@@ -3,7 +3,7 @@ from sqlite3 import Connection
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.crud.crud_files import get_file, get_files_for_collection
+from app.crud.crud_files import delete_files_by_collection_id, get_file, get_files_for_collection
 from app.dependencies import get_db
 from app.internal.temp_file_helper import TempFileHelper
 from app.models.imports import FileImport
@@ -41,3 +41,7 @@ def get_chunk_preview(request: ChunkPreviewRequest, db: Connection = Depends(get
         raise HTTPException(status_code=404, detail="Temporary file not found.")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {e}")
+    
+@router.delete("/{collection_id}")
+def delete_files(collection_id: str, db: Connection = Depends(get_db)):
+    delete_files_by_collection_id(db, collection_id)

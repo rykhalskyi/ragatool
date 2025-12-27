@@ -86,7 +86,10 @@ export class PreviewDialogComponent implements OnInit {
   }
 
   onImport(): void {
-    // Placeholder for import logic
+    this.dialogRef.close({
+        ...this.chunkForm.getRawValue(),
+        collectionId: this.data.collectionId,
+        selectedFile: this.selectedFile});
   }
 
   selectedFile: File | null = null;

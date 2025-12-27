@@ -30,6 +30,26 @@ export class FilesService {
         });
     }
     /**
+     * Delete Files
+     * @param collectionId
+     * @returns any Successful Response
+     * @throws ApiError
+     */
+    public static deleteFilesFilesCollectionIdDelete(
+        collectionId: string,
+    ): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/files/{collection_id}',
+            path: {
+                'collection_id': collectionId,
+            },
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
      * Get Chunk Preview
      * @param requestBody
      * @returns ChunkPreviewResponse Successful Response

@@ -21,10 +21,12 @@ import { Body_import_file_import__collection_id__post } from '../../client/model
 import { UrlImportDialog } from '../url-import-dialog/url-import-dialog';
 import { Body_import_url_import_url__colletion_id__post } from '../../client/models/Body_import_url_import_url__colletion_id__post';
 import { CollectionDetailsComponent } from '../collection-details/collection-details.component';
-import { CollectionDetails, Task } from '../../client';
+import { CollectionDetails, FilesService, Task } from '../../client';
 import { TaskCenterService } from '../../task-center/task-center.service';
 import { SettingsService } from '../../settings.service';
 import { PreviewDialogComponent } from '../preview-dialog/preview-dialog.component';
+import { CollectionRefreshService } from '../../collection-refresh.service';
+import { DeleteConfirmationDialogComponent } from '../../delete-confirmation-dialog/delete-confirmation-dialog.component';
 
 @Component({
   selector: 'app-selected-collection-import',
@@ -48,6 +50,7 @@ import { PreviewDialogComponent } from '../preview-dialog/preview-dialog.compone
 @UntilDestroy()
 export class SelectedCollectionImportComponent implements OnInit, OnChanges{
 
+
   @Input() collection: ExtendedCollection | undefined;
   @Input() collectionDetails: WritableSignal<CollectionDetails | null> = signal(null);
   @Input() filesImported: boolean = false;
@@ -65,7 +68,8 @@ export class SelectedCollectionImportComponent implements OnInit, OnChanges{
     private taskCachingService: TaskCachingService,
     private dialog: MatDialog,
     private readonly taskCenterService: TaskCenterService,
-    private readonly settingsService: SettingsService
+    private readonly settingsService: SettingsService,
+    private readonly collectionRefreshService: CollectionRefreshService,
   ) {}
 
   async ngOnInit(): Promise<void> {
@@ -91,6 +95,7 @@ export class SelectedCollectionImportComponent implements OnInit, OnChanges{
         const task = tasks.find(i => i.collectionId === this.collection?.id);
         this.showProgressBar.set(task ? true : false);
         this.task.set(task);
+        this.collectionRefreshService.triggerRefresh();
       });
 
      if (this.collection?.saved && this.collection?.import_type)
@@ -245,7 +250,7 @@ export class SelectedCollectionImportComponent implements OnInit, OnChanges{
         settings: {
           chunk_size: result.chunkSize,
           chunk_overlap: result.chunkOverlap,
-          no_chunks: result.no_chunks
+          no_chunks: result.no_chunks ?? result.noChunks
         }
       })
     };
@@ -267,13 +272,25 @@ openPreviewDialog() {
       return;
     }
 
-    const commonData = this.getDialogData(selectedImportType);
+   const commonData = this.getDialogData(selectedImportType);
 
   this.dialog.open(PreviewDialogComponent, { data: { ...commonData, twoStepImport: this.twoStepImport() } })
         .afterClosed()
-        .subscribe(result => { /*if (result) this.handleFileImport(result, selectedImportType); */});
+        .subscribe(result => { 
+          if (result) this.handle2ndStepFileImport(result, selectedImportType,);
+         });
       return;
 }
+  async handle2ndStepFileImport(result: any, selectedImportType: Import) {
+     const formData = this.buildUrlFormData(selectedImportType, result);
+     console.log("form_data",formData);
+    try {
+      await ImportService.importFileStep2ImportStep2CollectionIdPost(result.collectionId, formData);
+      console.log('Url imported successfully');
+    } catch (error) {
+      console.error('Error importing Url:', error);
+    }
+  }
 
   compareImportTypes(o1: Import, o2: Import): boolean {
     return o1 && o2 ? o1.name === o2.name : o1 === o2;
@@ -290,5 +307,27 @@ openPreviewDialog() {
   async cancelTask(arg0: any) {
       await this.taskCenterService.cancelTask(this.task()!.id);
   } 
+
+  async onDeleteFiles() {
+    if (!this.collection) return;
+
+    const dialogRef = this.dialog.open(DeleteConfirmationDialogComponent, {
+      data: {
+        title: 'Delete Files',
+        message: `Are you sure you want to delete all files from collection "${this.collection.name}"?`
+      },
+    });
+
+    dialogRef.afterClosed().subscribe(async result => {
+      if (result) {
+        try {
+          await FilesService.deleteFilesFilesCollectionIdDelete(this.collection!.id);
+          this.collectionRefreshService.triggerRefresh();
+        } catch (error) {
+          console.error('Error deleting files:', error);
+        }
+      }
+    });
+  }
 }
 

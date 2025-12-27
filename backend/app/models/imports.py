@@ -182,10 +182,12 @@ class FileImport(ImportBase):
             context.messageHub.send_message(collection_id, MessageType.INFO, "Set 2 Step mode to use this function")
             return
         
+        context.messageHub.send_message(collection_id, MessageType.LOCK, f"Step 1 of import of {file_name} started")
         text_content = await self.prepare_data(collection_id, file_name, file_content_bytes, context.messageHub)
 
         tmp_file = TempFileHelper.save_temp_str(text_content, file_name)
         create_file(context.db, collection_id, tmp_file, file_name)
+        context.messageHub.send_message(collection_id, MessageType.UNLOCK, f"Step 1 of import of {file_name} completed successfully")
 
     
     async def step_2(self, collection_id: str, context: ImportContext, cancel_event:Event) -> None: # Modified signature

@@ -1,4 +1,4 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -17,6 +17,7 @@ import { SelectedCollectionImportComponent } from './selected-collection-import/
 import { LogsViewComponent } from '../logs-view/logs-view';
 import { UntilDestroy, untilDestroyed } from '@ngneat/until-destroy';
 import { File, FilesService } from '../client';
+import { Subscription } from 'rxjs';
 
 
 export interface ExtendedCollection extends Collection {
@@ -42,13 +43,14 @@ export interface ExtendedCollection extends Collection {
   styleUrl: './selected-collection.component.scss'
 })
 
-export class SelectedCollectionComponent implements OnInit {
+export class SelectedCollectionComponent implements OnInit, OnDestroy {
   collection: ExtendedCollection | undefined;
   collectionDetails = signal<CollectionDetails | null>(null);
   collectionFiles  = signal<File[] | null>(null);
   isEnabled: boolean = false;
   isEditingDescription = false;
   editedDescription = '';
+  private refreshSubscription: Subscription | undefined;
 
   constructor(
     private route: ActivatedRoute, 
@@ -70,7 +72,18 @@ export class SelectedCollectionComponent implements OnInit {
         .then(res => this.collectionFiles.set(res));
       }
     });
+    this.refreshSubscription = this.collectionRefreshService.refreshNeeded$.subscribe(() => {
+      if (this.collection) {
+          this.updateInfo();
+      }
+  });
   }
+
+  ngOnDestroy(): void {
+    if (this.refreshSubscription) {
+        this.refreshSubscription.unsubscribe();
+    }
+}
 
   async fetchCollection(collectionId: string): Promise<void> {
     try {
@@ -107,7 +120,10 @@ export class SelectedCollectionComponent implements OnInit {
     if (!this.collection) return;
 
     const dialogRef = this.dialog.open(DeleteConfirmationDialogComponent, {
-      data: { collectionName: this.collection.name },
+      data: { 
+        title: 'Delete Collection',
+        message: `Are you sure you want to delete collection "${this.collection.name}"?`
+      },
     });
 
     dialogRef.afterClosed().subscribe(async result => {
@@ -153,5 +169,15 @@ export class SelectedCollectionComponent implements OnInit {
         console.error('Error updating collection description:', error);
       }
     }
+  }
+
+  async updateInfo(){
+     const collectionId = this.collection!.id;
+     this.fetchCollection(collectionId);
+        CollectionsService.readCollectionDetailsCollectionsCollectionIdDetailsGet(collectionId)
+        .then(res => this.collectionDetails.set(res));
+
+        FilesService.readFilesFilesCollectionIdGet(collectionId)
+        .then(res => this.collectionFiles.set(res));
   }
 }
