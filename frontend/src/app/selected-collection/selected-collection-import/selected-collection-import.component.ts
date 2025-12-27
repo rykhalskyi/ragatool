@@ -21,8 +21,12 @@ import { Body_import_file_import__collection_id__post } from '../../client/model
 import { UrlImportDialog } from '../url-import-dialog/url-import-dialog';
 import { Body_import_url_import_url__colletion_id__post } from '../../client/models/Body_import_url_import_url__colletion_id__post';
 import { CollectionDetailsComponent } from '../collection-details/collection-details.component';
-import { CollectionDetails, Task } from '../../client';
+import { CollectionDetails, FilesService, Task } from '../../client';
 import { TaskCenterService } from '../../task-center/task-center.service';
+import { SettingsService } from '../../settings.service';
+import { PreviewDialogComponent } from '../preview-dialog/preview-dialog.component';
+import { CollectionRefreshService } from '../../collection-refresh.service';
+import { DeleteConfirmationDialogComponent } from '../../delete-confirmation-dialog/delete-confirmation-dialog.component';
 
 @Component({
   selector: 'app-selected-collection-import',
@@ -46,21 +50,26 @@ import { TaskCenterService } from '../../task-center/task-center.service';
 @UntilDestroy()
 export class SelectedCollectionImportComponent implements OnInit, OnChanges{
 
+
   @Input() collection: ExtendedCollection | undefined;
   @Input() collectionDetails: WritableSignal<CollectionDetails | null> = signal(null);
+  @Input() filesImported: boolean = false;
 
   importForm!: FormGroup;
   importTypes: Import[] = [];
   showProgressBar = signal(false);
   task = signal<Task | undefined>(undefined);
   infoString = signal<string>("");
+  twoStepImport = signal<boolean>(false);
   
   constructor(
     private fb: FormBuilder,
     private logStreamService: LogStreamService,
     private taskCachingService: TaskCachingService,
     private dialog: MatDialog,
-    private readonly taskCenterService: TaskCenterService
+    private readonly taskCenterService: TaskCenterService,
+    private readonly settingsService: SettingsService,
+    private readonly collectionRefreshService: CollectionRefreshService,
   ) {}
 
   async ngOnInit(): Promise<void> {
@@ -86,6 +95,7 @@ export class SelectedCollectionImportComponent implements OnInit, OnChanges{
         const task = tasks.find(i => i.collectionId === this.collection?.id);
         this.showProgressBar.set(task ? true : false);
         this.task.set(task);
+        this.collectionRefreshService.triggerRefresh();
       });
 
      if (this.collection?.saved && this.collection?.import_type)
@@ -98,6 +108,15 @@ export class SelectedCollectionImportComponent implements OnInit, OnChanges{
         this.importForm.get('importType')?.setValue(collectionImport);
      }
 
+     this.settingsService.settings$
+     .pipe(untilDestroyed(this))
+     .subscribe(settings => {
+      const twoStepImort = settings.find(i=>i.name == "TwoStepImport");
+      this.twoStepImport.set(twoStepImort?.value === "true");
+    });
+
+     const twoStepImort = this.settingsService.settings.find(i=>i.name == "TwoStepImport");
+     this.twoStepImport.set(twoStepImort?.value === "true");
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -160,87 +179,116 @@ export class SelectedCollectionImportComponent implements OnInit, OnChanges{
   }
 
   openSelectedImportDialog(): void {
-    const selectedImportType = this.importForm.get('importType')?.value;
-
-    if (selectedImportType && selectedImportType.name === 'FILE') {
-      this.dialog.open(FileImportDialog, {
-        data: {
-          collectionName: this.collection?.name,
-          collectionId: this.collection?.id,
-          model: this.collectionIsSaved() ? this.collection!.model! : selectedImportType.model,
-          settings: this.collectionIsSaved() ? JSON.parse(this.collection!.settings!) : selectedImportType.settings,
-          saved: this.collection?.saved
-        }
-      }).afterClosed().subscribe(result => {
-        if (result) {
-          const formData: Body_import_file_import__collection_id__post = {
-            file: result.selectedFile,
-            import_params: JSON.stringify({
-              name: selectedImportType.name,
-              model: result.model,
-              settings: {
-                 chunk_size: result.chunkSize,
-                 chunk_overlap: result.chunkOverlap,
-                 no_chunks: false
-              }
-            })
-          };
-
-          ImportService.importFileImportCollectionIdPost(
-            result.collectionId,
-            formData
-          ).then(
-            (response: any) => {
-              console.log('File imported successfully:', response);
-            },
-            (error: any) => {
-              console.error('Error importing file:', error);
-            }
-          );
-        }
-      });
+    const selectedImportType: Import | null = this.importForm.get('importType')?.value ?? null;
+    if (!selectedImportType) {
+      return;
     }
-    else if (selectedImportType && selectedImportType.name === 'URL'){
-        this.dialog.open(UrlImportDialog, {
-        data: {
-          collectionName: this.collection?.name,
-          collectionId: this.collection?.id,
-          model: this.collectionIsSaved() ? this.collection!.model! : selectedImportType.model,
-          settings: this.collectionIsSaved() ? JSON.parse(this.collection!.settings!) : selectedImportType.settings,
-          saved: this.collection?.saved
-        }}).afterClosed().subscribe(result =>{
-          
-          if (result) {
-            const formData: Body_import_url_import_url__colletion_id__post = {
-              import_params: JSON.stringify({
-                name: selectedImportType.name,
-                model: result.model,
-                settings: {
-                  chunk_size: result.chunkSize,
-                  chunk_overlap: result.chunkOverlap,
-                  no_chunks: result.no_chunks
-                }
-              })
-            };
-             
-            ImportService.importUrlImportUrlColletionIdPost(
-              result.collectionId,
-              result.url,
-              formData).then(
-                (response: any) => {
-                  console.log('Url imported successfully:', response);
-                },
-                (error: any) => {
-                  console.error('Error importing Url:', error);
-                }
-              );
-          }
-        }
-         
-        );
+
+    const commonData = this.getDialogData(selectedImportType);
+
+    if (selectedImportType.name === 'FILE') {
+      this.dialog.open(FileImportDialog, { data: { ...commonData, twoStepImport: this.twoStepImport() } })
+        .afterClosed()
+        .subscribe(result => { if (result) this.handleFileImport(result, selectedImportType); });
+      return;
     }
-    else {
-      console.log('Other import types are not yet implemented.');
+
+    if (selectedImportType.name === 'URL') {
+      this.dialog.open(UrlImportDialog, { data: commonData })
+        .afterClosed()
+        .subscribe(result => { if (result) this.handleUrlImport(result, selectedImportType); });
+      return;
+    }
+
+    console.log('Other import types are not yet implemented.');
+  }
+
+  private getDialogData(selectedImportType: Import) {
+    return {
+      collectionName: this.collection?.name,
+      collectionId: this.collection?.id,
+      model: this.collectionIsSaved() ? this.collection!.model! : selectedImportType.model,
+      settings: this.collectionIsSaved() ? JSON.parse(this.collection!.settings!) : selectedImportType.settings,
+      saved: this.collection?.saved
+    };
+  }
+
+  private buildFileFormData(selectedImportType: Import, result: any): Body_import_file_import__collection_id__post {
+    return {
+      file: result.selectedFile,
+      import_params: JSON.stringify({
+        name: selectedImportType.name,
+        model: result.model,
+        settings: {
+          chunk_size: result.chunkSize,
+          chunk_overlap: result.chunkOverlap,
+          no_chunks: false
+        }
+      })
+    };
+  }
+
+  private async handleFileImport(result: any, selectedImportType: Import) {
+    const formData = this.buildFileFormData(selectedImportType, result);
+    try {
+      if (this.twoStepImport()) {
+        await ImportService.importFileStep1ImportStep1CollectionIdPost(result.collectionId, formData);
+      } else {
+        await ImportService.importFileImportCollectionIdPost(result.collectionId, formData);
+      }
+      console.log('File imported successfully');
+    } catch (error) {
+      console.error('Error importing file:', error);
+    }
+  }
+
+  private buildUrlFormData(selectedImportType: Import, result: any): Body_import_url_import_url__colletion_id__post {
+    return {
+      import_params: JSON.stringify({
+        name: selectedImportType.name,
+        model: result.model,
+        settings: {
+          chunk_size: result.chunkSize,
+          chunk_overlap: result.chunkOverlap,
+          no_chunks: result.no_chunks ?? result.noChunks
+        }
+      })
+    };
+  }
+
+  private async handleUrlImport(result: any, selectedImportType: Import) {
+    const formData = this.buildUrlFormData(selectedImportType, result);
+    try {
+      await ImportService.importUrlImportUrlColletionIdPost(result.collectionId, result.url, formData);
+      console.log('Url imported successfully');
+    } catch (error) {
+      console.error('Error importing Url:', error);
+    }
+  }
+
+openPreviewDialog() {
+    const selectedImportType: Import | null = this.importForm.get('importType')?.value ?? null;
+    if (!selectedImportType) {
+      return;
+    }
+
+   const commonData = this.getDialogData(selectedImportType);
+
+  this.dialog.open(PreviewDialogComponent, { data: { ...commonData, twoStepImport: this.twoStepImport() } })
+        .afterClosed()
+        .subscribe(result => { 
+          if (result) this.handle2ndStepFileImport(result, selectedImportType,);
+         });
+      return;
+}
+  async handle2ndStepFileImport(result: any, selectedImportType: Import) {
+     const formData = this.buildUrlFormData(selectedImportType, result);
+     console.log("form_data",formData);
+    try {
+      await ImportService.importFileStep2ImportStep2CollectionIdPost(result.collectionId, formData);
+      console.log('Url imported successfully');
+    } catch (error) {
+      console.error('Error importing Url:', error);
     }
   }
 
@@ -259,5 +307,27 @@ export class SelectedCollectionImportComponent implements OnInit, OnChanges{
   async cancelTask(arg0: any) {
       await this.taskCenterService.cancelTask(this.task()!.id);
   } 
+
+  async onDeleteFiles() {
+    if (!this.collection) return;
+
+    const dialogRef = this.dialog.open(DeleteConfirmationDialogComponent, {
+      data: {
+        title: 'Delete Files',
+        message: `Are you sure you want to delete all files from collection "${this.collection.name}"?`
+      },
+    });
+
+    dialogRef.afterClosed().subscribe(async result => {
+      if (result) {
+        try {
+          await FilesService.deleteFilesFilesCollectionIdDelete(this.collection!.id);
+          this.collectionRefreshService.triggerRefresh();
+        } catch (error) {
+          console.error('Error deleting files:', error);
+        }
+      }
+    });
+  }
 }
 

@@ -44,6 +44,29 @@ class TempFileHelper:
             raise
 
     @staticmethod
+    def save_temp_str(file_content: str, original_file_name: str) -> str:
+        try:
+            # Extract file extension from original_file_name
+            suffix = Path(original_file_name).suffix
+            
+            # Create a temporary file with the original extension
+            # delete=False prevents the file from being deleted when closed
+            # Open the NamedTemporaryFile in text mode so we can write str directly
+            # Specify encoding to ensure consistent behavior across platforms
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix, mode='w', encoding='utf-8') as temp_file:
+                temp_file.write(file_content)
+                temp_file_path = temp_file.name
+            
+            logger.info(f"Temporary file saved to: {temp_file_path}")
+            return temp_file_path
+        except IOError as e:
+            logger.error(f"Failed to save temporary file {original_file_name}: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"An unexpected error occurred while saving temporary file {original_file_name}: {e}")
+            raise
+
+    @staticmethod
     def remove_temp(file_path: str) -> None:
         """
         Removes a temporary file from the filesystem.
@@ -61,4 +84,40 @@ class TempFileHelper:
             raise
         except Exception as e:
             logger.error(f"An unexpected error occurred while removing temporary file {file_path}: {e}")
+            raise
+
+    @staticmethod
+    def get_temp_file_content(file_path: str) -> str:
+        """
+        Retrieves the content of a temporary file.
+
+        Args:
+            file_id: The ID (filename) of the temporary file.
+
+        Returns:
+            The content of the file as a string.
+
+        Raises:
+            FileNotFoundError: If the temporary file does not exist.
+        """
+        try:
+           # temp_dir = tempfile.gettempdir()
+           # file_path = os.path.join(temp_dir, file_id)
+            
+            if not os.path.exists(file_path):
+                raise FileNotFoundError(f"Temporary file not found: {file_path}")
+
+            with open(file_path, 'r', encoding='utf-8') as temp_file:
+                content = temp_file.read()
+            
+            logger.info(f"Read content from temporary file: {file_path}")
+            return content
+        except FileNotFoundError:
+            logger.warning(f"Temporary file not found: {file_path}")
+            raise
+        except IOError as e:
+            logger.error(f"Failed to read temporary file {file_path}: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"An unexpected error occurred while reading temporary file {file_path}: {e}")
             raise

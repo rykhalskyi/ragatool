@@ -12,7 +12,7 @@ import { CommonModule } from '@angular/common';
 export class DeleteConfirmationDialogComponent {
   constructor(
     public dialogRef: MatDialogRef<DeleteConfirmationDialogComponent>,
-    @Inject(MAT_DIALOG_DATA) public data: { collectionName: string }
+    @Inject(MAT_DIALOG_DATA) public data: { title: string, message: string }
   ) {}
 
   onNoClick(): void {

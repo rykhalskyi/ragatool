@@ -20,10 +20,27 @@
 
       </mat-form-field>
 
-      <button mat-raised-button type="button" class="import-control" color="accent" (click)="openSelectedImportDialog()" [disabled]="!importForm.get('importType')?.value" data-testid="import-button">Import</button>
+      @if (!twoStepImport()){
+        <button mat-raised-button type="button" class="import-control" color="accent" (click)="openSelectedImportDialog()" [disabled]="!importForm.get('importType')?.value" data-testid="import-button">Import</button>
+      }
+      @else {
+        @if (filesImported)
+        {
+            <button mat-raised-button type="button" class="import-control" color="accent" (click)="openPreviewDialog()" [disabled]="!importForm.get('importType')?.value || showProgressBar() || task()" data-testid="import-button">2. Review and vectorize</button>
+        }
+        @else {
+          <button mat-raised-button type="button" class="import-control" color="accent" (click)="openSelectedImportDialog()" [disabled]="!importForm.get('importType')?.value || showProgressBar() || task()" data-testid="import-button">1. Load to files</button>
+        }
+          
+          <button mat-raised-button type="button" class="import-control" color="accent" (click)="onDeleteFiles()" [disabled]="!filesImported" data-testid="import-button">Delete Files</button>
+      }
+      
     </form>
 
-      <app-collection-details [collectionDetails]="collectionDetails()"></app-collection-details>
+      <app-collection-details 
+        [collectionDetails]="collectionDetails()" 
+        [filesImported]="filesImported">
+      </app-collection-details>
 
   </div>
  @if (showProgressBar() && task() !== undefined) {

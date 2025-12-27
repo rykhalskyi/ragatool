@@ -33,10 +33,12 @@ async def test_import_file_background_task():
     mock_message_hub = MagicMock()
 
     # 4. Patch the dependencies
+    mock_get_settings = MagicMock(return_value=[]) # Return empty list of settings for simplicity
     with patch("app.database.get_db_connection", return_value=in_memory_conn), \
          patch("app.routers.imports.crud_collection", mock_crud_collection), \
          patch("app.dependencies.get_task_dispatcher", return_value=mock_task_dispatcher), \
-         patch("app.dependencies.get_message_hub", return_value=mock_message_hub):    
+         patch("app.dependencies.get_message_hub", return_value=mock_message_hub), \
+         patch("app.routers.imports.get_settings", mock_get_settings):    
         create_tables(in_memory_conn)  # Create tables in the in-memory db
     
         # 5. Call the endpoint function
@@ -71,8 +73,7 @@ async def test_import_file_background_task():
             collection_id=args[0], 
             file_name=args[3],
             file_content_bytes=args[4],
-            import_params=args[5],
-            message_hub=args[6],
+            context=args[5],
             cancel_event=cancellation_event
         )
         

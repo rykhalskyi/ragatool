@@ -42,12 +42,14 @@ export class FileImportDialog implements OnInit {
       collectionId: string, 
       model: string, 
       settings: FileImportSettings,
-      saved: boolean
+      saved: boolean,
+      twoStepImport: boolean
     },
     private fb: FormBuilder,
   ) {}
 
   ngOnInit(): void {
+    console.log(">>>>", this.data.twoStepImport);
     this.importForm = this.fb.group({
       model: [this.data.model, Validators.required],
       chunkSize: [this.data.settings.chunk_size, [Validators.required, Validators.min(1)]],

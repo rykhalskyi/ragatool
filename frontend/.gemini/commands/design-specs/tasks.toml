@@ -4,6 +4,8 @@ prompt = """
 Analyze .design-specs/specs/requirements-{{args}}.md and .design-specs/specs/design-{{args}}.md and create a file tasks-{{args}}.md in folder .design-specs/specs/ int the root directory of this
 project. The folder have already existed
 
+**Important: DO NOT IMPLEMENT CODE IN THIS COMMAND!!**
+
 ## Tasks Creation
 
 **Template to Follow**: Use the exact structure from `.design-specs/templates/tasks-template.md`

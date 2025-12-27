@@ -12,4 +12,5 @@ import { MatListModule } from '@angular/material/list';
 })
 export class CollectionDetailsComponent {
   @Input() collectionDetails: CollectionDetails | null = null;
+  @Input() filesImported: boolean = false;
 }

@@ -1,5 +1,11 @@
 <div class="container-margin">
-  <h1 mat-dialog-title>Import File to {{ data.collectionName }}</h1>
+  @if (data.twoStepImport) {
+    <h1 mat-dialog-title>1. Load File to {{ data.collectionName }}'s temp files</h1>
+  }
+  @else{
+    <h1 mat-dialog-title>Import File to {{ data.collectionName }}</h1>
+  }
+  
   <div mat-dialog-content>
     <form class="import-form" [formGroup]="importForm" (ngSubmit)="onImportSubmit()">
       <div class="row1">
@@ -62,7 +68,7 @@
   </div>
   <div mat-dialog-actions>
     <button mat-button (click)="onNoClick()">Cancel</button>
-    <button mat-button color="primary" [disabled]="importForm.invalid || showProgressBar()" (click)="onImportClick()">Import</button>
+    <button mat-button color="primary" [disabled]="importForm.invalid || showProgressBar()" (click)="onImportClick()">{{ data.twoStepImport ? "Load" : "Import"}}</button>    
   </div>
  
 </div>

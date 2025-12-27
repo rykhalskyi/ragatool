@@ -1,0 +1,57 @@
+.dialog-content {
+  display: flex;
+  flex-direction: row;
+  gap: 16px;
+  height: 400px; /* Or other desired height */
+  width: 900px;
+}
+
+.file-list-container {
+  flex: 1;
+  border-right: 1px solid #ccc;
+  padding-right: 16px;
+}
+
+.content-viewer-container {
+  flex: 2;
+  display: flex;
+  flex-direction: column;
+}
+
+.form-container {
+  border-bottom: 1px solid #ccc;
+  vertical-align: top;
+}
+
+.chunk-viewer {
+  flex-grow: 1;
+  padding-top: 16px;
+  overflow-y: auto;
+}
+
+.import-form {
+  display: grid;
+  grid: 50px / auto;
+  grid-gap: 16px; // Space between form fields
+ // margin-bottom: 16px;
+}
+
+.row1{
+    grid-row: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.row2{
+    grid-row: 2;
+    display: flex;
+    flex-direction: row;
+    grid-gap: 16px;
+}
+
+.parameters{
+    display: flex;
+    flex-direction: row;
+    gap: 16px;
+   
+}

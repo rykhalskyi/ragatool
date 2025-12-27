@@ -68,7 +68,6 @@ class BackgroundTaskDispatcher:
         crud_task.create_task(self.db, task_id, collection_id, task_name, start_time, "NEW")
         self.message_hub.send_task_message('Task created')
         
-
         with self.lock:
             new_args = (collection_id,) + args
             self.waiting_tasks[task_id] = (task_func, new_args, kwargs)

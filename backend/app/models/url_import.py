@@ -6,6 +6,7 @@ from fastembed import TextEmbedding
 import numpy as np
 from app.internal import simple_crawler
 from app.internal.message_hub import MessageHub
+from app.models.import_context import ImportContext
 from app.models.imports import ImportBase
 from app.models.messages import MessageType
 from app.schemas.imports import FileImportSettings, Import
@@ -30,7 +31,10 @@ class UrlImport(ImportBase):
          extracted_text = file_content_bytes.decode("utf-8")
          return extracted_text
     
-    async def import_data(self, collection_id: str, file_name: str, file_content_bytes: bytes, import_params: Import, message_hub:MessageHub, cancel_event: Event) -> None: # Modified signature
+    async def import_data(self, collection_id: str, file_name: str, file_content_bytes: bytes, context: ImportContext, cancel_event: Event) -> None: # Modified signature
+        message_hub = context.messageHub
+        import_params = context.parameters
+        
         message_hub.send_message(collection_id,  MessageType.LOCK, f"Starting import of {file_name}")
         message_hub.send_message(collection_id, MessageType.INFO, f"Crawling and parsing {file_name} ....")
         pages = simple_crawler.simple_crawl(file_name, cancel_event)

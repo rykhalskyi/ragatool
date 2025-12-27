@@ -41,6 +41,7 @@
     <app-selected-collection-import 
       [collection]="collection"
       [collectionDetails]="collectionDetails"
+      [filesImported]="(collectionFiles()?.length ?? 0) > 0"
       data-testid="collection-import"
       class="selected-collection"></app-selected-collection-import>
   </div>

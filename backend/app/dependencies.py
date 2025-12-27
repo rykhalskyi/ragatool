@@ -1,7 +1,10 @@
 from sqlite3 import Connection
+from functools import lru_cache
+from fastapi import Depends
 from .database import get_db_connection
 from app.internal.message_hub import MessageHub
 from .internal.background_task_dispatcher import BackgroundTaskDispatcher
+from app.internal.settings_manager import SettingsManager
 
 _message_hub_instance: MessageHub | None = None
 _task_dispatcher_instance: BackgroundTaskDispatcher | None = None
@@ -30,3 +33,7 @@ def get_task_dispatcher():
 
 def get_message_hub():
     yield get_message_hub_instance()
+
+@lru_cache()
+def get_settings_manager(db: Connection = Depends(get_db)) -> SettingsManager:
+    return SettingsManager(db)

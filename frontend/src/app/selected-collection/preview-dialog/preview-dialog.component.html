@@ -1,0 +1,108 @@
+<div class="container-margin">
+  <h1 mat-dialog-title>Review and Import</h1>
+  <div mat-dialog-content class="dialog-content">
+    <div class="file-list-container">
+      <p>Prepared Files</p>
+      <div *ngIf="isLoading">Loading files...</div>
+      <div *ngIf="error">{{ error }}</div>
+      <mat-nav-list *ngIf="!isLoading && !error">
+        <a mat-list-item *ngFor="let file of files" (click)="onFileSelected(file)">
+          {{ file.source }}
+        </a>
+      </mat-nav-list>
+      <div *ngIf="!isLoading && !error && files.length === 0">
+        No prepared files found.
+      </div>
+    </div>
+    <div class="content-viewer-container">
+      <div class="form-container">
+
+        <!-- Chunking form will go here -->
+<form class="import-form" [formGroup]="chunkForm" (ngSubmit)="onImportSubmit()">
+      
+      <div class="row1">
+        <div class="parameters">
+          <mat-form-field appearance="fill">
+            <mat-label>Model</mat-label>
+            <input matInput formControlName="model" placeholder="Enter model name">
+            @if (chunkForm.get('model')?.hasError('required') && chunkForm.get('model')?.touched) {
+              <mat-error>
+                Model is required.
+              </mat-error>
+            }
+          </mat-form-field>
+  
+          <mat-form-field appearance="fill" >
+            <mat-label>Chunk Size</mat-label>
+            <input matInput type="number" formControlName="chunkSize" placeholder="Enter chunk size">
+            @if (chunkForm.get('chunkSize')?.hasError('required') && chunkForm.get('chunkSize')?.touched) {
+              <mat-error>
+                Chunk size is required.
+              </mat-error>
+            }
+            @if (chunkForm.get('chunkSize')?.hasError('min') && chunkForm.get('chunkSize')?.touched) {
+              <mat-error>
+                  Chunk size must be at least 1.
+              </mat-error>
+            }
+          </mat-form-field>
+  
+          <mat-form-field appearance="fill">
+            <mat-label>Chunk Overlap</mat-label>
+            <input matInput type="number" formControlName="chunkOverlap" placeholder="Enter chunk overlap">
+            @if (chunkForm.get('chunkOverlap')?.hasError('required') && chunkForm.get('chunkOverlap')?.touched) {
+              <mat-error>
+                Chunk overlap is required.
+              </mat-error>
+            }
+            @if (chunkForm.get('chunkOverlap')?.hasError('min') && chunkForm.get('chunkOverlap')?.touched) {
+              <mat-error *ngIf="">
+               Chunk overlap must be at least 0.
+              </mat-error>
+            }
+          </mat-form-field>
+        </div>
+      </div>
+      <div class="row2">
+        <mat-form-field appearance="fill" class="import-control">
+        <mat-label>Select Chunk Type</mat-label>
+        <mat-select formControlName="chunkType" 
+        
+        (selectionChange)="onChunkingChanged($event)" 
+        data-testid="import-select"
+        >
+       <!--   @for (type of importTypes; track type.name) {
+          <mat-option [value]="type">{{ type.name }}</mat-option>
+        }-->
+        </mat-select>
+        @if (chunkForm.get('chunkType')?.hasError('required') && chunkForm.get('chunkType')?.touched) {
+        <mat-error>
+          Import type is required.
+        </mat-error>
+        }
+
+      </mat-form-field>
+
+      <mat-checkbox formControlName="noChunks">No chunks</mat-checkbox>
+
+       <button mat-raised-button type="button" class="import-control" color="accent" (click)="updateChunks()" data-testid="import-button">Update</button>
+
+      </div>
+    </form>
+
+        <!-- End of chunking form-->
+      </div>
+      <div class="chunk-viewer">
+        <p>{{ chunk() }}</p>
+      </div>
+      <div>
+        <button mat-button (click)="onPrevious()">prev</button>
+        <button mat-button (click)="onNext()">next</button>
+      </div>
+    </div>
+  </div>
+  <div mat-dialog-actions>
+    <button mat-button (click)="onCancel()">Cancel</button>
+    <button mat-button color="primary" (click)="onImport()">Import</button>
+  </div>
+</div>

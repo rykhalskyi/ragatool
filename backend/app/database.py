@@ -67,6 +67,16 @@ def create_tables(conn: Optional[Connection] = None):
     INSERT OR IGNORE INTO settings (name, value, description) 
     VALUES ('TwoStepImport', 'False', 'Divide import to 2 steps. Collect and preview data and then make import')
     """)
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS files (
+        id TEXT PRIMARY KEY,
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+        collection_id TEXT,
+        path TEXT,
+        source TEXT
+    )
+    """)
     
     conn.commit()
     if close_conn:
