@@ -1,15 +1,19 @@
+import os
 from threading import Event
 import time
 
 import chromadb
 from fastembed import TextEmbedding
 import numpy as np
+from app.crud.crud_files import create_file, delete_file, get_files_for_collection
 from app.internal import simple_crawler
 from app.internal.message_hub import MessageHub
+from app.internal.temp_file_helper import TempFileHelper
 from app.models.import_context import ImportContext
 from app.models.imports import ImportBase
 from app.models.messages import MessageType
 from app.schemas.imports import FileImportSettings, Import
+from app.schemas.setting import SettingsName
 
 
 class UrlImport(ImportBase):
@@ -113,3 +117,32 @@ class UrlImport(ImportBase):
         except Exception as e:
             print("FAIL import_data", e)
             message_hub.send_message(collection_id, MessageType.LOG, f"FAILED import from {file_name}. Chunk size {import_params.settings.chunk_size}, overlap {import_params.settings.chunk_overlap}. Exception {e}")
+
+
+    async def step_1(self, collection_id: str, url: str, context: ImportContext, cancel_event:Event) -> None: # Modified signature
+        if not context.settings.check(SettingsName.TWO_STEP_IMPORT, 'True'):
+            context.messageHub.send_message(collection_id, MessageType.INFO, "Set 2 Step mode to use this function")
+            return
+
+        context.messageHub.send_message(collection_id,  MessageType.LOCK, f"Starting import of {url}")
+        context.messageHub.send_message(collection_id, MessageType.INFO, f"Crawling and parsing {url} ....")
+        pages = simple_crawler.simple_crawl(url, cancel_event)
+
+        if pages == None:
+             context.messageHub.send_message(collection_id, MessageType.LOG, f"NOTHING imported from {url}. Parsed no pages.")
+             return
+
+        context.messageHub.send_message(collection_id, MessageType.INFO, f"Parsed {len(pages)} pages")
+
+        for page in pages:
+            if cancel_event.is_set():
+                 context.messageHub.send_message(collection_id, MessageType.UNLOCK, f"Import of {url} was cancelled")
+                 context.messageHub.send_message(collection_id, MessageType.LOG, f"CANCELLED Import from {url} chunks of length {context.parameters.settings.chunk_size}, overlap {context.parameters.settings.chunk_overlap}.") 
+                 return
+            
+            tmp_file = TempFileHelper.save_temp_str(page["text"], page["url"])
+            create_file(context.db, collection_id, tmp_file, page["url"])
+            
+            
+        context.messageHub.send_message(collection_id, MessageType.UNLOCK, f"Import of {url} completed.")
+

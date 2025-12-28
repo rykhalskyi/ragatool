@@ -194,7 +194,7 @@ export class SelectedCollectionImportComponent implements OnInit, OnChanges{
     }
 
     if (selectedImportType.name === 'URL') {
-      this.dialog.open(UrlImportDialog, { data: commonData })
+      this.dialog.open(UrlImportDialog, { data: {...commonData, twoStepImport: this.twoStepImport() } })
         .afterClosed()
         .subscribe(result => { if (result) this.handleUrlImport(result, selectedImportType); });
       return;
@@ -259,7 +259,12 @@ export class SelectedCollectionImportComponent implements OnInit, OnChanges{
   private async handleUrlImport(result: any, selectedImportType: Import) {
     const formData = this.buildUrlFormData(selectedImportType, result);
     try {
-      await ImportService.importUrlImportUrlColletionIdPost(result.collectionId, result.url, formData);
+      if (this.twoStepImport()){
+        await ImportService.importUrlStep1ImportUrlStep1CollectionIdPost(result.collectionId, result.url, formData);
+      }
+      else{
+        await ImportService.importUrlImportUrlColletionIdPost(result.collectionId, result.url, formData);
+      }
       console.log('Url imported successfully');
     } catch (error) {
       console.error('Error importing Url:', error);
