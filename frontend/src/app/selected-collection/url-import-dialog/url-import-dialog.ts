@@ -38,7 +38,8 @@ export class UrlImportDialog implements OnInit {
       collectionId: string, 
       model: string, 
       settings: FileImportSettings,
-      saved: boolean
+      saved: boolean,
+      twoStepImport: boolean
     },
     private fb: FormBuilder,
   ) {}

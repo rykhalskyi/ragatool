@@ -142,3 +142,36 @@ async def import_file_step_2(collection_id: str, import_params: str = Form(...),
         return JSONResponse(
         status_code=500,
         content={"message": str(e)}) 
+    
+
+@router.post("/url/step1/{collection_id}")
+async def import_url_step_1(collection_id: str, url:str, import_params: str = Form(...), db: Connection = Depends(get_db_connection), task_dispatcher = Depends(get_task_dispatcher), message_hub:MessageHub = Depends(get_message_hub)):
+    try:
+        
+        task_name = f"Importing {url} to {collection_id} step 1"
+        import_params_model = Import.model_validate_json(import_params)
+
+        import_context = ImportContext(db, message_hub, import_params_model)
+
+        if not import_context.settings.check(SettingsName.TWO_STEP_IMPORT, 'True'):
+            return {"message": "This method is available in 2 Step mode"}
+
+        collection = crud_collection.get_collection(db, collection_id)
+        if (collection == None):
+            return {"message": "Collection not found."}
+        
+        message_hub.send_task_message('START IMPORT')
+        
+        task_dispatcher.add_task(collection_id, task_name, UrlImport().step_1, url, import_context)
+        
+        if collection and collection.import_type == ImportType.NONE:
+            crud_collection.update_collection_import_type(db, collection_id, import_params_model)
+        elif collection.import_type != ImportType.NONE:
+            crud_collection.update_collection_import_settings(db, collection_id, import_params_model)
+
+    except Exception as e:
+        return JSONResponse(
+        status_code=500,
+        content={"message": str(e)}) 
+    
+    

@@ -6,6 +6,7 @@ import type { Body_import_file_import__collection_id__post } from '../models/Bod
 import type { Body_import_file_step_1_import_step1__collection_id__post } from '../models/Body_import_file_step_1_import_step1__collection_id__post';
 import type { Body_import_file_step_2_import_step2__collection_id__post } from '../models/Body_import_file_step_2_import_step2__collection_id__post';
 import type { Body_import_url_import_url__colletion_id__post } from '../models/Body_import_url_import_url__colletion_id__post';
+import type { Body_import_url_step_1_import_url_step1__collection_id__post } from '../models/Body_import_url_step_1_import_url_step1__collection_id__post';
 import type { Import } from '../models/Import';
 import type { CancelablePromise } from '../core/CancelablePromise';
 import { OpenAPI } from '../core/OpenAPI';
@@ -113,6 +114,35 @@ export class ImportService {
             url: '/import/step2/{collection_id}',
             path: {
                 'collection_id': collectionId,
+            },
+            formData: formData,
+            mediaType: 'application/x-www-form-urlencoded',
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
+     * Import Url Step 1
+     * @param collectionId
+     * @param url
+     * @param formData
+     * @returns any Successful Response
+     * @throws ApiError
+     */
+    public static importUrlStep1ImportUrlStep1CollectionIdPost(
+        collectionId: string,
+        url: string,
+        formData: Body_import_url_step_1_import_url_step1__collection_id__post,
+    ): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/import/url/step1/{collection_id}',
+            path: {
+                'collection_id': collectionId,
+            },
+            query: {
+                'url': url,
             },
             formData: formData,
             mediaType: 'application/x-www-form-urlencoded',
