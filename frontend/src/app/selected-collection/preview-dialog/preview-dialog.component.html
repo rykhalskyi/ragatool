@@ -3,16 +3,27 @@
   <div mat-dialog-content class="dialog-content">
     <div class="file-list-container">
       <p>Prepared Files</p>
-      <div *ngIf="isLoading">Loading files...</div>
-      <div *ngIf="error">{{ error }}</div>
-      <mat-nav-list *ngIf="!isLoading && !error">
-        <a mat-list-item *ngFor="let file of files" (click)="onFileSelected(file)">
-          {{ file.source }}
-        </a>
-      </mat-nav-list>
-      <div *ngIf="!isLoading && !error && files.length === 0">
-        No prepared files found.
-      </div>
+      @if (isLoading)
+      {
+        <div>Loading files...</div>
+      }
+      @if (error){
+        <div>{{ error }}</div>
+      }
+      @if (!isLoading && !error) {
+        <mat-nav-list class="scrollable-nav-list">
+          @for (file of files; track file) {
+            <a mat-list-item (click)="onFileSelected(file)" [matTooltip]="file.source">
+              {{ file.source }}
+            </a>
+          }
+        </mat-nav-list>
+      }
+      @if (!isLoading && !error && files.length === 0) {
+        <div>
+          No prepared files found.
+        </div>
+      }
     </div>
     <div class="content-viewer-container">
       <div class="form-container">
@@ -56,7 +67,7 @@
               </mat-error>
             }
             @if (chunkForm.get('chunkOverlap')?.hasError('min') && chunkForm.get('chunkOverlap')?.touched) {
-              <mat-error *ngIf="">
+              <mat-error>
                Chunk overlap must be at least 0.
               </mat-error>
             }
