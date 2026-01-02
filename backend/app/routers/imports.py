@@ -16,12 +16,17 @@ from app.models.url_import import UrlImport
 from app.schemas.collection import ImportType
 from app.schemas.imports import Import
 from app.schemas.setting import SettingsName
+from app.internal.chunker import ChunkType
 
 router = APIRouter()
 
 @router.get("/")
 def get_imports() -> List[Import]:
     return [FileImport.getDefault(), UrlImport.getDefault()]
+
+@router.get("/chunktypes/")
+def get_chunk_types() -> List[str]:
+    return [e.value for e in ChunkType]
 
 @router.post("/{collection_id}")
 async def import_file(collection_id: str, import_params: str = Form(...), file: UploadFile = File(...), db: Connection = Depends(get_db_connection), task_dispatcher = Depends(get_task_dispatcher), message_hub:MessageHub = Depends(get_message_hub)):

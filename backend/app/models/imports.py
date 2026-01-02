@@ -8,6 +8,7 @@ import time
 import numpy as np
 from pathlib import Path
 
+from app.internal.chunker import Chunker, ChunkType
 from app.crud.crud_files import create_file, delete_file, get_files_for_collection
 from app.internal.message_hub import MessageHub
 from app.models.import_context import ImportContext
@@ -34,9 +35,6 @@ class ImportBase(ABC):
     @abstractmethod
     async def prepare_data(self, collection_id: str, file_name: str, file_content_bytes: bytes, message_hub: MessageHub) -> str:
         pass    
-
-    def create_chunks(self, text: str, chunk_size: int, chunk_overlap: int) -> List[str]:
-        return [text[i:i+chunk_size] for i in range(0, len(text), chunk_size - chunk_overlap)]
     
     def check_cancelled(self, collection_id: str, file_name: str, message_hub: MessageHub, cancel_event: Event) -> bool:
         if cancel_event.is_set():
@@ -58,7 +56,8 @@ class FileImport(ImportBase):
             settings=FileImportSettings(
                 chunk_size=800,
                 chunk_overlap=80,
-                no_chunks=False
+                no_chunks=False,
+                chunk_type=ChunkType.DEFAULT
             )
         )
     
@@ -165,7 +164,7 @@ class FileImport(ImportBase):
 
             chunks = []
             if not import_params.settings.no_chunks:
-                chunks = self.create_chunks(text_content, import_params.settings.chunk_size, import_params.settings.chunk_overlap)
+                chunks = Chunker().create_chunks(text_content, import_params.settings.chunk_type, import_params.settings.chunk_size, import_params.settings.chunk_overlap)
             else:
                 chunks = [text_content]
 
@@ -212,7 +211,7 @@ class FileImport(ImportBase):
 
                         chunks = []
                         if not context.parameters.settings.no_chunks:
-                            chunks = self.create_chunks(content, context.parameters.settings.chunk_size, context.parameters.settings.chunk_overlap)
+                            chunks = Chunker().create_chunks(content, context.parameters.settings.chunk_type, context.parameters.settings.chunk_size, context.parameters.settings.chunk_overlap)
                         else:
                             chunks = [content]
 
