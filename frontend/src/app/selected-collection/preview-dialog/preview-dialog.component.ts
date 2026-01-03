@@ -90,6 +90,7 @@ export class PreviewDialogComponent implements OnInit {
     ImportService.getChunkTypesImportChunktypesGet()
       .then(chunkTypes => {
         this.chunkTypes = chunkTypes;
+        this.chunkForm.get('chunkType')?.setValue(this.chunkTypes[0]);
         this.cdr.markForCheck();
       })
       .catch(error => {
@@ -175,10 +176,6 @@ export class PreviewDialogComponent implements OnInit {
 
   isFileSelected(file: File): boolean {
     return this.selectedFiles.has(file.id);
-  }
-
-  onChunkingChanged($event: MatSelectChange) {
-    throw new Error('Method not implemented.');
   }
 
   onImportSubmit() {

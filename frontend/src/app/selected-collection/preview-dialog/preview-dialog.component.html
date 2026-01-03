@@ -80,7 +80,6 @@
         <mat-label>Select Chunk Type</mat-label>
         <mat-select formControlName="chunkType" 
         
-        (selectionChange)="onChunkingChanged($event)" 
         data-testid="import-select"
         >
           @for (type of chunkTypes; track type) {
