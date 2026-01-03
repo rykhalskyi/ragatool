@@ -4,6 +4,7 @@ from unittest.mock import patch, MagicMock
 
 from app.main import app
 from app.schemas.file import File
+from app.internal.chunker import ChunkType
 
 client = TestClient(app)
 
@@ -32,6 +33,7 @@ def test_get_chunk_preview_success(mock_get_file, mock_temp_file_helper):
         "file_id": "existing_file.txt",
         "skip_number": 0,
         "take_number": 2,
+        "chunk_type": ChunkType.DEFAULT.value,
         "chunk_size": 50,
         "chunk_overlap": 5,
         "no_chunks": False
@@ -61,6 +63,7 @@ def test_get_chunk_preview_file_not_found_in_db(mock_get_file):
         "file_id": "non_existent_file.txt",
         "skip_number": 0,
         "take_number": 2,
+        "chunk_type": ChunkType.DEFAULT.value,
         "chunk_size": 50,
         "chunk_overlap": 5,
         "no_chunks": False
@@ -85,6 +88,7 @@ def test_get_chunk_preview_file_not_found_on_disk(mock_get_file, mock_temp_file_
         "file_id": "non_existent_file.txt",
         "skip_number": 0,
         "take_number": 2,
+        "chunk_type": ChunkType.DEFAULT.value,
         "chunk_size": 50,
         "chunk_overlap": 5,
         "no_chunks": False
@@ -109,6 +113,7 @@ def test_get_chunk_preview_invalid_params(mock_get_file, mock_temp_file_helper):
         "file_id": "any_file.txt",
         "skip_number": 0,
         "take_number": 2,
+        "chunk_type": ChunkType.DEFAULT.value,
         "chunk_size": -100,  # Invalid chunk size
         "chunk_overlap": 5,
         "no_chunks": False
@@ -134,6 +139,7 @@ def test_get_chunk_preview_no_chunks_mode(mock_get_file, mock_temp_file_helper):
         "file_id": "some_file.txt",
         "skip_number": 0,
         "take_number": 1,
+        "chunk_type": ChunkType.DEFAULT.value,
         "chunk_size": 100,
         "chunk_overlap": 10,
         "no_chunks": True
