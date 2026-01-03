@@ -164,7 +164,7 @@ class FileImport(ImportBase):
 
             chunks = []
             if not import_params.settings.no_chunks:
-                chunks = Chunker().create_chunks(text_content, import_params.settings.chunk_type, import_params.settings.chunk_size, import_params.settings.chunk_overlap)
+                chunks = Chunker().create_chunks(text_content, import_params.settings.chunk_type , import_params.settings.chunk_size, import_params.settings.chunk_overlap)
             else:
                 chunks = [text_content]
 

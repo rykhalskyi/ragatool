@@ -289,14 +289,15 @@ openPreviewDialog() {
   async handle2ndStepFileImport(result: any, selectedImportType: Import) {
     const selectedFiles: string[] = result.selectedFiles || [];
     const formData = this.buildUrlFormData(selectedImportType, result);
-    console.log("selected files:", selectedFiles);
+    let importParams = JSON.parse(formData.import_params);
+    importParams.settings.chunk_type = result.chunkType;
 
     try {
       await ImportService.importFileStep2ImportStep2CollectionIdPost(result.collectionId, {
         import_files_ids: selectedFiles,
-        import_params: formData.import_params
+        import_params: JSON.stringify(importParams)
       });
-      console.log('Url imported successfully');
+      console.log('File imported successfully');
     } catch (error) {
       console.error('Error importing Url:', error);
     }

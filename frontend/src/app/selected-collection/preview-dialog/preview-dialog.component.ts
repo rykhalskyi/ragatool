@@ -44,6 +44,7 @@ export class PreviewDialogComponent implements OnInit {
   moreChunks = false;
   currentChunkIndex = 0;
   loadedChunks: string[] = [];
+  chunkTypes: string[] = [];
 
   private readonly take = 5;
   private skip = 0;
@@ -85,6 +86,15 @@ export class PreviewDialogComponent implements OnInit {
         this.isLoading = false;
         this.cdr.markForCheck();
       });
+
+    ImportService.getChunkTypesImportChunktypesGet()
+      .then(chunkTypes => {
+        this.chunkTypes = chunkTypes;
+        this.cdr.markForCheck();
+      })
+      .catch(error => {
+        console.error('Failed to load chunk types:', error);
+      });
   }
   onCancel(): void {
     this.dialogRef.close(false);
@@ -105,6 +115,7 @@ export class PreviewDialogComponent implements OnInit {
     this.selectedFile = file;
     FilesService.getChunkPreviewFilesContentPost({
       file_id: file.id,
+      chunk_type: this.chunkForm.get('chunkType')?.value ?? "default",
       chunk_size: this.chunkForm.get('chunkSize')?.value ?? 500,
       chunk_overlap: this.chunkForm.get('chunkOverlap')?.value ?? 50,
       no_chunks: this.chunkForm.get('noChunks')?.value ?? false,
@@ -139,6 +150,7 @@ export class PreviewDialogComponent implements OnInit {
     
  FilesService.getChunkPreviewFilesContentPost({
       file_id: this.selectedFile!.id,
+      chunk_type: this.chunkForm.get('chunkType')?.value ?? "default",
       chunk_size: this.chunkForm.get('chunkSize')?.value ?? 500,
       chunk_overlap: this.chunkForm.get('chunkOverlap')?.value ?? 50,
       no_chunks: this.chunkForm.get('noChunks')?.value ?? false,

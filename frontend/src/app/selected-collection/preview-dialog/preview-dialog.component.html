@@ -83,9 +83,9 @@
         (selectionChange)="onChunkingChanged($event)" 
         data-testid="import-select"
         >
-       <!--   @for (type of importTypes; track type.name) {
-          <mat-option [value]="type">{{ type.name }}</mat-option>
-        }-->
+          @for (type of chunkTypes; track type) {
+          <mat-option [value]="type">{{ type }}</mat-option>
+        }
         </mat-select>
         @if (chunkForm.get('chunkType')?.hasError('required') && chunkForm.get('chunkType')?.touched) {
         <mat-error>

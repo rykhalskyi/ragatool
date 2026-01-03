@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.crud.crud_files import delete_files_by_collection_id, get_file, get_files_for_collection
 from app.dependencies import get_db
+from app.internal.chunker import Chunker
 from app.internal.temp_file_helper import TempFileHelper
 from app.models.imports import FileImport
 from app.schemas.file import File, ChunkPreviewRequest, ChunkPreviewResponse
@@ -25,7 +26,7 @@ def get_chunk_preview(request: ChunkPreviewRequest, db: Connection = Depends(get
         importer = FileImport()
         all_chunks = []
         if not request.no_chunks:
-            all_chunks = importer.create_chunks(content, request.chunk_size, request.chunk_overlap)
+            all_chunks =  Chunker().create_chunks(content, request.chunk_type , request.chunk_size, request.chunk_overlap)
         else:
             all_chunks = [content]
             
