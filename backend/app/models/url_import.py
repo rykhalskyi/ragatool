@@ -7,6 +7,7 @@ from fastembed import TextEmbedding
 import numpy as np
 from app.crud.crud_files import create_file, delete_file, get_files_for_collection
 from app.internal import simple_crawler
+from app.internal.chunker import Chunker
 from app.internal.message_hub import MessageHub
 from app.internal.temp_file_helper import TempFileHelper
 from app.models.import_context import ImportContext
@@ -41,7 +42,10 @@ class UrlImport(ImportBase):
         
         message_hub.send_message(collection_id,  MessageType.LOCK, f"Starting import of {file_name}")
         message_hub.send_message(collection_id, MessageType.INFO, f"Crawling and parsing {file_name} ....")
-        pages = simple_crawler.simple_crawl(file_name, cancel_event)
+        
+        max_depth = context.settings.get_setting_int(SettingsName.CRAWL_DEPTH, 1)
+            
+        pages = simple_crawler.simple_crawl(file_name, cancel_event, max_depth=max_depth)
 
         if pages == None:
              message_hub.send_message(collection_id, MessageType.LOG, f"NOTHING imported from {file_name}. Parsed no pages.")
@@ -64,7 +68,7 @@ class UrlImport(ImportBase):
            
             chunks = []
             if not import_params.settings.no_chunks:
-                chunks = self.create_chunks(page_content, import_params.settings.chunk_size, import_params.settings.chunk_overlap)
+                chunks = Chunker().create_chunks(page_content, import_params.settings.chunk_type, import_params.settings.chunk_size, import_params.settings.chunk_overlap)
             else:
                 chunks = [page_content]
 
@@ -126,7 +130,10 @@ class UrlImport(ImportBase):
 
         context.messageHub.send_message(collection_id,  MessageType.LOCK, f"Starting import of {url}")
         context.messageHub.send_message(collection_id, MessageType.INFO, f"Crawling and parsing {url} ....")
-        pages = simple_crawler.simple_crawl(url, cancel_event)
+        
+        max_depth = context.settings.get_setting_int(SettingsName.CRAWL_DEPTH, 1)
+            
+        pages = simple_crawler.simple_crawl(url, cancel_event, max_depth=max_depth)
 
         if pages == None:
              context.messageHub.send_message(collection_id, MessageType.LOG, f"NOTHING imported from {url}. Parsed no pages.")

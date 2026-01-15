@@ -30,5 +30,16 @@ class SettingsManager:
 
     def check(self, name: SettingsName, value: str) -> bool:
         return self.get_setting(name) == value.lower() 
+    
+    def get_setting_int(self, name: SettingsName, default_value: int) -> int:
+        try:
+            setting = self.get_setting(name)
+            if setting == None:
+                return default_value
+            
+            return int(setting)
+        except (ValueError, TypeError):
+            return default_value
+
             
             

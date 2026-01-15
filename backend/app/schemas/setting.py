@@ -5,6 +5,7 @@ from enum import Enum
 class SettingsName(str, Enum):
     TWO_STEP_IMPORT = "TwoStepImport"
     FOR_TEST_ONLY = "ForTestOnly"
+    CRAWL_DEPTH = "CrawlDepth"
 
 class SettingBase(BaseModel):
     name: str
