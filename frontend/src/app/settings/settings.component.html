@@ -7,12 +7,32 @@
   @if (settings$ | async; as settings) {
     @for (setting of settings; track setting.name) {
       <div class="setting-item">
-        <mat-slide-toggle
-          [checked]="setting.value === 'true'"
-          (change)="updateSetting(setting, $event)">
-          {{ setting.name }}
-        </mat-slide-toggle>
+        @if (isNumeric(setting.value)) {
+          <mat-form-field appearance="fill">
+            <mat-label>{{ setting.name }}</mat-label>
+            <input matInput type="number"
+                   [value]="setting.value"
+                   (input)="updateSetting(setting, $event.target.value)"
+                   [placeholder]="setting.name"
+                   [title]="setting.name"
+                   min="1"
+                   max="5"
+                   required>
+            @if (isNumeric(setting.value) && +setting.value < 1) {
+              <mat-error>
+                Value must be a non-negative number.
+              </mat-error>
+            }
+          </mat-form-field>
+        } @else {
+          <mat-slide-toggle
+            [checked]="setting.value === 'true'"
+            (change)="updateSetting(setting, $event.checked.toString())">
+            {{ setting.name }}
+          </mat-slide-toggle>
+        }
         <p class="setting-description">{{ setting.description }}</p>
+        
       </div>
     }
   }

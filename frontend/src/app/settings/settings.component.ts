@@ -40,8 +40,8 @@ export class SettingsComponent implements OnInit {
     this.settings$ = this.settingsService.settings$;
   }
 
-  updateSetting(setting: Setting, event: any) {
-    const updatedSetting = { ...setting, value: event.checked.toString() };
+  updateSetting(setting: Setting, newValue: string) {
+    const updatedSetting = { ...setting, value: newValue };
     this.settingsService.updateLocalSetting(updatedSetting);
   }
 
@@ -66,5 +66,8 @@ export class SettingsComponent implements OnInit {
     }
   }
 
+  isNumeric(value: string): boolean {
+    return !isNaN(parseFloat(value)) && isFinite(Number(value));
+  }
 
 }
