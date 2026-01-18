@@ -3,8 +3,11 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { Collection } from '../models/Collection';
+import type { CollectionContentRequest } from '../models/CollectionContentRequest';
+import type { CollectionContentResponse } from '../models/CollectionContentResponse';
 import type { CollectionCreate } from '../models/CollectionCreate';
 import type { CollectionDetails } from '../models/CollectionDetails';
+import type { CollectionQueryResponse } from '../models/CollectionQueryResponse';
 import type { CancelablePromise } from '../core/CancelablePromise';
 import { OpenAPI } from '../core/OpenAPI';
 import { request as __request } from '../core/request';
@@ -117,6 +120,55 @@ export class CollectionsService {
             url: '/collections/{collection_id}/details',
             path: {
                 'collection_id': collectionId,
+            },
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
+     * Read Collection Content
+     * @param collectionId
+     * @param requestBody
+     * @returns CollectionContentResponse Successful Response
+     * @throws ApiError
+     */
+    public static readCollectionContentCollectionsCollectionIdContentPost(
+        collectionId: string,
+        requestBody: CollectionContentRequest,
+    ): CancelablePromise<CollectionContentResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/collections/{collection_id}/content',
+            path: {
+                'collection_id': collectionId,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
+     * Query Collection Endpoint
+     * @param collectionId
+     * @param queryText
+     * @returns CollectionQueryResponse Successful Response
+     * @throws ApiError
+     */
+    public static queryCollectionEndpointCollectionsCollectionIdQueryGet(
+        collectionId: string,
+        queryText: string,
+    ): CancelablePromise<CollectionQueryResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/collections/{collection_id}/query',
+            path: {
+                'collection_id': collectionId,
+            },
+            query: {
+                'query_text': queryText,
             },
             errors: {
                 422: `Validation Error`,
