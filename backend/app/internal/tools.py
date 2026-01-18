@@ -1,11 +1,7 @@
 import chromadb
-from fastembed import TextEmbedding
-import numpy as np
+from app.crud.crud_collection_content import query_collection as crud_query_collection
 from app.database import get_db_connection
 from app.crud.crud_collection import get_enabled_collections_for_mcp
-
-# Initialize embedder
-embedder = TextEmbedding("sentence-transformers/all-MiniLM-L6-v2")
 
 def register_tools(mcp_server, mcp_manager):
     """
@@ -40,16 +36,7 @@ def register_tools(mcp_server, mcp_manager):
         if not mcp_manager.is_enabled():
             return {"status": "error", "message": "MCP server is disabled."}
         try:
-            client = chromadb.PersistentClient(path="./chroma_data")
-            collection = client.get_collection(name=collection_name)
-            # Generate embedding for query text
-            query_embedding = list(embedder.embed([query_text]))[0].tolist()
-
-            results = collection.query(
-                query_embeddings=[query_embedding],
-                n_results=n_results,
-            )
-            return {"status": "success", "results": results}
+            return crud_query_collection(collection_name, query_text, n_results)
         except ValueError as e:
             return {
                 "status": "error",

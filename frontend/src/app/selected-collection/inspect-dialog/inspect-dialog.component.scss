@@ -1,0 +1,91 @@
+.container-margin {
+  margin: 20px;
+}
+
+.dialog-content {
+    height: 500px;
+    width: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.tab-content {
+    padding: 6px;
+    height: 360px;
+    display: flex;
+    flex-direction: column;
+}
+
+.chunk-viewer {
+    flex-grow: 1;
+    overflow-y: auto;
+    border: 1px solid #ccc;
+    padding: 8px;
+    margin-bottom: 16px;
+}
+
+.chunk-navigation {
+    display: flex;
+    justify-content: space-between;
+}
+
+.error-message {
+  color: red;
+  font-weight: bold;
+}
+
+.query-tab-content {
+  justify-content: space-between;
+}
+
+.chat-messages {
+  flex-grow: 1;
+  overflow-y: auto;
+  border: 1px solid #eee;
+  padding: 10px;
+  margin-bottom: 10px;
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-message {
+  margin-bottom: 8px;
+  padding: 8px;
+  border-radius: 8px;
+  max-width: 100%;
+}
+
+.user-message {
+  align-self: flex-end;
+  background-color: #e0f7fa;
+  color: #004d40;
+}
+
+.bot-message {
+  align-self: flex-start;
+  background-color: #f3e5f5;
+  color: #4a148c;
+}
+
+.query-form {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.query-input-field {
+  flex-grow: 1;
+}
+
+.document-navigation {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.document-navigation span {
+    display: inline-block;
+    vertical-align: middle;
+}

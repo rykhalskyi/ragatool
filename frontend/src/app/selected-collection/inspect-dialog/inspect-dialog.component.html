@@ -1,0 +1,64 @@
+<div class="container-margin">
+  <h1 mat-dialog-title>Inspect Collection: {{ data.collectionId }}</h1>
+  <div mat-dialog-content class="dialog-content">
+    <mat-tab-group animationDuration="0ms">
+      <mat-tab label="Inspect">
+        <div class="tab-content">
+          @if (isLoading) {
+            <div>Loading chunks...</div>
+          } @else if (error) {
+            <div class="error-message">{{ error }}</div>
+          } @else {
+            <div class="chunk-viewer">
+              <p>{{ chunk() }}</p>
+            </div>
+            <div class="chunk-navigation">
+              <button mat-button (click)="onPrevious()" [disabled]="isLoading || isFirstPage">Previous</button>
+              {{ chunk_id() }}
+              <button mat-button (click)="onNext()" [disabled]="isLoading || isLastPageLoaded">Next</button>
+            </div>
+          }
+        </div>
+      </mat-tab>
+
+      <mat-tab label="Query">
+        <div class="tab-content query-tab-content">
+          <div class="chat-messages">
+            @if (messages().length > 0) {
+              <div class="chat-message user-message">
+                <p>{{ messages()[0].text }}</p>
+              </div>
+            }
+            @if (botResponse()) {
+              <div class="chat-message bot-message">
+               
+                @if (manyResponseDocuments()) {
+                  <div class="document-navigation">
+                    <button mat-icon-button (click)="previousDocument()" [disabled]="currentDocumentIndex === 0">
+                      <mat-icon>keyboard_arrow_left</mat-icon>
+                    </button>
+                    <span>{{ currentDocumentIndex + 1 }} / {{ queryDocuments.length }}</span>
+                    <button mat-icon-button (click)="nextDocument()" [disabled]="currentDocumentIndex === queryDocuments.length - 1">
+                      <mat-icon>keyboard_arrow_right</mat-icon>
+                    </button>
+                  </div>
+                }
+                 <p>{{ botResponse() }}</p>
+              </div>
+            }
+          </div>
+          <form [formGroup]="queryForm" (ngSubmit)="onQuerySubmit()" class="query-form">
+            <mat-form-field appearance="fill" class="query-input-field">
+              <mat-label>Your query</mat-label>
+              <input matInput formControlName="query" placeholder="Type your query here">
+            </mat-form-field>
+            <button mat-raised-button color="primary" type="submit" [disabled]="queryForm.invalid">Send</button>
+          </form>
+        </div>
+      </mat-tab>
+    </mat-tab-group>
+  </div>
+  <div mat-dialog-actions>
+    <button mat-button (click)="onCancel()">Close</button>
+  </div>
+</div>

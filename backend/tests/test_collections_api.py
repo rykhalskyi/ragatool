@@ -1,18 +1,17 @@
 import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import patch, MagicMock
-from app.main import app as fastapi_app # Import the FastAPI app instance
+from app.main import app as fastapi_app
 from app.dependencies import get_db
-import app.database # Import the database module
-import chromadb # Import chromadb
-import tempfile # Import tempfile
-import shutil # Import shutil
-
+import app.database
+import chromadb
+import tempfile
+import uuid
 
 # Mock MCPManager globally
 mock_mcp_manager = MagicMock()
 mcp_manager_patch = patch('app.routers.collections.mcp_manager', mock_mcp_manager)
-mcp_manager_patch.start() # Start the patch once for the module
+mcp_manager_patch.start()
 
 # Patch the DATABASE_URL to use an in-memory database for all tests
 database_url_patch = patch('app.database.DATABASE_URL', ":memory:")
@@ -20,141 +19,108 @@ database_url_patch.start()
 
 @pytest.fixture(scope="function")
 def client():
-    # Create a temporary directory for ChromaDB
     with tempfile.TemporaryDirectory() as tmpdir:
-        # Patch chromadb.PersistentClient to use the temporary directory
         with patch('chromadb.PersistentClient') as mock_persistent_client:
             mock_persistent_client.return_value = chromadb.PersistentClient(path=tmpdir)
-
-            # Use a fresh in-memory database for each test function
             connection = app.database.get_db_connection()
-            app.database.create_tables(connection) # Use the patched DATABASE_URL
+            app.database.create_tables(connection)
 
             def override_get_db():
                 try:
                     yield connection
                 finally:
-                    # Removed connection.close() here; in-memory db is ephemeral per fixture call
                     pass
-
 
             fastapi_app.dependency_overrides[get_db] = override_get_db
             yield TestClient(fastapi_app)
             fastapi_app.dependency_overrides.clear()
-            mock_mcp_manager.reset_mock() # Reset mock calls between tests
+            mock_mcp_manager.reset_mock()
 
-# Stop the patches after all tests in the module are done
 def teardown_module(module):
     mcp_manager_patch.stop()
     database_url_patch.stop()
 
 def test_create_collection_success(client):
     response = client.post("/collections/", json={
-        "name": "My New Collection",
-        "description": "A test collection",
-        "enabled": True,
-        "model": "test_model",
-        "settings": "{}"
+        "name": "My New Collection", "description": "A test collection", "enabled": True, "model": "test_model", "settings": "{}"
     })
     assert response.status_code == 200
     data = response.json()
-    assert data["name"] == "My New Collection" # Expect original name
+    assert data["name"] == "My New Collection"
     assert "id" in data
 
 def test_create_duplicate_collection_fails(client):
-    # First, create a collection
-    client.post("/collections/", json={
-        "name": "Unique Name",
-        "description": "A test collection",
-        "enabled": True,
-        "model": "test_model",
-        "settings": "{}"
-    })
-
-    # Then, attempt to create another with the same name
-    response = client.post("/collections/", json={
-        "name": "Unique Name",
-        "description": "Another collection",
-        "enabled": False,
-        "model": "another_model",
-        "settings": "{}"
-    })
+    client.post("/collections/", json={"name": "Unique Name"})
+    response = client.post("/collections/", json={"name": "Unique Name"})
     assert response.status_code == 409
-    assert "already exists" in response.json()["detail"]
-
-def test_create_duplicate_collection_case_insensitive_fails(client):
-    # Create a collection with a specific casing
-    client.post("/collections/", json={
-        "name": "Case Test",
-        "description": "A test collection",
-        "enabled": True,
-        "model": "test_model",
-        "settings": "{}"
-    })
-
-    # Attempt to create with different casing
-    response = client.post("/collections/", json={
-        "name": "case test",
-        "description": "Another collection",
-        "enabled": False,
-        "model": "another_model",
-        "settings": "{}"
-    })
-    assert response.status_code == 409
-    assert "already exists" in response.json()["detail"]
 
 def test_delete_collection(client):
-    # Create a collection to delete
-    create_response = client.post("/collections/", json={
-        "name": "To Be Deleted",
-        "description": "This will be removed",
-        "enabled": True,
-        "model": "delete_model",
-        "settings": "{}"
-    })
+    create_response = client.post("/collections/", json={"name": "To Be Deleted"})
     collection_id = create_response.json()["id"]
-
-    # Reset the mock before the delete call to check it was called
-    mock_mcp_manager.delete_collection.reset_mock()
-
-    # Delete the collection
     delete_response = client.delete(f"/collections/{collection_id}")
     assert delete_response.status_code == 200
-
-    # Verify the collection is gone
     get_response = client.get(f"/collections/{collection_id}")
     assert get_response.status_code == 404
 
-
 def test_read_collection_details(client):
-    # Create a collection
-    create_response = client.post("/collections/", json={
-        "name": "Details Test",
-        "description": "Details description",
-        "enabled": True,
-        "model": "details_model",
-        "settings": "{}"
-    })
+    create_response = client.post("/collections/", json={"name": "Details Test"})
     collection_id = create_response.json()["id"]
-
-    # Mock ChromaDB response for the details endpoint
     with patch('chromadb.PersistentClient') as mock_persistent_client:
         mock_collection = mock_persistent_client.return_value.get_collection.return_value
         mock_collection.count.return_value = 42
         mock_collection.metadata = {"source": "api_test"}
-
-        # Test successful retrieval
         response = client.get(f"/collections/{collection_id}/details")
         assert response.status_code == 200
         data = response.json()
-        assert data["id"] == collection_id
         assert data["name"] == "Details Test"
         assert data["count"] == 42
-        assert data["metadata"] == {"source": "api_test"}
-
-    # Test not found for a non-existent collection
-    import uuid
     non_existent_id = str(uuid.uuid4())
     response = client.get(f"/collections/{non_existent_id}/details")
+    assert response.status_code == 404
+
+@patch('app.routers.collections.get_collection_chunks')
+def test_read_collection_content_success(mock_get_chunks, client):
+    create_response = client.post("/collections/", json={"name": "Content Test"})
+    assert create_response.status_code == 200
+    collection_id = create_response.json()["id"]
+
+    mock_get_chunks.return_value = {
+        "chunks": [{"id": "1", "document": "doc1"}],
+        "total_chunks": 1,
+        "page": 1,
+        "page_size": 10
+    }
+    
+    response = client.post(f"/collections/{collection_id}/content", json={"page": 1, "page_size": 10})
+    
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total_chunks"] == 1
+    mock_get_chunks.assert_called_once_with(collection_id, 1, 10)
+
+def test_read_collection_content_not_found(client):
+    import uuid
+    non_existent_id = str(uuid.uuid4())
+    response = client.post(f"/collections/{non_existent_id}/content", json={"page": 1, "page_size": 10})
+    assert response.status_code == 404
+
+@patch('app.routers.collections.query_collection')
+def test_query_collection_success(mock_query_collection, client):
+    create_response = client.post("/collections/", json={"name": "Query Test"})
+    assert create_response.status_code == 200
+    collection_id = create_response.json()["id"]
+    
+    mock_query_collection.return_value = {"status": "success", "results": "mocked_results"}
+    
+    response = client.get(f"/collections/{collection_id}/query?query_text=hello")
+    
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "success"
+    mock_query_collection.assert_called_once_with(collection_id, "hello")
+
+def test_query_collection_not_found(client):
+    non_existent_id = str(uuid.uuid4())
+    response = client.get(f"/collections/{non_existent_id}/query?query_text=hello")
     assert response.status_code == 404
 

@@ -1,12 +1,14 @@
 import chromadb
 import os
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import List
 from sqlite3 import Connection
 
 from app.crud.crud_log import delete_log_by_collection_id
 from app.schemas.collection import Collection, CollectionCreate, CollectionDetails
+from app.schemas.collection_content import CollectionContentRequest, CollectionContentResponse, CollectionQueryResponse
 from app.crud.crud_collection import get_collections, create_collection, update_collection_description_and_enabled, delete_collection, get_collection, get_collection_details
+from app.crud.crud_collection_content import get_collection_chunks, query_collection
 from app.dependencies import get_db
 from app.internal.exceptions import DuplicateCollectionError
 from app.internal.utils import prepare_collection_name
@@ -31,6 +33,32 @@ def read_collection_details(collection_id: str, db: Connection = Depends(get_db)
     if db_collection_details is None:
         raise HTTPException(status_code=404, detail="Collection not found")
     return db_collection_details
+
+@router.post("/{collection_id}/content", response_model=CollectionContentResponse)
+def read_collection_content(collection_id: str, request: CollectionContentRequest, db: Connection = Depends(get_db)):
+    db_collection = get_collection(db, collection_id=collection_id)
+    if db_collection is None:
+        raise HTTPException(status_code=404, detail="Collection not found")
+    try:
+        chunks_data = get_collection_chunks(collection_id, request.page, request.page_size)
+        return CollectionContentResponse(**chunks_data)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {e}")
+
+@router.get("/{collection_id}/query", response_model=CollectionQueryResponse)
+def query_collection_endpoint(collection_id: str, query_text: str = Query(..., min_length=1), db: Connection = Depends(get_db)):
+    db_collection = get_collection(db, collection_id=collection_id)
+    if db_collection is None:
+        raise HTTPException(status_code=404, detail="Collection not found")
+    try:
+        query_result = query_collection(collection_id, query_text)
+        return CollectionQueryResponse(**query_result)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {e}")
 
 @router.post("/", response_model=Collection)
 def create_new_collection(collection: CollectionCreate, db: Connection = Depends(get_db)):
