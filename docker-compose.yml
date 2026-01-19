@@ -7,7 +7,8 @@ services:
       dockerfile: Dockerfile
     ports:
       - "4301:8000" # Expose FastAPI port 4301 externally, map to FastAPI's internal port 8000
-      - "4302:8001" # Expose FastMCP port 4302 externally, map to FastMCP's internal port 8001
+      - "4302:8001" # Expose FastMCP SSE port 4302 externally, map to FastMCP's internal port 8001
+      - "4303:8002" # Expose FastMCP HTTP port 4303 externally, map to FastMCP's internal port 8002
     # Add environment variables if needed for the backend, e.g., database connection
     environment:
       # Example: DATABASE_URL=postgresql://user:password@db:5432/mydatabase
@@ -16,6 +17,8 @@ services:
       ALLOWED_ORIGINS: http://localhost:4300
       MCP_HOST: "0.0.0.0"
       MCP_PORT: "8001"
+      MCP_HTTP_HOST: "0.0.0.0"
+      MCP_HTTP_PORT: "8002"
     # For development, you might want to mount volumes for live code changes:
     # volumes:
     #   - ./backend:/app

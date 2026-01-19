@@ -18,34 +18,54 @@ class MCPManager:
         return cls._instance
 
     def _initialize(self):
-        self._mcp_server: FastMCP | None = None
+        self._sse_server: FastMCP | None = None
+        self._http_server: FastMCP | None = None
         self._is_enabled: bool = False
-        self._server_thread: threading.Thread | None = None
+        self._sse_thread: threading.Thread | None = None
+        self._http_thread: threading.Thread | None = None
         self.server_name = "Ragatouille"
 
-    def _run_server(self):
-        if self._mcp_server:
+    def _run_sse_server(self):
+        if self._sse_server:
             # FastMCP.run() is a blocking call, so it needs to be in a separate thread
             host = os.getenv("MCP_HOST", "127.0.0.1")
             port = int(os.getenv("MCP_PORT", 8001))
-            self._mcp_server.run(transport="sse", host=host, port=port, path="/mcp")
+            self._sse_server.run(transport="sse", host=host, port=port, path="/mcp")
+    
+    def _run_http_server(self):
+        """Run HTTP server for opencode"""
+        if self._http_server:
+            host = os.getenv("MCP_HTTP_HOST", "127.0.0.1")
+            port = int(os.getenv("MCP_HTTP_PORT", 8002))
+            self._http_server.run(transport="http", host=host, port=port, path="/mcp")
 
     def enable(self):
         if not self._is_enabled:
             self._is_enabled = True
-            if not self._mcp_server:
-                self._mcp_server = FastMCP(self.server_name)
+            if not self._sse_server:
+                self._sse_server = FastMCP(f"{self.server_name}-SSE")
+                self._http_server = FastMCP(f"{self.server_name}-HTTP")
 
-                register_tools(self._mcp_server, self)
+                register_tools(self._sse_server, self)
+                register_tools(self._http_server, self)
 
-                # Start the server thread only once when the MCP server is first initialized
-                self._server_thread = threading.Thread(
-                    target=self._run_server, daemon=True
+                # Start SSE server (for other agents)
+                self._sse_thread = threading.Thread(
+                    target=self._run_sse_server, daemon=True
                 )
-                self._server_thread.start()
+                self._sse_thread.start()
+                
+                # Start HTTP server (for opencode)
+                self._http_thread = threading.Thread(
+                    target=self._run_http_server, daemon=True
+                )
+                self._http_thread.start()
+
                 # Give the server a moment to start
                 time.sleep(1)
                 print(f"MCP server '{self.server_name}' started.")
+                print(f"  SSE: http://127.0.0.1:8001/mcp")
+                print(f"  HTTP: http://127.0.0.1:8002/mcp")
 
     def disable(self):
         if self._is_enabled:
@@ -57,24 +77,24 @@ class MCPManager:
 
 
     def get_mcp_server(self) -> FastMCP | None:
-        return self._mcp_server
+        return self._sse_server
 
     def add_tool(self, func):
-        if self._mcp_server:
-            self._mcp_server.tool()(func)
+        if self._sse_server:
+            self._sse_server.tool()(func)
         else:
             print("MCP server not initialized, cannot add tool.")
 
     def add_resource(self, path: str):
-        if self._mcp_server:
-            return self._mcp_server.resource(path)
+        if self._sse_server:
+            return self._sse_server.resource(path)
         else:
             print("MCP server not initialized, cannot add resource.")
             return lambda f: f # Return a no-op decorator
 
     def add_prompt(self, func):
-        if self._mcp_server:
-            self._mcp_server.prompt()(func)
+        if self._sse_server:
+            self._sse_server.prompt()(func)
         else:
             print("MCP server not initialized, cannot add prompt.")
 mcp_manager = MCPManager()

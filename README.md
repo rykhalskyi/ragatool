@@ -41,9 +41,18 @@ To get started with RAGatouille, you will need Docker or Podman installed on you
 
 To configure RAGatouille MCP, add the following to your configuration:
 
+1. SSE:
+
 ```json
 "ragatouille": {
       "url": "http://localhost:4302/mcp"
+    }
+```
+2. HTTP:
+
+```json
+"ragatouille": {
+      "url": "http://localhost:4303/mcp"
     }
 ```
 
