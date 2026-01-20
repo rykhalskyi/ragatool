@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>About</title>
+    <style>
+        p, a{
+            font-size: 12px;
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+        }
+
+      </style>
+        <script type="text/javascript" src="https://onlyoffice.github.io/sdkjs-plugins/v1/plugins.js"></script>
+        <script type="text/javascript" src="https://onlyoffice.github.io/sdkjs-plugins/v1/plugins-ui.js"></script>
+        <link rel="stylesheet" href="https://onlyoffice.github.io/sdkjs-plugins/v1/plugins.css">
+    <script type="text/javascript">
+        window.Asc.plugin.init = function()
+        {
+            this.resizeWindow(392, 147, 392, 147, 392, 147);
+            // none
+        };
+
+        window.Asc.plugin.button = function(id)
+        {
+            this.executeCommand("close", "");
+        };
+
+    </script>
+</head>
+<body style="padding-left: 20px; padding-right: 20px">
+<p style="font-size: 15px">Ragatouille Add-in</p>
+<p style="font-size: 12px">This plugin connects onlyoffice with Ragatouille Server to provide ai agent access to ONLYOFFICE document</p>
+<p style="font-size: 12px"><a href="https://github.com/rykhalskyi/ragatouille" target="_blank">Ragatouille source code.</a></p>
+</body>
+</html>
