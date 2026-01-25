@@ -1,8 +1,8 @@
 import os
 import threading
 from fastapi import FastAPI
-from app.dependencies import get_message_hub, get_message_hub_instance
-from app.routers import items, collections, tasks, imports, mcp, logs, settings, files
+from app.dependencies import get_message_hub, get_message_hub_instance, get_extension_manager # Added get_extension_manager
+from app.routers import items, collections, tasks, imports, mcp, logs, settings, files, extensions # Added extensions router
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import create_tables, get_db_connection
 from contextlib import asynccontextmanager
@@ -22,21 +22,32 @@ async def lifespan(app: FastAPI):
     crud_task.delete_all_tasks(db)
     db.close()
 
-        # Get singleton MessageHub
+    # Get singleton MessageHub and initialize it
     message_hub = get_message_hub_instance()
-
-    # Start broadcaster thread
+    # Start broadcaster thread for MessageHub
     threading.Thread(
         target=message_hub.broadcast_loop,
         daemon=True
     ).start()
 
+    # Enable MCP Manager
     mcp_manager.enable()
     
+    # Get ExtensionManager and ensure it's initialized and started
+    # The dependency function get_extension_manager() handles DB initialization
+    extension_manager = get_extension_manager() 
+    # Start heartbeat if it exists and is configured
+    if hasattr(extension_manager, 'start_heartbeat') and extension_manager.heartbeat_interval_seconds > 0:
+        extension_manager.start_heartbeat()
+
     yield
     
     # Shutdown: cleanup if needed
     mcp_manager.disable()
+    # Shutdown ExtensionManager if it has a shutdown method
+    if hasattr(extension_manager, 'shutdown'):
+        extension_manager.shutdown()
+    # MessageHub's broadcast loop is daemon, will exit with app
 
 app = FastAPI(lifespan=lifespan)
 
@@ -60,6 +71,7 @@ app.include_router(mcp.router, prefix="/mcp", tags=["mcp"])
 app.include_router(logs.router, prefix="/logs", tags=["logs"])
 app.include_router(settings.router, prefix="/settings", tags=["settings"])
 app.include_router(files.router, prefix="/files", tags=["files"])
+app.include_router(extensions.router, prefix="/extensions", tags=["extensions"]) # Include the new extensions router
 
 @app.get("/")
 def read_root():

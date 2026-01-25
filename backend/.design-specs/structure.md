@@ -6,6 +6,7 @@
 app/
 ├── crud/                   # Contains Create, Read, Update, Delete (CRUD) operations for database models.
 ├── internal/               # Core internal logic and managers (e.g., background tasks, MCP).
+│   └── tools.py            # Utility functions used across the application.
 ├── models/                 # Business logic models and data processing classes.
 ├── routers/                # FastAPI routers that define API endpoints.
 ├── schemas/                # Pydantic schemas for data validation and serialization.

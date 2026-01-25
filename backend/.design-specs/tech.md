@@ -6,7 +6,7 @@ This project is a web API service designed to manage collections of documents, p
 ## Core Technologies
 
 ### Primary Language(s)
-- **Language**: Python 3.12
+- **Language**: Python 3.12.3
 - **Runtime/Compiler**: CPython
 - **Language-specific tools**: pip for package management.
 
@@ -17,6 +17,7 @@ This project is a web API service designed to manage collections of documents, p
 - **Sentence-Transformers**: A Python framework for state-of-the-art sentence, text and image embeddings.
 - **SQLAlchemy**: The Python SQL Toolkit and Object Relational Mapper. Used for database interactions.
 - **Pydantic**: Data validation and settings management using Python type annotations.
+- **langchain-text-splitters**: For splitting text into chunks.
 
 ### Application Architecture
 The application follows a client-server architecture. It is structured by layers, separating concerns into:
@@ -41,6 +42,7 @@ The application follows a client-server architecture. It is structured by layers
 - **Development workflow**: The application can be run directly with Uvicorn for local development.
 
 ### Code Quality Tools
+- **Testing Framework**: `pytest` is used for unit and integration testing.
 - **Typing**: The codebase uses Python's standard type hints for static analysis and code clarity.
 
 ### Version Control & Collaboration
@@ -49,5 +51,5 @@ The application follows a client-server architecture. It is structured by layers
 ## Deployment & Distribution (if applicable)
 - **Target Platform(s)**: The application is designed to be deployed in a containerized environment using Docker.
 - **Distribution Method**: The application is distributed as a Docker image.
-- **Installation Requirements**: Docker and Python 3.12.
+- **Installation Requirements**: Docker and Python 3.12.3.
 - **Update Mechanism**: By deploying a new version of the Docker image.
