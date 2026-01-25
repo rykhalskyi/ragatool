@@ -23,6 +23,7 @@ class ExtensionManager:
         self.db: Optional[Connection] = None
         self.incoming_message_queue: queue.Queue = queue.Queue()
         self.clients: Dict[str, queue.Queue] = {}
+        self.client_metadata: Dict[str, Dict] = {}
         self.client_id_counter = 0
         self.heartbeat_interval_seconds: int = 60 # Default heartbeat interval
         self._heartbeat_thread: Optional[threading.Thread] = None
@@ -46,6 +47,8 @@ class ExtensionManager:
         """Unregisters a client."""
         if client_id in self.clients:
             del self.clients[client_id]
+            if client_id in self.client_metadata:
+                del self.client_metadata[client_id]
             print(f"INFO: Client unregistered: {client_id}")
         else:
             print(f"WARNING: Attempted to unregister non-existent client: {client_id}")
@@ -87,6 +90,18 @@ class ExtensionManager:
             print(f"INFO: Received message from client {client_id}: Type='{client_message.type}', Payload={client_message.payload}")
 
             if client_message.type == "ping":
+                if client_message.payload and isinstance(client_message.payload, list) and len(client_message.payload) > 0:
+                    first_item = client_message.payload[0]
+                    if isinstance(first_item, dict) and "app" in first_item and "entityName" in first_item:
+                        metadata = {
+                            "name": first_item.get("name"),
+                            "description": first_item.get("description"),
+                            "inputScheme": first_item.get("inputSchema"),
+                            "app": first_item.get("app"),
+                            "entityName": first_item.get("entityName")
+                        }
+                        self.client_metadata[client_id] = metadata
+                        print(f"INFO: Updated metadata for client {client_id}: {metadata}")
                 response_message = WebSocketMessage(
                     id=str(uuid.uuid4()),
                     timestamp=datetime.now().isoformat(),
