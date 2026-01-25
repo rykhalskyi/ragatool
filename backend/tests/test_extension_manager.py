@@ -160,5 +160,75 @@ class TestExtensionManager(unittest.TestCase):
         self.assertEqual(len(self.manager.clients), 0)
 
 
+    def test_send_command_and_wait_for_response(self):
+        """Test the async request-reply pattern successfully returns a response."""
+        import asyncio
+        import threading
+        from app.internal.extension_manager import send_command_and_wait_for_response
+
+        client_id, client_queue = self.manager.register_client()
+        
+        def client_simulator():
+            try:
+                # 1. Client waits for the command from the manager
+                command_message: WebSocketMessage = client_queue.get(timeout=2)
+                
+                self.assertEqual(command_message.topic, "test_command")
+                self.assertIsNotNone(command_message.correlation_id)
+                
+                # 2. Client processes and sends a response
+                response_payload = {
+                    "status": "completed",
+                    "result": "here is your data",
+                    "correlation_id": command_message.correlation_id
+                }
+                self.manager.process_incoming_message(client_id, response_payload)
+            except queue.Empty:
+                self.fail("Client simulator did not receive a message.")
+
+        # Run the client simulator in a separate thread
+        client_thread = threading.Thread(target=client_simulator)
+        client_thread.start()
+
+        async def run_test():
+            # 3. Main thread sends a command and awaits the response
+            response = await send_command_and_wait_for_response(
+                client_id=client_id,
+                command="test_command",
+                payload={"data": "some_input"},
+                timeout=5
+            )
+            # 4. Assert the response is what the client sent
+            self.assertEqual(response["status"], "completed")
+            self.assertEqual(response["result"], "here is your data")
+
+        # Run the async test
+        asyncio.run(run_test())
+        client_thread.join()
+
+    def test_send_command_and_wait_for_response_timeout(self):
+        """Test that the async request-reply pattern raises a TimeoutError."""
+        import asyncio
+        from app.internal.extension_manager import send_command_and_wait_for_response
+
+        client_id, client_queue = self.manager.register_client()
+
+        async def run_test():
+            # We expect a TimeoutError because the client will not send a response
+            with self.assertRaises(asyncio.TimeoutError):
+                await send_command_and_wait_for_response(
+                    client_id=client_id,
+                    command="test_command",
+                    payload={"data": "some_input"},
+                    timeout=0.1  # Use a short timeout
+                )
+            
+            # Ensure the pending request is cleaned up after timeout
+            self.assertEqual(len(self.manager.pending_async_requests), 0)
+
+        # Run the async test
+        asyncio.run(run_test())
+
+
 if __name__ == '__main__':
     unittest.main()

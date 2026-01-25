@@ -1,10 +1,12 @@
 from sqlite3 import Connection
+import asyncio
 import queue
 import threading
 import uuid
 from datetime import datetime
 from typing import Any, Optional, Set, Dict, Callable, Coroutine
 
+from asyncio import Future
 from app.schemas.websocket import WebSocketMessage, ClientMessage # Import actual Pydantic models
 
 class ExtensionManager:
@@ -24,6 +26,7 @@ class ExtensionManager:
         self.incoming_message_queue: queue.Queue = queue.Queue()
         self.clients: Dict[str, queue.Queue] = {}
         self.client_metadata: Dict[str, Dict] = {}
+        self.pending_async_requests: Dict[str, Future] = {}
         self.client_id_counter = 0
         self.heartbeat_interval_seconds: int = 60 # Default heartbeat interval
         self._heartbeat_thread: Optional[threading.Thread] = None
@@ -85,11 +88,24 @@ class ExtensionManager:
     def process_incoming_message(self, client_id: str, message_data: Dict[str, Any]):
         """Processes a message received from a client."""
         try:
+            # Check if it's a response to a pending async request
+            correlation_id = message_data.get("correlation_id")
+            if correlation_id and correlation_id in self.pending_async_requests:
+                future = self.pending_async_requests.pop(correlation_id)
+                # Resolve the future in a thread-safe way
+                future.get_loop().call_soon_threadsafe(future.set_result, message_data)
+                print(f"INFO: Resolved async request for correlation_id: {correlation_id}")
+                return
+
             client_message = ClientMessage(**message_data) 
-
             print(f"INFO: Received message from client {client_id}: Type='{client_message.type}', Payload={client_message.payload}")
+            
+            if client_message.type == "command_response":
+                print(f"INFO: Received command response from {client_id}. This should have a correlation_id.")
+                # This case is now handled by the correlation_id check at the beginning
+                pass
 
-            if client_message.type == "ping":
+            elif client_message.type == "ping":
                 if client_message.payload and isinstance(client_message.payload, list) and len(client_message.payload) > 0:
                     first_item = client_message.payload[0]
                     if isinstance(first_item, dict) and "app" in first_item and "entityName" in first_item:
@@ -131,7 +147,9 @@ class ExtensionManager:
                 topic="error",
                 message=f"Server error processing message: {e}"
             )
-            self.send_message_to_client(client_id, error_response)
+            # Avoid sending an error response if the client is gone
+            if client_id in self.clients:
+                self.send_message_to_client(client_id, error_response)
 
 
     def _run_heartbeat(self):
@@ -187,3 +205,63 @@ class ExtensionManager:
         if self.db:
             pass 
         print("INFO: ExtensionManager shut down complete.")
+
+
+async def send_command_and_wait_for_response(
+    client_id: str, 
+    command: str, 
+    payload: Any, 
+    timeout: int = 10
+) -> Dict[str, Any]:
+    """
+    Sends a command to a client and waits for a response with a correlation_id.
+
+    Args:
+        client_id: The ID of the client to send the command to.
+        command: The command topic/name.
+        payload: The data to send with the command.
+        timeout: The time in seconds to wait for a response.
+
+    Returns:
+        The response payload from the client.
+
+    Raises:
+        TimeoutError: If the client does not respond within the timeout period.
+        ConnectionError: If the client is not connected.
+    """
+    manager = ExtensionManager()
+    if client_id not in manager.clients:
+        raise ConnectionError(f"Client {client_id} is not connected or does not exist.")
+
+    loop = asyncio.get_running_loop()
+    correlation_id = str(uuid.uuid4())
+    future = loop.create_future()
+    
+    manager.pending_async_requests[correlation_id] = future
+
+    message = WebSocketMessage(
+        id=str(uuid.uuid4()),
+        timestamp=datetime.now().isoformat(),
+        topic=command,
+        message="command",
+        payload=payload,
+        correlation_id=correlation_id
+    )
+
+    try:
+        manager.send_message_to_client(client_id, message)
+        print(f"INFO: Sent command '{command}' to client {client_id} with correlation_id: {correlation_id}")
+        
+        # Wait for the future to be resolved by process_incoming_message
+        response = await asyncio.wait_for(future, timeout=timeout)
+        return response
+
+    except asyncio.TimeoutError:
+        # Clean up the pending request if a timeout occurs
+        manager.pending_async_requests.pop(correlation_id, None)
+        print(f"ERROR: Timeout waiting for response from client {client_id} for correlation_id: {correlation_id}")
+        raise TimeoutError(f"Client {client_id} did not respond within {timeout} seconds.")
+    except Exception as e:
+        manager.pending_async_requests.pop(correlation_id, None)
+        print(f"ERROR: An error occurred while sending command and waiting for response: {e}")
+        raise

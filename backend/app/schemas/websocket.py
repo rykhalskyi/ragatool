@@ -7,6 +7,7 @@ class WebSocketMessage(BaseModel):
     topic: str # e.g., "status", "notification", "data"
     message: Any # Payload, can be dict, str, etc.
     collectionId: Optional[str] = None # Optional: context from a specific collection
+    correlation_id: Optional[str] = None # Added for request-reply pattern
 
 class ClientMessage(BaseModel):
     type: str # e.g., "command", "ping", "status_update"
