@@ -11,7 +11,7 @@
       <div class="row1">
         <div class="file-input-container">
           <button mat-raised-button color="primary" type="button" (click)="fileInput.click()" 
-                  [disabled]="importForm.get('file')?.value || showProgressBar()">Pick File</button>
+                  [disabled]="importForm.get('file')?.value || showProgressBar()" data-testid="pick-file-button">Pick File</button>
           <input hidden type="file" #fileInput (change)="onFileSelected($event)" [accept]="fileAcceptFilter">
           <span class="file-name">{{ selectedFileName || 'No file chosen' }}</span>
           @if (importForm.get('file')?.hasError('required') && importForm.get('file')?.touched){

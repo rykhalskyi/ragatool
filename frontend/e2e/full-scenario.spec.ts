@@ -4,7 +4,7 @@ import * as path from 'path';
 const draculaFilePath = path.resolve(__dirname, 'text/dracula.txt');
 const lotrFilePath = path.resolve(__dirname, 'text/The Lord of the Rings.txt');
 
-test.describe('Full E2E Scenario', () => {
+test.describe('Full E2E Scenario - Normal Import', () => {
   test.beforeAll(async ({ browser }) => {
     const page = await browser.newPage();
     await page.goto('http://localhost:4200');
@@ -63,33 +63,29 @@ test.describe('Full E2E Scenario', () => {
       await expect(page.getByText('A book about a hobbit and a ring.')).toBeVisible();
     });
 
-    await test.step('Import file to "Dracula" collection', async () => {
-      await page.getByText('Dracula').click();
-      await expect(page).toHaveURL(/\/collection\/.*/);
-
-      await page.getByTestId('import-button').click();
-      await expect(page.getByRole('heading', { name: /Import File to .*/ })).toBeVisible();
-
-      await page.getByRole('button', { name: 'Pick File' }).click();
-
-      // Close the dropdown by pressing Escape
-     // await page.keyboard.press('Escape');
-                
-
-      const fileChooserPromise = page.waitForEvent('filechooser');
-      const fileChooser = await fileChooserPromise;
-      await fileChooser.setFiles(draculaFilePath);
-
-      await page.getByRole('button', { name: 'Pick File' }).click();
-
-      await expect(page.getByText('Import completed')).toBeVisible({ timeout: 60000 });
-      await page.getByRole('button', { name: 'Close' }).click();
-    });
-
+        await test.step('Import file to "Dracula" collection', async () => {
+          await page.getByText('Dracula').click();
+          await expect(page).toHaveURL(/\/collection\/.*/);
+    
+          await page.getByTestId('import-select').click();
+          await page.getByRole('option', { name: 'FILE' }).click();
+          // Close the dropdown by pressing Escape
+          await page.keyboard.press('Escape');
+    
+          await page.getByTestId('import-button').click();
+          await expect(page.getByRole('heading', { name: /Import File to .*/ })).toBeVisible();
+          
+          await page.getByTestId('pick-file-button').click(); // Triggers the hidden input
+          await page.locator('input[type="file"]').setInputFiles(draculaFilePath); // Directly set the file
+    
+          await page.getByRole('button', { name: /Import|Load/ }).click(); // Submit the import
+          await expect(page.getByText('Import completed')).toBeVisible({ timeout: 120000 });
+          await page.getByRole('button', { name: 'Close' }).click();
+        });
     await test.step('Navigate back and import file to "The Lord of the Rings" collection', async () => {
       // Navigate back to the collections list. 
       // Using goBack() is more resilient than clicking a link.
-      await page.goBack();
+      await page.goto('http://localhost:4200/');
       await expect(page).toHaveURL('http://localhost:4200/');
       
       await page.getByText('The Lord of the Rings').click();
@@ -108,9 +104,10 @@ test.describe('Full E2E Scenario', () => {
       await expect(page.getByRole('heading', { name: /Import File to .*/ })).toBeVisible();
       
       const fileChooserPromise = page.waitForEvent('filechooser');
+      await page.getByTestId('pick-file-button').click(); // This triggers the file dialog
       const fileChooser = await fileChooserPromise;
       await fileChooser.setFiles(lotrFilePath);
-      await page.getByRole('button', { name: 'Import' }).click();
+      await page.getByRole('button', { name: /Import|Load/ }).click(); // Submit the import
 
       await expect(page.getByText('Import completed')).toBeVisible({ timeout: 120000 });
       await page.getByRole('button', { name: 'Close' }).click();

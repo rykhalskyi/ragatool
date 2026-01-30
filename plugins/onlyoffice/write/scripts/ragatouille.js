@@ -12,7 +12,7 @@ function connectClick() {
         client = new WebSocketClient('ws://localhost:8000/extensions/ws');
 
         client.onOpen = () => {
-            statusElement.textContent = 'Connected' + file_name;
+            statusElement.textContent = 'Connected';
             connectButton.textContent = 'Disconnect';
             connected = true;
 
