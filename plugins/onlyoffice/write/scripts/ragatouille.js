@@ -63,14 +63,6 @@ function connectClick() {
                 const version = await Editor.callMethod("GetVersion");
                 console.log("Editor version:", version);
 
-                // You could also execute a command, for example, to insert text:
-                // await Editor.callCommand(function() {
-                //     var oDocument = Api.GetDocument();
-                //     var oParagraph = Api.CreateParagraph();
-                //     oParagraph.AddText("Received: " + event.data);
-                //     oDocument.InsertContent([oParagraph]);
-                // });
-
             } catch (error) {
                 console.error("Error calling API method from WebSocket handler:", error);
             }

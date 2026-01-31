@@ -42,10 +42,13 @@ class GetContentCommand extends ExtensionCommand {
         );
     }
 
-    async do(commandArg) {
-        try {
-            const content = await Editor.callMethod("GetFileHTML");
-            return { success: true, content: content };
+       async do(commandArg) {
+        try {           
+            return await Editor.callCommand(function() {
+                const oDocument = Api.GetDocument();
+                var allText = oDocument.GetText();
+                return { success: true, content: allText };
+            });
         } catch (error) {
             console.error("Error getting content:", error);
             return { success: false, message: error.message };
