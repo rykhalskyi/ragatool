@@ -4,7 +4,7 @@
     "baseUrl"    : "",
     "variations" : [
         {
-            "description"         : "Connect with Server",
+            "description"         : "Provides your AI agent access to the document via Ragatouille server.",
             "url"                 : "index.html",
             "icons"               : ["resources/img/icon.png", "resources/img/icon@2x.png"],
             "isViewer"            : false,

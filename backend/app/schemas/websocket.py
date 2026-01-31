@@ -5,7 +5,7 @@ class WebSocketMessage(BaseModel):
     id: str # Unique message ID
     timestamp: str
     topic: str # e.g., "status", "notification", "data"
-    message: Any # Payload, can be dict, str, etc.
+    message: Optional[str] # Payload
     collectionId: Optional[str] = None # Optional: context from a specific collection
     correlation_id: Optional[str] = None # Added for request-reply pattern
 

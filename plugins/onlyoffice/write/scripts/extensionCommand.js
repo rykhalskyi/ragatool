@@ -26,5 +26,8 @@ class ExtensionCommand {
     console.log(`Executing command: ${this.name} in ${this.app} with ${this.entityName}`);
     console.log(`Command arguments: ${JSON.stringify(commandArg, null, 2)}`);
     console.warn("The 'do' method of ExtensionCommand is a placeholder and needs implementation.");
+    return `Executing command: ${this.name} in ${this.app} with ${this.entityName}. input: ${commandArg}`;
   }
 }
+
+export { ExtensionCommand };

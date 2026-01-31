@@ -1,4 +1,4 @@
-import { get_commands } from './commands.js';
+import { find_command, get_commands } from './commands.js';
 
 let client = null;
 let connected = false;
@@ -41,6 +41,16 @@ function connectClick() {
                     console.log("Ping payload:", message.payload);
                     client.send(JSON.stringify({type: "pong", payload: message.timestamp}));
                     break;
+                case "call_command":
+                    const command = find_command(message.id);
+                    if (command !== undefined)
+                    {
+                      const result = await command.do(message.message);
+                      client.send(JSON.stringify({
+                        type: "command_response",
+                        correlation_id: message.correlation_id, 
+                        payload: result}))
+                    }
                 default:
                     console.warn("Unknown message type:", message.type);
             }
@@ -96,6 +106,8 @@ var Editor = {
         })());
     }
 };
+
+export { Editor };
 
 (function(window, undefined){
 

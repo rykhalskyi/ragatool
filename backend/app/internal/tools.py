@@ -29,8 +29,8 @@ def register_tools(mcp_server, mcp_manager):
         return collections
 
     @mcp_server.tool()
-    def extension_tool_list() -> List[dict]:
-        """Returns a list of all connected extension tools and their supported commands."""
+    def extension_list() -> List[dict]:
+        """Returns a list of all connected extensions and their supported commands."""
         if not mcp_manager.is_enabled():
             return []
         
@@ -41,9 +41,9 @@ def register_tools(mcp_server, mcp_manager):
         return [tool.model_dump() for tool in extension_tools]
 
     @mcp_server.tool()
-    async def call_extension_tool(id: str, name: str, input: dict) -> dict:
+    async def call_extension(id: str, name: str, input: str) -> dict:
         """
-        Calls a command on a connected extension tool.
+        Calls a command on a connected extension.
         - id: The ID of the extension to call.
         - name: The name of the command to invoke.
         - input: A dictionary with the input parameters for the command.

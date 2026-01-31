@@ -225,60 +225,62 @@ class ExtensionManager:
         print("INFO: ExtensionManager shut down complete.")
 
 
-async def send_command_and_wait_for_response(
-    client_id: str, 
-    command_name: str, 
-    command_input: Any, 
-    timeout: int = 10
-) -> Dict[str, Any]:
-    """
-    Sends a command to a client and waits for a response with a correlation_id.
+    async def send_command_and_wait_for_response(
+            self,
+        client_id: str, 
+        command_name: str, 
+        command_input: str, 
+        timeout: int = 10
+    ) -> Dict[str, str]:
+        """
+        Sends a command to a client and waits for a response with a correlation_id.
 
-    Args:
-        client_id: The ID of the client to send the command to.
-        command_name: The command name.
-        command_input: The data to send with the command.
-        timeout: The time in seconds to wait for a response.
+        Args:
+            client_id: The ID of the client to send the command to.
+            command_name: The command name.
+            command_input: The data to send with the command.
+            timeout: The time in seconds to wait for a response.
 
-    Returns:
-        The response payload from the client.
+        Returns:
+            The response payload from the client.
 
-    Raises:
-        TimeoutError: If the client does not respond within the timeout period.
-        ConnectionError: If the client is not connected.
-    """
-    manager = ExtensionManager()
-    if client_id not in manager.clients:
-        raise ConnectionError(f"Client {client_id} is not connected or does not exist.")
-
-    loop = asyncio.get_running_loop()
-    correlation_id = str(uuid.uuid4())
-    future = loop.create_future()
-    
-    manager.pending_async_requests[correlation_id] = future
-
-    message = WebSocketMessage(
-        id=command_name,
-        timestamp=datetime.now().isoformat(),
-        topic="call_command",
-        message= command_input,
-        correlation_id=correlation_id
-    )
-
-    try:
-        manager.send_message_to_client(client_id, message)
-        print(f"INFO: Sent command '{command_input}' to client {client_id} with correlation_id: {correlation_id}")
+        Raises:
+            TimeoutError: If the client does not respond within the timeout period.
+            ConnectionError: If the client is not connected.
+        """
         
-        # Wait for the future to be resolved by process_incoming_message
-        response = await asyncio.wait_for(future, timeout=timeout)
-        return response
+        if client_id not in self.clients:
+            raise ConnectionError(f"Client {client_id} is not connected or does not exist.")
 
-    except asyncio.TimeoutError:
-        # Clean up the pending request if a timeout occurs
-        manager.pending_async_requests.pop(correlation_id, None)
-        print(f"ERROR: Timeout waiting for response from client {client_id} for correlation_id: {correlation_id}")
-        raise TimeoutError(f"Client {client_id} did not respond within {timeout} seconds.")
-    except Exception as e:
-        manager.pending_async_requests.pop(correlation_id, None)
-        print(f"ERROR: An error occurred while sending command and waiting for response: {e}")
-        raise
+        loop = asyncio.get_running_loop()
+        correlation_id = str(uuid.uuid4())
+        future = loop.create_future()
+        
+        self.pending_async_requests[correlation_id] = future
+
+        message = WebSocketMessage(
+            id=command_name,
+            timestamp=datetime.now().isoformat(),
+            topic="call_command",
+            message= command_input,
+            correlation_id=correlation_id
+        )
+
+        try:
+            self.send_message_to_client(client_id, message)
+            print(f"INFO: Sent command '{command_input}' to client {client_id} with correlation_id: {correlation_id}")
+            
+            # Wait for the future to be resolved by process_incoming_message
+            response = await asyncio.wait_for(future, timeout=timeout)
+            print(f" command response: '{response}'")
+            return response
+
+        except asyncio.TimeoutError:
+            # Clean up the pending request if a timeout occurs
+            self.pending_async_requests.pop(correlation_id, None)
+            print(f"ERROR: Timeout waiting for response from client {client_id} for correlation_id: {correlation_id}")
+            raise TimeoutError(f"Client {client_id} did not respond within {timeout} seconds.")
+        except Exception as e:
+            self.pending_async_requests.pop(correlation_id, None)
+            print(f"ERROR: An error occurred while sending command and waiting for response: {e}")
+            raise
