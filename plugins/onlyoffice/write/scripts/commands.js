@@ -58,11 +58,11 @@ class GetContentCommand extends ExtensionCommand {
     }
 }
 
-class RunCodeCommand extends ExtensionCommand{
+class RunApiCodeCommand extends ExtensionCommand{
     constructor(){
         super(
-            "run_code",
-            "Runs your office-api code in Only Office runtime. container is:"+  ' + JSON.stringify(code) ' +
+            "run_api_code",
+            "Runs your office-js-api code in Only Office runtime container. container is:" +
                 'try {' +
                 '  const __result = (function() {' +
                 '     + userCode + ' +
@@ -79,7 +79,6 @@ class RunCodeCommand extends ExtensionCommand{
 
     async do(commandArg) {
         try {
-            console.log('RUN CODE', commandArg);
 
             if (typeof commandArg === "string") {
                commandArg = JSON.parse(commandArg);
@@ -103,7 +102,7 @@ class RunCodeCommand extends ExtensionCommand{
                 '}'
             );
 
-            console.log('RUN CODE FUNC', func);
+            console.log('RUN API CODE FUNC', func);
             const result = await window.Editor.callCommand(func);
             return result;
         } catch (error) {
@@ -113,13 +112,57 @@ class RunCodeCommand extends ExtensionCommand{
     }
 }
 
+class RunCodeCommand extends ExtensionCommand{
+        constructor(){
+        super(
+            "run_code",
+            "Runs your code in Only Office runtime ouside office-api conatainer. This needs plugin-and-macros funcions"+
+             "Example of user code:"+
+                'let version = await window.Editor.callMethod("GetVersion");'+
+                'await window.Editor.callMethod("PasteHtml", ["<span>Hello, </span><span><b>world</b></span><span>!</span>"]);'+
+                'return verion;',
+            `{code: "userCode"}`,
+            "OnlyOffice DocX Editor",
+            ""
+        );
+    }
+
+    async do(commandArg) {
+        try {
+            if (typeof commandArg === "string") {
+               commandArg = JSON.parse(commandArg);
+            }
+
+            const code = commandArg && commandArg.code;
+            if (!code) {
+                return { success: false, message: "No code provided" };
+            }
+
+            const userFunction = new Function(
+                'return (async function() {' +
+                code +
+                '})();'
+            );
+            const result = await userFunction();
+
+            return { success: true, result: result === undefined ? null : result };
+
+        } catch (error) {
+            console.error("Error running user code:", error);
+            return { success: false, message: error && error.message ? error.message : String(error) };
+        }
+    }
+}
+
+
 // Create instances of the commands
 const insertContentCmd = new InsertContentCommand();
 const getContentCmd = new GetContentCommand();
+const runApiCodeCommand = new RunApiCodeCommand();
 const runCodeCommand = new RunCodeCommand();
 
 // Make a list and add these commands
-const commands = [insertContentCmd, getContentCmd, runCodeCommand];
+const commands = [insertContentCmd, getContentCmd, runApiCodeCommand, runCodeCommand];
 
 export function get_commands(entityName){
     for (const item of commands)

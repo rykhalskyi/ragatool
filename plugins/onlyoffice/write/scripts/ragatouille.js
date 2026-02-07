@@ -56,17 +56,6 @@ function connectClick() {
                     console.warn("Unknown message type:", message.type);
             }
 
-            // You can call any plugin API method from here.
-            // For example, let's get the editor version as you asked.
-            try {
-                // IMPORTANT: Wait for the plugin to be fully initialized before making API calls.
-                await isPluginReady;
-                const version = await Editor.callMethod("GetVersion");
-                console.log("Editor version:", version);
-
-            } catch (error) {
-                console.error("Error calling API method from WebSocket handler:", error);
-            }
         };
 
         client.connect();
