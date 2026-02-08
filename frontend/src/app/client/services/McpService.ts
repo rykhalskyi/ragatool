@@ -8,6 +8,17 @@ import { OpenAPI } from '../core/OpenAPI';
 import { request as __request } from '../core/request';
 export class McpService {
     /**
+     * Get Mcp Enabled
+     * @returns any Successful Response
+     * @throws ApiError
+     */
+    public static getMcpEnabledMcpMcpEnabledGet(): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/mcp/mcp_enabled',
+        });
+    }
+    /**
      * Set Mcp Enabled
      * @param requestBody
      * @returns any Successful Response
