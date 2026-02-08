@@ -12,3 +12,8 @@ async def set_mcp_enabled(request: MCPEnabledRequest):
     else:
         mcp_manager.disable()
     return {"message": f"MCP server enabled status set to {request.enabled}. Current status: {mcp_manager.is_enabled()}"}
+
+@router.get("/mcp_enabled")
+async def get_mcp_enabled():
+    mcp_manager = MCPManager()
+    return {"mcp_enabled": mcp_manager.is_enabled()} 

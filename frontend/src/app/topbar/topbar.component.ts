@@ -6,7 +6,7 @@ import { CollectionsService } from '../client/services/CollectionsService';
 import { AddCollectionDialogComponent } from '../add-collection-dialog/add-collection-dialog.component';
 import { MatDialog } from '@angular/material/dialog';
 import { CollectionRefreshService } from '../collection-refresh.service';
-import { McpService } from '../client';
+import { McpService } from '../client/services/McpService'; // Corrected import path
 import { TaskCachingService } from '../task-caching.service';
 import { Router } from '@angular/router';
 import { Overlay, OverlayRef } from '@angular/cdk/overlay';
@@ -25,17 +25,30 @@ export class TopbarComponent implements OnInit {
   @ViewChild('taskCenterButton', { read: ElementRef }) taskCenterButton: ElementRef | undefined;
   public taskCount = 0;
   private overlayRef: OverlayRef | null = null;
+  public isMcpEnabled: boolean = false; // New property for MCP status
 
     constructor(public dialog: MatDialog, 
     private collectionRefreshService: CollectionRefreshService,
     private taskCashedService: TaskCachingService,
     private router: Router,
-    private overlay: Overlay){}
+    private overlay: Overlay){} // Injected McpService
   
   ngOnInit(): void {
     this.taskCashedService.tasks$.subscribe(tasks => {
       this.taskCount = tasks.length;
     });
+    this.getMcpStatus(); // Fetch MCP status on init
+  }
+
+  private async getMcpStatus(): Promise<void> {
+    try {
+      const response = await McpService.getMcpEnabledMcpMcpEnabledGet();
+      this.isMcpEnabled = response.mcp_enabled;
+    } catch (error) {
+      console.error('Error fetching MCP status:', error);
+      // Optionally handle the error visually, e.g., show a toast or set isMcpEnabled to false
+      this.isMcpEnabled = false; 
+    }
   }
 
  openAddCollectionDialog(): void {
@@ -64,7 +77,7 @@ export class TopbarComponent implements OnInit {
   protected async onToggleChange(event: MatSlideToggleChange) {
     console.log('toggle', event.checked);
     await McpService.setMcpEnabledMcpMcpEnabledPut({enabled : event.checked});
-
+    this.isMcpEnabled = event.checked; // Update local state immediately
   }
 
   protected settings_click() {
@@ -110,3 +123,4 @@ export class TopbarComponent implements OnInit {
     this.overlayRef.attach(componentPortal);
   }
 }
+
