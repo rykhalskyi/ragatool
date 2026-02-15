@@ -144,7 +144,8 @@ class ExtensionManager:
                     message="pong"
                 )
                 self.send_message_to_client(client_id, response_message)
-
+            elif client_message.type == "pong":
+                print(f"INFO Pong from client {client_id}" )
             elif client_message.type == "command":
                 print(f"INFO: Processing command from {client_id} with payload: {client_message.payload}")
                 pass
