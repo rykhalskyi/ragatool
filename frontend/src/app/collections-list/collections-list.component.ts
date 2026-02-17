@@ -11,6 +11,9 @@ import { CollectionRefreshService } from '../collection-refresh.service';
 import { Subscription } from 'rxjs';
 import { UntilDestroy, untilDestroyed } from '@ngneat/until-destroy';
 import { MatTooltipModule } from '@angular/material/tooltip'; // Import MatTooltipModule
+import { ExtensionsStateService } from '../extensions-state.service'; // Import ExtensionsStateService
+import { ExtensionTool } from '../client/models/ExtensionTool'; // Import ExtensionTool
+import { ExtensionsRefreshService } from '../extensions-refresh.service';
 // Removed: BrowserAnimationsModule import as it might cause BrowserModule conflicts
 
 @UntilDestroy()
@@ -31,10 +34,14 @@ import { MatTooltipModule } from '@angular/material/tooltip'; // Import MatToolt
 })
 export class CollectionsListComponent implements OnInit, OnDestroy {
   collections: Collection[] = [];
+  connectedExtensions: ExtensionTool[] = []; // <-- Add this
   private refreshSubscription: Subscription;
 
   constructor(private router: Router,
-    private collectionRefreshService: CollectionRefreshService,) {
+    private collectionRefreshService: CollectionRefreshService,
+    private extensionsStateService: ExtensionsStateService,
+    private extensionUpdateService: ExtensionsRefreshService // <-- Add this
+  ) {
     this.refreshSubscription = this.collectionRefreshService.refreshNeeded$
     .pipe(untilDestroyed(this))
     .subscribe(() => {
@@ -45,6 +52,11 @@ export class CollectionsListComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.fetchCollections();
+    this.extensionsStateService.connectedExtensions$
+      .pipe(untilDestroyed(this))
+      .subscribe((tools) => {
+        this.connectedExtensions = tools;
+      });
   }
 
   ngOnDestroy(): void {
@@ -62,6 +74,11 @@ export class CollectionsListComponent implements OnInit, OnDestroy {
   }
 
   selectCollection(collectionId: string): void {
+
     this.router.navigate(['/collection', collectionId]);
+  }
+
+  selectExtensionTool(toolId: string): void {
+    this.router.navigate(['/extension-tool', toolId]); // This will be adjusted once routing is set up
   }
 }

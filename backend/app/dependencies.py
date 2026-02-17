@@ -46,9 +46,10 @@ def get_extension_manager() -> ExtensionManager:
     """
     try:
         db = get_db_connection()
+        mh = get_message_hub_instance()
         instance = ExtensionManager() 
         if instance.db is None:
-            instance.init_with_db(db)
+            instance.init_with_db(db, mh)
         return instance
     except Exception as e:
         print(f"ERROR in get_extension_manager: {type(e).__name__}: {e}")

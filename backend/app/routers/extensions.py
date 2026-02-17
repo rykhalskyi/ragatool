@@ -1,5 +1,5 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
-from typing import Dict, Any
+from typing import Dict, Any, List
 from datetime import datetime
 import uuid
 import asyncio
@@ -9,6 +9,7 @@ from functools import partial
 from app.internal.extension_manager import ExtensionManager
 from app.dependencies import get_extension_manager
 from app.schemas.websocket import WebSocketMessage, ClientMessage
+from app.schemas.mcp import ExtensionTool
 
 router = APIRouter()
 
@@ -72,3 +73,12 @@ async def websocket_endpoint(
         except asyncio.CancelledError:
             pass # Expected when task is cancelled
         extension_manager.unregister_client(client_id)
+
+@router.get("/connected_tools", response_model=List[ExtensionTool])
+def get_connected_extension_tools(
+    extension_manager: ExtensionManager = Depends(get_extension_manager)
+):
+    """
+    Returns a list of all currently registered and connected extension tools.
+    """
+    return extension_manager.get_registered_extension_tools()

@@ -1,5 +1,5 @@
 """
-This module defines custom exceptions for the RAGatouille backend.
+This module defines custom exceptions for the Rag-a-Tool backend.
 """
 
 class DuplicateCollectionError(Exception):

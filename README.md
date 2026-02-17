@@ -1,8 +1,8 @@
-# RAGatouille: Local RAG \& MCP Servers Solution
+# Ragatool: Local RAG \& MCP Servers Solution
 
 ## Project Overview
 
-RAGatouille is a locally deployable solution designed to empower users with their own knowledge base using Retrieval-Augmented Generation (RAG) and a Model Context Protocol (MCP) Server. This project allows you to vectorize various data sources – including books, specifications, documentation, code, and web pages – to create a personalized, local knowledge base. The core unit of organization is a "collection," which can be configured with different embedders and chunking settings to optimize retrieval.
+Ragatool is a locally deployable solution designed to empower users with their own knowledge base using Retrieval-Augmented Generation (RAG) and a Model Context Protocol (MCP) Server. This project allows you to vectorize various data sources – including books, specifications, documentation, code, and web pages – to create a personalized, local knowledge base. The core unit of organization is a "collection," which can be configured with different embedders and chunking settings to optimize retrieval.
 
 **Note:** This project is currently under active development, and many features are in pre-production.
 
@@ -18,16 +18,16 @@ RAGatouille is a locally deployable solution designed to empower users with thei
 * **API-driven backend:** Robust and extensible API for programmatic access.
 * **Docker/Podman compatibility:** Simple local deployment and management.
 * **MCP Server:** Acces from any AI agent
-* **OnlyOffice Plugin:** Seamlessly integrate with OnlyOffice text editor to read and modify DOCX documents within the RAGatouille system.
+* **OnlyOffice Plugin:** Seamlessly integrate with OnlyOffice text editor to read and modify DOCX documents within the Ragatool system.
 
 ## Getting Started (Local Deployment)
 
-To get started with RAGatouille, you will need Docker or Podman installed on your system or you can run servers locally.
+To get started with Ragatool, you will need Docker or Podman installed on your system or you can run servers locally.
 
 ## Build and Run the Containers
 
 1. **Navigate to the project root:**
-   Open your terminal or command prompt and navigate to the root directory of the `ragatouille` project, where `docker-compose.yml` is located.
+   Open your terminal or command prompt and navigate to the root directory of the `Ragatool` project, where `docker-compose.yml` is located.
 2. **Build the Docker images and run the containers:**
    This command will build the Docker images for both the backend and frontend services based on their respective `Dockerfile`s.
 
@@ -38,30 +38,30 @@ To get started with RAGatouille, you will need Docker or Podman installed on you
 * The MCP Server on `http://localhost:4302/mcp`.
 
 
-## RAGatouille MCP Configuration
+## Ragatool MCP Configuration
 
-To configure RAGatouille MCP, add the following to your configuration:
+To configure Ragatool MCP, add the following to your configuration:
 
 1. SSE:
 
 ```json
-"ragatouille": {
+"Ragatool": {
       "url": "http://localhost:4302/mcp"
     }
 ```
 2. HTTP:
 
 ```json
-"ragatouille": {
+"Ragatool": {
       "url": "http://localhost:4303/mcp"
     }
 ```
 
 ## OnlyOffice Plugin
 
-The RAGatouille OnlyOffice Plugin enables direct integration with the OnlyOffice text editor. This allows users to:
-* Connect OnlyOffice with the RAGatouille RAG system.
-* Read and modify DOCX documents directly within the OnlyOffice editor, leveraging RAGatouille's knowledge base.
+The Ragatool OnlyOffice Plugin enables direct integration with the OnlyOffice text editor. This allows users to:
+* Connect OnlyOffice with the Ragatool RAG system.
+* Read and modify DOCX documents directly within the OnlyOffice editor, leveraging Ragatool's knowledge base.
 
 ## Usage
 
@@ -69,7 +69,7 @@ The RAGatouille OnlyOffice Plugin enables direct integration with the OnlyOffice
 
 ## Development Status
 
-RAGatouille is an evolving project. While the core functionalities are in place, many features are still under active development and should be considered pre-production. We welcome contributions and feedback from the community.
+Ragatool is an evolving project. While the core functionalities are in place, many features are still under active development and should be considered pre-production. We welcome contributions and feedback from the community.
 
 
 

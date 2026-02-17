@@ -14,7 +14,7 @@ import { environment } from '../environments/environment'; // Import the environ
 })
 export class AppComponent {
 
-  title = 'ragatouille';
+  title = 'ragatool';
 
   isDragging = false;
 

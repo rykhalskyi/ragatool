@@ -18,6 +18,7 @@ import { LogsViewComponent } from '../logs-view/logs-view';
 import { UntilDestroy, untilDestroyed } from '@ngneat/until-destroy';
 import { File, FilesService } from '../client';
 import { Subscription } from 'rxjs';
+import { ExtensionToolDetailsComponent } from './extension-tool-details/extension-tool-details.component'; // Import the new component
 
 
 export interface ExtendedCollection extends Collection {
@@ -37,7 +38,8 @@ export interface ExtendedCollection extends Collection {
     MatIconModule,
     MatDialogModule,
     SelectedCollectionImportComponent,
-    LogsViewComponent
+    LogsViewComponent,
+    ExtensionToolDetailsComponent // Add this
   ],
   templateUrl: './selected-collection.component.html',
   styleUrl: './selected-collection.component.scss'
@@ -50,10 +52,12 @@ export class SelectedCollectionComponent implements OnInit, OnDestroy {
   isEnabled: boolean = false;
   isEditingDescription = false;
   editedDescription = '';
+  activeType: 'collection' | 'extension-tool' | null = null; // <-- Add this
+  selectedId: string | null = null; // To hold either collectionId or toolId
   private refreshSubscription: Subscription | undefined;
 
   constructor(
-    private route: ActivatedRoute, 
+    private route: ActivatedRoute,
     private router: Router,
     private collectionRefreshService: CollectionRefreshService,
     public dialog: MatDialog
@@ -61,29 +65,46 @@ export class SelectedCollectionComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.route.paramMap.pipe(untilDestroyed(this))
-    .subscribe(params => {
-      const collectionId = params.get('collectionId');
-      if (collectionId) {
-        this.fetchCollection(collectionId);
-        CollectionsService.readCollectionDetailsCollectionsCollectionIdDetailsGet(collectionId)
-        .then(res => this.collectionDetails.set(res));
+      .subscribe(params => {
+        const collectionId = params.get('collectionId');
+        const toolId = params.get('toolId');
 
-        FilesService.readFilesFilesCollectionIdGet(collectionId)
-        .then(res => this.collectionFiles.set(res));
+        if (collectionId) {
+          this.activeType = 'collection';
+          this.selectedId = collectionId;
+          this.fetchCollection(collectionId);
+          CollectionsService.readCollectionDetailsCollectionsCollectionIdDetailsGet(collectionId)
+            .then(res => this.collectionDetails.set(res));
+          FilesService.readFilesFilesCollectionIdGet(collectionId)
+            .then(res => this.collectionFiles.set(res));
+        } else if (toolId) {
+          this.activeType = 'extension-tool';
+          this.selectedId = toolId;
+          // No specific fetch for extension tool details here; ExtensionToolDetailsComponent will handle its @Input
+          this.collection = undefined; // Clear collection data if navigating to extension tool
+          this.collectionDetails.set(null);
+          this.collectionFiles.set(null);
+        } else {
+          this.activeType = null;
+          this.selectedId = null;
+          this.collection = undefined;
+          this.collectionDetails.set(null);
+          this.collectionFiles.set(null);
+        }
+      });
+
+    this.refreshSubscription = this.collectionRefreshService.refreshNeeded$.subscribe(() => {
+      if (this.collection && this.activeType === 'collection') {
+        this.updateInfo();
       }
     });
-    this.refreshSubscription = this.collectionRefreshService.refreshNeeded$.subscribe(() => {
-      if (this.collection) {
-          this.updateInfo();
-      }
-  });
   }
 
   ngOnDestroy(): void {
     if (this.refreshSubscription) {
         this.refreshSubscription.unsubscribe();
     }
-}
+  }
 
   async fetchCollection(collectionId: string): Promise<void> {
     try {
@@ -103,7 +124,7 @@ export class SelectedCollectionComponent implements OnInit, OnDestroy {
   async onToggleChange(): Promise<void> {
     if (this.collection) {
       try {
-        await CollectionsService.updateExistingCollectionCollectionsCollectionIdPut(this.collection.id, { 
+        await CollectionsService.updateExistingCollectionCollectionsCollectionIdPut(this.collection.id, {
           name: this.collection.name,
           description:  this.editedDescription,
           enabled: this.isEnabled });
@@ -120,7 +141,7 @@ export class SelectedCollectionComponent implements OnInit, OnDestroy {
     if (!this.collection) return;
 
     const dialogRef = this.dialog.open(DeleteConfirmationDialogComponent, {
-      data: { 
+      data: {
         title: 'Delete Collection',
         message: `Are you sure you want to delete collection "${this.collection.name}"?`
       },
@@ -138,7 +159,7 @@ export class SelectedCollectionComponent implements OnInit, OnDestroy {
         } catch (error) {
           console.error('Error deleting collection:', error);
         }
-      
+
         this.collectionRefreshService.triggerRefresh();}
     });
   }
@@ -181,3 +202,4 @@ export class SelectedCollectionComponent implements OnInit, OnDestroy {
         .then(res => this.collectionFiles.set(res));
   }
 }
+

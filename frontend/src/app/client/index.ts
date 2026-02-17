@@ -20,6 +20,7 @@ export type { CollectionContentResponse } from './models/CollectionContentRespon
 export type { CollectionCreate } from './models/CollectionCreate';
 export type { CollectionDetails } from './models/CollectionDetails';
 export type { CollectionQueryResponse } from './models/CollectionQueryResponse';
+export type { ExtensionTool } from './models/ExtensionTool';
 export type { File } from './models/File';
 export type { FileImportSettings } from './models/FileImportSettings';
 export type { HTTPValidationError } from './models/HTTPValidationError';
@@ -31,11 +32,13 @@ export type { Message } from './models/Message';
 export type { QueryRequest } from './models/QueryRequest';
 export type { Setting } from './models/Setting';
 export type { SettingCreate } from './models/SettingCreate';
+export type { SupportedCommand } from './models/SupportedCommand';
 export type { Task } from './models/Task';
 export type { ValidationError } from './models/ValidationError';
 
 export { CollectionsService } from './services/CollectionsService';
 export { DefaultService } from './services/DefaultService';
+export { ExtensionsService } from './services/ExtensionsService';
 export { FilesService } from './services/FilesService';
 export { ImportService } from './services/ImportService';
 export { LogsService } from './services/LogsService';

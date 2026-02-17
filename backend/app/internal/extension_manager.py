@@ -8,7 +8,10 @@ from typing import Any, Optional, Set, Dict, Callable, Coroutine, List
 from pydantic import ValidationError
 
 from asyncio import Future
+from app.internal.message_hub import MessageHub
+from app.models.messages import MessageType
 from app.schemas.websocket import WebSocketMessage, ClientMessage
+from app.schemas.mcp import ExtensionTool, SupportedCommand
 from app.schemas.mcp import ExtensionTool, SupportedCommand
 
 class ExtensionManager:
@@ -24,6 +27,7 @@ class ExtensionManager:
         return cls._instance
 
     def _initialize(self):
+        self.messag_hub: Optional[MessageHub]= None
         self.db: Optional[Connection] = None
         self.incoming_message_queue: queue.Queue = queue.Queue()
         self.clients: Dict[str, queue.Queue] = {}
@@ -35,9 +39,10 @@ class ExtensionManager:
         self._stop_heartbeat_event = threading.Event()
         print("INFO: ExtensionManager initialized (singleton pattern).")
 
-    def init_with_db(self, db: Connection):
+    def init_with_db(self, db: Connection, mh: MessageHub):
         """Initialize with a database connection."""
         self.db = db
+        self.messag_hub = mh
         print("INFO: ExtensionManager initialized with database connection.")
 
     def register_client(self) -> tuple[str, queue.Queue]:
@@ -46,15 +51,46 @@ class ExtensionManager:
         client_queue = queue.Queue()
         self.clients[client_id] = client_queue
         print(f"INFO: Client registered: {client_id}")
+
+        notification_message = WebSocketMessage(
+            id=str(uuid.uuid4()),
+            timestamp=datetime.now().isoformat(),
+            topic="extension_connected",
+            message=f"Extension client {client_id} connected."
+        )
+        self.broadcast_message(notification_message)
+
+        if self.messag_hub != None:
+            self.messag_hub.send_message("extension", MessageType.INFO, f"ExtensionTool connected")
+
         return client_id, client_queue
     
     def unregister_client(self, client_id: str):
         """Unregisters a client."""
         if client_id in self.clients:
+            # Retrieve metadata before deleting
+            extension_tool_data = self.client_metadata.get(client_id)
+
+            notification_message = WebSocketMessage(
+                id=str(uuid.uuid4()),
+                timestamp=datetime.now().isoformat(),
+                topic="extension_disconnected",
+                message=f"Extension client {client_id} disconnected."
+            )
+            if extension_tool_data:
+                notification_message.payload = extension_tool_data.model_dump() # Convert Pydantic model to dict
+            else:
+                notification_message.payload = {"client_id": client_id}
+
+            self.broadcast_message(notification_message)
+
             del self.clients[client_id]
             if client_id in self.client_metadata:
                 del self.client_metadata[client_id]
             print(f"INFO: Client unregistered: {client_id}")
+
+            if self.messag_hub != None:
+                self.messag_hub.send_message("extension", MessageType.INFO, f"ExtensionTool disconnected")
         else:
             print(f"WARNING: Attempted to unregister non-existent client: {client_id}")
 

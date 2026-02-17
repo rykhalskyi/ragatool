@@ -23,7 +23,7 @@ class MCPManager:
         self._is_enabled: bool = False
         self._sse_thread: threading.Thread | None = None
         self._http_thread: threading.Thread | None = None
-        self.server_name = "Ragatouille"
+        self.server_name = "Rag-a-Tool"
 
     def _run_sse_server(self):
         if self._sse_server:

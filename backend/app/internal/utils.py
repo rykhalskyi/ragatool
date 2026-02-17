@@ -1,5 +1,5 @@
 """
-This module provides utility functions for the RAGatouille backend.
+This module provides utility functions for the Rag-a-Tool backend.
 """
 
 def prepare_collection_name(name: str) -> str:

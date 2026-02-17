@@ -14,7 +14,8 @@ class TestExtensionManager(unittest.TestCase):
         ExtensionManager._instance = None
         self.manager = ExtensionManager()
         self.mock_db = MagicMock()
-        self.manager.init_with_db(self.mock_db)
+        self.mock_mh = MagicMock()
+        self.manager.init_with_db(self.mock_db, self.mock_mh)
 
     def tearDown(self):
         # Clean up by shutting down the manager

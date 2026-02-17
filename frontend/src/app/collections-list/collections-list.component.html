@@ -20,3 +20,17 @@
         </mat-list-item>
     }
 </mat-list>
+
+<!-- Divider and Extension Tools List -->
+@if (connectedExtensions.length > 0) {
+  <mat-divider></mat-divider>
+  <h3>Connected Extension Tools</h3>
+  <mat-list>
+    @for (tool of connectedExtensions; track tool.client_id) {
+      <mat-list-item (click)="selectExtensionTool(tool.client_id)">
+        <span matListItemTitle>{{ tool.application_name }}</span>
+        <span matListItemLine>{{ tool.user_entity_name }}</span>
+      </mat-list-item>
+    }
+  </mat-list>
+}
