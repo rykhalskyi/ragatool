@@ -228,7 +228,7 @@ class TestExtensionManager(unittest.TestCase):
                     client_id=client_id,
                     command_name="test_command",
                     command_input='{"data": "some_input"}', # Changed to string
-                    timeout=0.1  # Use a short timeout
+                    timeout=1  # Use a short timeout
                 )
             
             # Ensure the pending request is cleaned up after timeout

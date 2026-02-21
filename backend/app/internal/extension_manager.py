@@ -14,6 +14,9 @@ from app.schemas.websocket import WebSocketMessage, ClientMessage
 from app.schemas.mcp import ExtensionTool, SupportedCommand
 from app.schemas.mcp import ExtensionTool, SupportedCommand
 
+import trafilatura
+
+
 class ExtensionManager:
     _instance = None
     _lock = threading.Lock()
@@ -294,7 +297,18 @@ class ExtensionManager:
             
             # Wait for the future to be resolved by process_incoming_message
             response = await asyncio.wait_for(future, timeout=timeout)
-            print(f" command response: '{response}'")
+            #print(f" command response: '{response}'")
+            
+            payload = response.get("payload", {})
+            apply_filter_to = payload.get("apply_filter")
+            
+            if apply_filter_to != None:
+                message = payload.get("message")
+                content = message[0].get(apply_filter_to)
+                cleaned_content = trafilatura.extract(content)
+                message[0][apply_filter_to] = cleaned_content
+                response["payload"]["message"] = message
+
             return response
 
         except asyncio.TimeoutError:
