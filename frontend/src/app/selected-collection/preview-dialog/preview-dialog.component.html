@@ -80,7 +80,7 @@
         <mat-label>Select Chunk Type</mat-label>
         <mat-select formControlName="chunkType" 
         
-        data-testid="import-select"
+        [attr.data-testid]="TestIds.previewDialogChunkTypeSelect"
         >
           @for (type of chunkTypes; track type) {
           <mat-option [value]="type">{{ type }}</mat-option>
@@ -94,9 +94,9 @@
 
       </mat-form-field>
 
-      <mat-checkbox formControlName="noChunks">No chunks</mat-checkbox>
+      <mat-checkbox formControlName="noChunks" [attr.data-testid]="TestIds.previewDialogNoChunksCheckbox">No chunks</mat-checkbox>
 
-       <button mat-raised-button type="button" class="import-control" color="accent" (click)="onUpdateChunks()" data-testid="import-button">Update</button>
+       <button mat-raised-button type="button" class="import-control" color="accent" (click)="onUpdateChunks()" [attr.data-testid]="TestIds.previewDialogUpdateChunksButton">Update</button>
 
       </div>
     </form>
@@ -113,7 +113,7 @@
     </div>
   </div>
   <div mat-dialog-actions>
-    <button mat-button (click)="onCancel()">Cancel</button>
-    <button mat-button color="primary" (click)="onImport()">Import</button>
+    <button mat-button (click)="onCancel()" [attr.data-testid]="TestIds.previewDialogCancelButton">Cancel</button>
+    <button mat-button color="primary" (click)="onImport()" [attr.data-testid]="TestIds.previewDialogImportButton">Import</button>
   </div>
 </div>

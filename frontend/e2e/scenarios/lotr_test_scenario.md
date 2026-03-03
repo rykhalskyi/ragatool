@@ -16,7 +16,6 @@
     - item shown 'collection-item'
     - click 'collection-item'
     - select in 'import-type-select' 'File'
-    - click 'import-file-submit-button'
     - click 'import-button'
     - popup shown 'Import File to Lord of the Rings'
     - click 'pick-file-button' emulate open file dialog 'text/lotr.txt'

@@ -11,6 +11,7 @@ import { MatInput } from '@angular/material/input';
 import { MatSelectChange, MatSelectModule } from '@angular/material/select';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { TestIds } from '../../testing/test-ids';
 
 @Component({
   selector: 'app-preview-dialog',
@@ -34,6 +35,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PreviewDialogComponent implements OnInit {
+  protected readonly TestIds = TestIds;
 
   chunkForm!: FormGroup;
   files: File[] = [];
