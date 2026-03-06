@@ -42,6 +42,19 @@ def register_tools(mcp_server, mcp_manager):
             return {"status": "error", "message": "MCP server is disabled."}
 
         collection_name = "agent_ltm"
+        return add_to_collection(collection_name, fact, summary)
+        
+
+    @mcp_server.tool()
+    def add_to_collection(collection_name:str, fact: str, summary: str) -> dict:
+        """
+        Adds a fact to a given collection.
+        - collection_name: The name of collection to save fact
+        - fact: The full text of the fact to remember.
+        - summary: A brief summary of the fact, used for search embeddings.
+        """
+        if not mcp_manager.is_enabled():
+            return {"status": "error", "message": "MCP server is disabled."}
         
         try:
             with get_db_connection() as db:
