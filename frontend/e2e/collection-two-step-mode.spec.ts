@@ -9,7 +9,7 @@ test('2-step import Dracula collection', async ({ page }) => {
 
   await test.step('Once Before tests: delete Dracula if exists', async () => {
     await page.goto('http://localhost:4200');
-    const collectionItem = page.getByTestId(`${TestIds.collectionItem}-Dracula`);
+    const collectionItem = page.getByTestId(`${TestIds.collectionItem}-Dracula_2s`);
     if (await collectionItem.isVisible()) {
       await collectionItem.click();
       await page.getByTestId(TestIds.deleteCollectionButton).click();
@@ -38,13 +38,13 @@ test('2-step import Dracula collection', async ({ page }) => {
     await page.getByTestId(TestIds.addCollectionButton).click();
 
     // input to 'Collection Name' 'Dracula'
-    await page.getByTestId(TestIds.addCollectionNameInput).fill('Dracula');
+    await page.getByTestId(TestIds.addCollectionNameInput).fill('Dracula_2s');
 
     // click 'Ok'
     await page.getByTestId(TestIds.addCollectionOkButton).click();
 
     // item shown 'Dracula'
-    const collectionItem = page.getByTestId(`${TestIds.collectionItem}-Dracula`);
+    const collectionItem = page.getByTestId(`${TestIds.collectionItem}-Dracula_2s`);
     await expect(collectionItem).toBeVisible();
 
     // click 'Dracula'
@@ -88,7 +88,7 @@ test('2-step import Dracula collection', async ({ page }) => {
 
   await test.step('2. Edit Dracula description', async () => {
     // Note: Scenario said "Lord of the ring" but meant "Dracula"
-    const collectionItem = page.getByTestId(`${TestIds.collectionItem}-Dracula`);
+    const collectionItem = page.getByTestId(`${TestIds.collectionItem}-Dracula_2s`);
     await collectionItem.click();
 
     await page.getByTestId(TestIds.editDescriptionButton).click();
@@ -98,7 +98,7 @@ test('2-step import Dracula collection', async ({ page }) => {
   });
 
   await test.step('3. Import file again into Dracula collection', async () => {
-    const collectionItem = page.getByTestId(`${TestIds.collectionItem}-Dracula`);
+    const collectionItem = page.getByTestId(`${TestIds.collectionItem}-Dracula_2s`);
     await collectionItem.click();
 
     // Step 1: Load to files
@@ -124,7 +124,7 @@ test('2-step import Dracula collection', async ({ page }) => {
   });
 
   await test.step('4. Rewrite Dracula description', async () => {
-    const collectionItem = page.getByTestId(`${TestIds.collectionItem}-Dracula`);
+    const collectionItem = page.getByTestId(`${TestIds.collectionItem}-Dracula_2s`);
     await collectionItem.click();
 
     await page.getByTestId(TestIds.editDescriptionButton).click();
@@ -134,7 +134,7 @@ test('2-step import Dracula collection', async ({ page }) => {
   });
 
   await test.step('5. Cancel description editing', async () => {
-    const collectionItem = page.getByTestId(`${TestIds.collectionItem}-Dracula`);
+    const collectionItem = page.getByTestId(`${TestIds.collectionItem}-Dracula_2s`);
     await collectionItem.click();
 
     await page.getByTestId(TestIds.editDescriptionButton).click();
@@ -144,7 +144,7 @@ test('2-step import Dracula collection', async ({ page }) => {
   });
 
   await test.step('6. Delete Dracula collection', async () => {
-    const collectionItem = page.getByTestId(`${TestIds.collectionItem}-Dracula`);
+    const collectionItem = page.getByTestId(`${TestIds.collectionItem}-Dracula_2s`);
     await collectionItem.click();
 
     await page.getByTestId(TestIds.deleteCollectionButton).click();

@@ -63,7 +63,7 @@ test('Dracula_2 Popups Scenario', async ({ page }) => {
     await page.getByTestId(TestIds.importStep2Button).click({timeout: 2000});
     
     // Select the file in preview dialog
-    await page.getByTestId(TestIds.previewDialogFileItem).filter({ hasText: 'dracula.txt' }).click();
+    await page.getByTestId(TestIds.previewDialogFileItem).filter({ hasText: 'dracula.txt' }).first().click();
     
     // Verify chunking parameters in preview
     await expect(page.getByTestId(TestIds.chunkSizeInput)).toHaveValue('500');
