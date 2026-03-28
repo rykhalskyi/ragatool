@@ -33,7 +33,7 @@ def edit_summary(db: Connection, summary_id: str, summary: Summary):
     )
     db.commit()
 
-def delete_summary(db: Connection, summary_id: str):
+def delete_summary_by_id(db: Connection, summary_id: str):
     cursor = db.cursor()
     cursor.execute("DELETE FROM summary WHERE id = ?", (summary_id,))
     db.commit()

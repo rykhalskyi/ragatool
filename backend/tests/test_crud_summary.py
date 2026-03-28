@@ -72,7 +72,7 @@ def test_delete_summary(db_connection):
     summary_id = crud_summary.create_summary(db_connection, Summary(id="", collection_id="col1", type=SummaryType.TOC, summary="To delete"))
     assert len(crud_summary.get_summaries(db_connection, "col1")) == 1
 
-    crud_summary.delete_summary(db_connection, summary_id)
+    crud_summary.delete_summary_by_id(db_connection, summary_id)
     assert len(crud_summary.get_summaries(db_connection, "col1")) == 0
 
 def test_delete_all_summaries_for_collection(db_connection):

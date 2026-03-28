@@ -13,6 +13,7 @@ from app.dependencies import get_db
 from app.internal.exceptions import DuplicateCollectionError
 from app.internal.utils import prepare_collection_name
 from app.internal.mcp_manager import mcp_manager
+from app.crud.crud_summary import delete_all_summaries_for_collection
 
 router = APIRouter()
 
@@ -81,6 +82,7 @@ def delete_existing_collection(collection_id: str, db: Connection = Depends(get_
     if result is None:
         raise HTTPException(status_code=404, detail="Collection not found")
     delete_log_by_collection_id(db, collection_id)
+    delete_all_summaries_for_collection(db,collection_id)
 
     try:
         client = chromadb.PersistentClient(path="./chroma_data")

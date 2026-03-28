@@ -2,6 +2,7 @@ import chromadb
 from typing import List
 import asyncio
 import time
+import json
 from app.crud.crud_collection_content import query_collection as crud_query_collection
 from app.database import get_db_connection
 from app.crud.crud_collection import get_enabled_collections_for_mcp, get_collection_by_name, create_collection
@@ -9,7 +10,7 @@ from app.internal.extension_manager import ExtensionManager
 from app.schemas.mcp import ExtensionTool
 from app.schemas.collection import CollectionCreate
 from app.internal.embedding_manager import get_embedder
-from app.crud.crud_summary import get_summary_by_type, create_summary, edit_summary
+from app.crud.crud_summary import get_summary_by_type, create_summary, edit_summary, delete_summary_by_id
 from app.schemas.summary import SummaryType, Summary
 
 def register_tools(mcp_server, mcp_manager):
@@ -153,7 +154,7 @@ def register_tools(mcp_server, mcp_manager):
         Retrieves one or multiple chunks from a ChromaDB collection using IDs.
 
         - collection_name: name of the ChromaDB collection
-        - ids: a single ID (string) or a list of IDs (list[str])
+        - ids: a single ID (string), a list of IDs (list[str]), or a JSON string representation of a list
         """
         collection_name = collection_name.lower().replace(' ','_')
 
@@ -163,7 +164,22 @@ def register_tools(mcp_server, mcp_manager):
         try:
             # Normalize IDs into a list
             if isinstance(ids, str):
-                ids = [ids]
+                # Check if it's a JSON string representation of a list
+                if ids.strip().startswith('[') and ids.strip().endswith(']'):
+                    try:
+                        ids = json.loads(ids)
+                        if not isinstance(ids, list):
+                            return {
+                                "status": "error",
+                                "message": "Parameter 'ids' must be a string or list of strings.",
+                            }
+                        ids = [str(i) for i in ids]
+                    except json.JSONDecodeError:
+                        # If JSON parsing fails, treat it as a single ID
+                        ids = [ids]
+                else:
+                    # Single ID string
+                    ids = [ids]
             elif isinstance(ids, list):
                 # Ensure all elements are strings
                 ids = [str(i) for i in ids]
@@ -331,6 +347,21 @@ def register_tools(mcp_server, mcp_manager):
                 return {"status": "success"}
         except Exception as e:
             return {"status": "error", "message": str(e)}
+
+    @mcp_server.tool()
+    def delete_summary(summary_id: str):
+        """
+        Delete an existing summary
+        - summary_id: the ID of the summary to update
+        """
+        
+        if not mcp_manager.is_enabled():
+            return {"status": "error", "message": "MCP server is disabled."}
+        try:
+            with get_db_connection() as db:
+                delete_summary_by_id(db, summary_id)
+        except Exception as e:       
+            return {"status": "error", "message": str(e)} 
 
 
     def prepare_collection_name(collection_name: str) -> str:
