@@ -1,5 +1,5 @@
 from enum import Enum
-
+from typing import Optional
 from pydantic import BaseModel
 
 class SummaryType(Enum):
@@ -13,4 +13,15 @@ class Summary(BaseModel):
     collection_id: str
     type: SummaryType
     summary: str
-    metadata: str | None = None
+    metadata: Optional[str] = None
+
+class SummaryCreate(BaseModel):
+    collection_id: str
+    type: SummaryType
+    summary: str
+    metadata: Optional[str] = None
+
+class SummaryUpdate(BaseModel):
+    type: SummaryType
+    summary: str
+    metadata: Optional[str] = None
