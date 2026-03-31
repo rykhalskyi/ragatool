@@ -62,5 +62,17 @@ export const TestIds = {
   queryNextDocButton: 'query-next-doc-button',
   inspectCloseButton: 'inspect-close-button',
 
+  // Summary Dialog
+  summaryButton: 'summary-button',
+  summaryDialogTitle: 'summary-dialog-title',
+  summaryListItem: 'summary-list-item',
+  summaryLevelLabel: 'summary-level-label',
+  summaryContentPreview: 'summary-content-preview',
+  addSummaryButton: 'add-summary-button',
+  editSummaryButton: 'edit-summary-button',
+  deleteSummaryButton: 'delete-summary-button',
+  saveSummaryButton: 'save-summary-button',
+  cancelSummaryButton: 'cancel-summary-button',
+
   logItem: 'log-item'
 } as const;

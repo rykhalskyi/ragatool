@@ -1,0 +1,13 @@
+/* generated using openapi-typescript-codegen -- do not edit */
+/* istanbul ignore file */
+/* tslint:disable */
+/* eslint-disable */
+import type { SummaryType } from './SummaryType';
+export type Summary = {
+    id: string;
+    collection_id: string;
+    type: SummaryType;
+    summary: string;
+    metadata?: (string | null);
+};
+
