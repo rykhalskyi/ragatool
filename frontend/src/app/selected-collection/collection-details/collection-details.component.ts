@@ -5,6 +5,7 @@ import { MatListModule } from '@angular/material/list';
 import { MatDialog } from '@angular/material/dialog'; // Import MatDialog
 import { MatButtonModule } from '@angular/material/button';
 import { InspectDialogComponent } from '../inspect-dialog/inspect-dialog.component'; // Import InspectDialogComponent
+import { SummaryDialogComponent } from '../summary-dialog/summary-dialog.component';
 import { TestIds } from '../../testing/test-ids';
 
 @Component({
@@ -37,6 +38,19 @@ export class CollectionDetailsComponent implements OnChanges{
       this.dialog.open(InspectDialogComponent, {
         width: '800px', // Adjust width as needed
         data: { collectionId: this.collectionDetails.id }
+      });
+    }
+  }
+
+  openSummaryDialog(): void {
+    if (this.collectionDetails) {
+      this.dialog.open(SummaryDialogComponent, {
+        width: '1000px',
+        height: '750px',
+        data: { 
+          collectionId: this.collectionDetails.id,
+          collectionName: this.collectionDetails.name 
+        }
       });
     }
   }

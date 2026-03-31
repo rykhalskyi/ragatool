@@ -15,7 +15,7 @@ def get_summary_by_type(db: Connection, collection_id: str, summary_type: Summar
     summaries = cursor.fetchall()
     return [Summary(**dict(summary)) for summary in summaries]
 
-def create_summary(db: Connection, summary: Summary):
+def create_summary(db: Connection, summary: Summary) -> Summary:
     cursor = db.cursor()
     summary_id = str(uuid4())
     cursor.execute(
@@ -23,20 +23,23 @@ def create_summary(db: Connection, summary: Summary):
         (summary_id, summary.collection_id, summary.type.value, summary.summary, summary.metadata)
     )
     db.commit()
-    return summary_id
+    summary.id = summary_id
+    return summary
 
-def edit_summary(db: Connection, summary_id: str, summary: Summary):
+def edit_summary(db: Connection, summary_id: str, summary: Summary) -> bool:
     cursor = db.cursor()
     cursor.execute(
         "UPDATE summary SET type = ?, summary = ?, metadata = ? WHERE id = ?",
         (summary.type.value, summary.summary, summary.metadata, summary_id)
     )
     db.commit()
+    return cursor.rowcount > 0
 
-def delete_summary_by_id(db: Connection, summary_id: str):
+def delete_summary_by_id(db: Connection, summary_id: str) -> bool:
     cursor = db.cursor()
     cursor.execute("DELETE FROM summary WHERE id = ?", (summary_id,))
     db.commit()
+    return cursor.rowcount > 0
 
 def delete_all_summaries_for_collection(db: Connection, collection_id: str):
     cursor = db.cursor()

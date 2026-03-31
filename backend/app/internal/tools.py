@@ -239,7 +239,11 @@ def register_tools(mcp_server, mcp_manager):
         
         new_toc = Summary(id="", collection_id=collection_id, type=SummaryType.TOC, summary=toc)
         with get_db_connection() as db:
-            create_summary(db, new_toc)
+            toc_old = get_summary_by_type(db, collection_id, SummaryType.TOC)
+            if len(toc_old) > 0:
+                edit_summary(db, toc_old[0].id, new_toc)
+            else:
+                create_summary(db, new_toc)
             return {"status": "success"}
         
     

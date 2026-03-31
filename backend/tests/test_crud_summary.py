@@ -27,9 +27,9 @@ def test_create_summary(db_connection):
         summary="Test TOC content",
         metadata="test metadata"
     )
-    summary_id = crud_summary.create_summary(db_connection, summary_data)
-    assert summary_id is not None
-    assert isinstance(summary_id, str)
+    new_summary = crud_summary.create_summary(db_connection, summary_data)
+    assert new_summary is not None
+    assert isinstance(new_summary.id, str)
 
     summaries = crud_summary.get_summaries(db_connection, "test_collection")
     assert len(summaries) == 1
@@ -65,10 +65,10 @@ def test_get_summary_by_type(db_connection):
 
 def test_edit_summary(db_connection):
     summary_data = Summary(id="", collection_id="col1", type=SummaryType.TOC, summary="Old summary")
-    summary_id = crud_summary.create_summary(db_connection, summary_data)
+    new_summary = crud_summary.create_summary(db_connection, summary_data)
 
-    updated_summary = Summary(id=summary_id, collection_id="col1", type=SummaryType.TOC, summary="New summary", metadata="new metadata")
-    crud_summary.edit_summary(db_connection, summary_id, updated_summary)
+    updated_summary = Summary(id=new_summary.id, collection_id="col1", type=SummaryType.TOC, summary="New summary", metadata="new metadata")
+    crud_summary.edit_summary(db_connection, new_summary.id, updated_summary)
 
     summaries = crud_summary.get_summaries(db_connection, "col1")
     assert len(summaries) == 1
@@ -76,10 +76,10 @@ def test_edit_summary(db_connection):
     assert summaries[0].metadata == "new metadata"
 
 def test_delete_summary(db_connection):
-    summary_id = crud_summary.create_summary(db_connection, Summary(id="", collection_id="col1", type=SummaryType.TOC, summary="To delete"))
+    new_summary = crud_summary.create_summary(db_connection, Summary(id="", collection_id="col1", type=SummaryType.TOC, summary="To delete"))
     assert len(crud_summary.get_summaries(db_connection, "col1")) == 1
 
-    crud_summary.delete_summary_by_id(db_connection, summary_id)
+    crud_summary.delete_summary_by_id(db_connection, new_summary.id)
     assert len(crud_summary.get_summaries(db_connection, "col1")) == 0
 
 def test_delete_all_summaries_for_collection(db_connection):

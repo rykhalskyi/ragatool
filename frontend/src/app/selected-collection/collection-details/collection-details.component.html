@@ -29,5 +29,6 @@
       <p>2-Step Import: FILES IMPORTED</p>
     }
     <button mat-raised-button color="accent" (click)="openInspectDialog()" [disabled]="!canInspect()" [attr.data-testid]="TestIds.inspectButton">Inspect</button>
+    <button mat-raised-button color="accent" (click)="openSummaryDialog()" [disabled]="!canInspect()" [attr.data-testid]="TestIds.summaryButton" class="metadata-item">Summary</button>
   </div>
 }

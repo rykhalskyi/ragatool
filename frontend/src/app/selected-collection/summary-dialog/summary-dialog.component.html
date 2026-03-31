@@ -1,0 +1,93 @@
+<div class="container-margin">
+  <h1 mat-dialog-title [attr.data-testid]="TestIds.summaryDialogTitle">Summaries for {{ data.collectionName }}</h1>
+  <div mat-dialog-content class="dialog-content">
+    <div class="summary-list-container">
+      <div class="list-header">
+        <span>Summaries</span>
+        <button mat-icon-button color="primary" (click)="onAdd()" [attr.data-testid]="TestIds.addSummaryButton">
+          <mat-icon>add</mat-icon>
+        </button>
+      </div>
+      @if (isLoading) {
+        <div>Loading...</div>
+      }
+      @if (error) {
+        <div class="error-text">{{ error }}</div>
+      }
+      @if (!isLoading && !error) {
+        <mat-nav-list class="scrollable-nav-list">
+          @for (summary of summaries; track summary.id) {
+            <mat-list-item 
+              (click)="onSummarySelected(summary)" 
+              [class.selected]="selectedSummary()?.id === summary.id"
+              [attr.data-testid]="TestIds.summaryListItem">
+              <span matListItemTitle>{{ getSummaryTitle(summary) }}</span>
+              <span matListItemLine class="level-badge" [attr.data-testid]="TestIds.summaryLevelLabel">
+                {{ getLevelName(summary.type) }}
+              </span>
+            </mat-list-item>
+          }
+        </mat-nav-list>
+      }
+      @if (!isLoading && !error && summaries.length === 0 && !isAdding) {
+        <div class="no-data">No summaries found.</div>
+      }
+    </div>
+
+    <div class="summary-viewer-container">
+      @if (isAdding || isEditing) {
+        <form [formGroup]="summaryForm" class="summary-form">
+          <mat-form-field appearance="fill">
+            <mat-label>Level</mat-label>
+            <mat-select formControlName="type">
+              <mat-option [value]="0">CHUNK</mat-option>
+              <mat-option [value]="1">CHAPTER</mat-option>
+              <mat-option [value]="2">BOOK</mat-option>
+              <mat-option [value]="3">TOC</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="fill">
+            <mat-label>Content</mat-label>
+            <textarea matInput formControlName="summary" rows="13" placeholder="Summary content" [attr.data-testid]="TestIds.summaryContentPreview"></textarea>
+            @if (summaryForm.get('summary')?.hasError('required')) {
+              <mat-error>Content is required.</mat-error>
+            }
+          </mat-form-field>
+
+          <div class="form-actions">
+            <button type="button" mat-button (click)="onCancelEdit()" [attr.data-testid]="TestIds.cancelSummaryButton">Cancel</button>
+            <button type="button" mat-raised-button color="primary" (click)="onSave()" [disabled]="summaryForm.invalid" [attr.data-testid]="TestIds.saveSummaryButton">
+              Save
+            </button>
+          </div>
+        </form>
+      } @else if (selectedSummary()) {
+        <div class="preview-area">
+          <div class="preview-header">
+            <h2>{{ getSummaryTitle(selectedSummary()!) }}</h2>
+            <span class="level-label">{{ getLevelName(selectedSummary()!.type) }}</span>
+            <div class="actions">
+              <button mat-icon-button (click)="onEdit()" [attr.data-testid]="TestIds.editSummaryButton">
+                <mat-icon>edit</mat-icon>
+              </button>
+              <button mat-icon-button color="warn" (click)="onDelete()" [attr.data-testid]="TestIds.deleteSummaryButton">
+                <mat-icon>delete</mat-icon>
+              </button>
+            </div>
+          </div>
+          <div class="preview-content" [attr.data-testid]="TestIds.summaryContentPreview">
+            {{ selectedSummary()?.summary }}
+          </div>
+        </div>
+      } @else {
+        <div class="no-selection">
+          Select a summary from the list or add a new one.
+        </div>
+      }
+    </div>
+  </div>
+  <div mat-dialog-actions align="end">
+    <button mat-button (click)="onClose()">Close</button>
+  </div>
+</div>
