@@ -9,6 +9,8 @@ description: A 3-step workflow for creating an implementation plan and atomic ta
 
 This skill guides Gemini CLI through a structured 3-step process to plan and decompose GitHub issues into actionable tasks, ensuring alignment with project-specific steering documents.
 
+DO NOT IMPLEMENT CODE! IT'S ONLY PLANNER!
+
 ## STEP 1: GitHub Issue Retrieval
 
 1.  Connect to GitHub user `rykhalskyi`.
@@ -24,8 +26,9 @@ This skill guides Gemini CLI through a structured 3-step process to plan and dec
     -   `structure.md` (Project organization)
 2.  Use **Plan Mode** to draft a detailed implementation plan.
 3.  Follow the structure defined in `assets/plan-template.md`.
-4.  Save the resulting plan to `.design-specs/specs/plan-{issue_number}.md`.
-5.  The plan MUST include technical details:
+4.  Exit from **Plan Mode** or ask user to exit. You need it to make next step:
+5.  Save the resulting plan to `.design-specs/specs/plan-{issue_number}.md`.
+6.  The plan MUST include technical details:
     -   Files to be created or modified.
     -   Data model changes (if any).
     -   API changes (if any).
