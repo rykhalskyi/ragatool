@@ -15,7 +15,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN pip install --upgrade pip
 
 RUN pip install \
-    wordninja \
     fastembed \
     beautifulsoup4 \
     fastapi \
@@ -26,7 +25,8 @@ RUN pip install \
     langchain_community \
     pypdf \
     docx2txt \
-    trafilatura
+    trafilatura \
+    wordninja
 
 ###########################################
 # Stage 2 — Lightweight runtime

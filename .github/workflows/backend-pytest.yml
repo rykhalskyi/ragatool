@@ -37,7 +37,7 @@ jobs:
           pip install fastembed beautifulsoup4 fastapi uvicorn 
           pip install chromadb fastmcp python-multipart
           pip install langchain_community pypdf docx2txt trafilatura
-          pip install langchain-text-splitters python-dotenv httpx
+          pip install langchain-text-splitters python-dotenv httpx wordninja
           # Testing Essentials
           pip install pytest pytest-asyncio
 
