@@ -17,7 +17,8 @@ RUN pip install --upgrade pip
 RUN pip install fastembed beautifulsoup4 \ 
  && pip install fastapi uvicorn\ 
  && pip install chromadb fastmcp python-multipart\
- && pip install langchain_community pypdf docx2txt trafilatura wordninja
+ && pip install langchain_community pypdf docx2txt trafilatura\
+ && pip install wordninja
 
 ###########################################
 # Stage 2 — Lightweight runtime
