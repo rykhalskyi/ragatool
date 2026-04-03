@@ -12,13 +12,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Install everything normally (no wheel build)
 
-RUN pip install --upgrade pip 
- 
-RUN pip install fastembed beautifulsoup4 \ 
- && pip install fastapi uvicorn\ 
- && pip install chromadb fastmcp python-multipart\
- && pip install langchain_community pypdf docx2txt trafilatura\
- && pip install wordninja
+RUN pip install --upgrade pip
+
+RUN pip install \
+    fastembed \
+    beautifulsoup4 \
+    fastapi \
+    uvicorn \
+    chromadb \
+    fastmcp \
+    python-multipart \
+    langchain_community \
+    pypdf \
+    docx2txt \
+    trafilatura \
+    wordninja
 
 ###########################################
 # Stage 2 — Lightweight runtime
