@@ -15,6 +15,7 @@ from app.models.import_context import ImportContext
 from app.models.messages import MessageType
 from app.schemas.imports import Import
 from app.internal.temp_file_helper import TempFileHelper
+import wordninja
 
 # Import LangChain loaders
 from langchain_community.document_loaders import Docx2txtLoader
@@ -135,6 +136,7 @@ class FileImport(ImportBase):
                     if loader != None:
                         docs = loader.load() 
                         extracted_text = "\n".join([doc.page_content.replace('\n','') for doc in docs])
+                        extracted_text = " ".join(wordninja.split(extracted_text))
 
                 except Exception as e:
                     message_hub.send_message(collection_id, MessageType.INFO, f"Error parsing {file_extension.upper()} file '{file_name}': {e}")
