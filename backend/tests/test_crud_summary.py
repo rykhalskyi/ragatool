@@ -63,6 +63,32 @@ def test_get_summary_by_type(db_connection):
     assert len(col2_toc) == 1
     assert col2_toc[0].summary == "TOC 2"
 
+def test_get_single_summary(db_connection):
+    # Create multiple summaries of the same type
+    crud_summary.create_summary(db_connection, Summary(id="", collection_id="col1", type=SummaryType.CHAPTER, summary="CHAPTER 1"))
+    crud_summary.create_summary(db_connection, Summary(id="", collection_id="col1", type=SummaryType.CHAPTER, summary="CHAPTER 2"))
+    crud_summary.create_summary(db_connection, Summary(id="", collection_id="col1", type=SummaryType.CHAPTER, summary="CHAPTER 3"))
+    
+    # Get summaries by type to verify
+    col1_chapters = crud_summary.get_summary_by_type(db_connection, "col1", SummaryType.CHAPTER)
+    assert len(col1_chapters) == 3
+    
+    # Test retrieving single summary by index
+    assert col1_chapters[0].summary == "CHAPTER 1"
+    assert col1_chapters[1].summary == "CHAPTER 2"
+    assert col1_chapters[2].summary == "CHAPTER 3"
+    
+    # Test accessing valid indices
+    first_summary = col1_chapters[0]
+    assert first_summary.summary == "CHAPTER 1"
+    assert first_summary.type == SummaryType.CHAPTER
+    
+    middle_summary = col1_chapters[1]
+    assert middle_summary.summary == "CHAPTER 2"
+    
+    last_summary = col1_chapters[2]
+    assert last_summary.summary == "CHAPTER 3"
+
 def test_edit_summary(db_connection):
     summary_data = Summary(id="", collection_id="col1", type=SummaryType.TOC, summary="Old summary")
     new_summary = crud_summary.create_summary(db_connection, summary_data)

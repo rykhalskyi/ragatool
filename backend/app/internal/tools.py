@@ -294,6 +294,33 @@ def register_tools(mcp_server, mcp_manager):
                 return {"status": "error", "message": f"No summaries found for type {summary_type_enum.name} in collection '{collection_name}'."}
 
     @mcp_server.tool()
+    def get_single_summary(collection_name: str, summary_type: int, summary_index:int):
+        """
+        Retrieves single summary by type from a collection
+        - collection_name: name of the ChromaDB collection
+        - summary_type: type of summary (0: CHUNKS, 1: CHAPTER, 2: BOOK)
+        - summary_index: index of a summary in the list
+        """
+        collection_id = prepare_collection_name(collection_name)
+        
+        if not mcp_manager.is_enabled():
+            return {"status": "error", "message": "MCP server is disabled."}
+        
+        try:
+            summary_type_enum = SummaryType(summary_type)
+        except ValueError:
+            return {"status": "error", "message": f"Invalid summary type. Must be 0-2 (CHUNKS, CHAPTER, BOOK)."}
+        
+        with get_db_connection() as db:
+            summaries = get_summary_by_type(db, collection_id, summary_type_enum)
+            if len(summaries) > 0:
+                if summary_index <= len(summaries) - 1: 
+                    return {"status": "success", "summary": summaries[summary_index].model_dump}
+                else: return {"status": "error", "message": f"Index out of range {len(summaries)-1}"}
+            else:
+                return {"status": "error", "message": f"No summaries found for type {summary_type_enum.name} in collection '{collection_name}'."}
+
+    @mcp_server.tool()
     def add_summary(collection_name: str, summary_type: int, summary_text: str, metadata: str | None = None):
         """
         Adds a summary to a collection
