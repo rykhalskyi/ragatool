@@ -26,7 +26,8 @@ RUN pip install \
     pypdf \
     docx2txt \
     trafilatura \
-    wordninja
+    wordninja \
+    neo4j
 
 ###########################################
 # Stage 2 — Lightweight runtime

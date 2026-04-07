@@ -6,6 +6,7 @@ from app.internal.message_hub import MessageHub
 from .internal.background_task_dispatcher import BackgroundTaskDispatcher
 from app.internal.settings_manager import SettingsManager
 from app.internal.extension_manager import ExtensionManager
+from app.internal.graph_manager import GraphManager
 
 _message_hub_instance: MessageHub | None = None
 _task_dispatcher_instance: BackgroundTaskDispatcher | None = None
@@ -38,6 +39,9 @@ def get_message_hub():
 @lru_cache()
 def get_settings_manager(db: Connection = Depends(get_db)) -> SettingsManager:
     return SettingsManager(db)
+
+def get_graph_manager() -> GraphManager:
+    return GraphManager()
 
 def get_extension_manager() -> ExtensionManager:
     """

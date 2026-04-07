@@ -34,7 +34,7 @@ jobs:
           python -m pip install --upgrade pip
           # App Core (Essential for backend to run)
           pip install fastembed beautifulsoup4 fastapi uvicorn 
-          pip install chromadb fastmcp python-multipart
+          pip install chromadb fastmcp python-multipart neo4j
           pip install langchain_community pypdf docx2txt trafilatura wordninja
           pip install langchain-text-splitters python-dotenv httpx
           pip install pytest pytest-asyncio
