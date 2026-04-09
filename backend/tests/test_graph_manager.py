@@ -82,3 +82,54 @@ def test_create_edge_mocked(mock_db):
     assert "MERGE (a)-[r:MENTIONS]->(b)" in query
     assert kwargs["src_id"] == "chunk1"
     assert kwargs["dst_id"] == "dracula"
+
+@patch("app.internal.graph_manager.GraphDatabase")
+def test_delete_collection_mocked(mock_db):
+    gm = GraphManager()
+    mock_driver = MagicMock()
+    gm._driver = mock_driver
+    mock_session = MagicMock()
+    mock_driver.session.return_value.__enter__.return_value = mock_session
+    
+    collection_id = "test_col"
+    gm.delete_collection(collection_id)
+    
+    mock_session.run.assert_called_once()
+    query = mock_session.run.call_args[0][0]
+    kwargs = mock_session.run.call_args[1]
+    
+    assert "MATCH (c:COLLECTION {id: $collection_id})" in query
+    assert "OPTIONAL MATCH (c)-[:CONTAINS]->(n)" in query
+    assert "DETACH DELETE c, n" in query
+    assert kwargs["collection_id"] == collection_id
+
+@patch("app.internal.graph_manager.GraphDatabase")
+def test_add_chapter_mocked(mock_db):
+    gm = GraphManager()
+    mock_driver = MagicMock()
+    gm._driver = mock_driver
+    mock_session = MagicMock()
+    mock_driver.session.return_value.__enter__.return_value = mock_session
+    
+    gm.add_chapter("Chapter 1", "col1", "Summary text", 1)
+    
+    # add_chapter calls create_node and create_edge
+    assert mock_session.run.call_count == 2
+    
+    # First call should be create_node for CHAPTER
+    args0 = mock_session.run.call_args_list[0]
+    query0 = args0[0][0]
+    props0 = args0[1]["props"]
+    assert "MERGE (n:CHAPTER {id: $props.id})" in query0
+    assert props0["id"] == "Chapter 1_1"
+    assert props0["name"] == "Chapter 1"
+    assert props0["summary"] == "Summary text"
+    
+    # Second call should be create_edge for CONTAINS
+    args1 = mock_session.run.call_args_list[1]
+    query1 = args1[0][0]
+    kwargs1 = args1[1]
+    assert "MATCH (a:COLLECTION {id: $src_id}), (b:CHAPTER {id: $dst_id})" in query1
+    assert "MERGE (a)-[r:CONTAINS]->(b)" in query1
+    assert kwargs1["src_id"] == "col1"
+    assert kwargs1["dst_id"] == "Chapter 1_1"

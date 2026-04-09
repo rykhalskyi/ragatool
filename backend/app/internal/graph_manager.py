@@ -19,7 +19,7 @@ class GraphManager:
                     cls._instance._initialize()
         return cls._instance
 
-    ALLOWED_LABELS = {"COLLECTION", "CHUNK", "PERSON", "EVENT", "PLACE", "Node"}
+    ALLOWED_LABELS = {"COLLECTION", "CHUNK", "PERSON", "EVENT", "PLACE", "Node", "CHAPTER"}
     ALLOWED_RELATIONS = {"CONTAINS", "MENTIONS", "LOCATED_IN", "PARTICIPATED_IN", "KNOWS"}
 
     def _initialize(self):
@@ -112,3 +112,27 @@ class GraphManager:
         """
         self.create_node("CHUNK", {"id": chunk_id, "text": text[:1000], "index": index}) # Truncate text for graph storage
         self.create_edge(collection_id, chunk_id, "CONTAINS", src_label="COLLECTION", dst_label="CHUNK")
+
+    def add_chapter(self, chapter_name:str, collection_id:str, summary:str, index:int):
+        """
+        Add CHAPTER node and links it to its COLLECTION.
+        """
+        id = f"{chapter_name}_{index}"
+        self.create_node("CHAPTER", {"id":id, "name":chapter_name, "summary":summary, "index":index})
+        self.create_edge(collection_id, id, "CONTAINS", src_label="COLLECTION", dst_label="CHAPTER")
+
+    def delete_collection(self, collection_id: str):
+        """
+        Deletes the COLLECTION node and all nodes (like CHUNKs and CHAPTERs) associated with it,
+        along with all their relationships (DETACH DELETE).
+        """
+        self.connect()
+        if self._driver:
+            with self._driver.session() as session:
+                # Query to find the collection and all contained nodes, then delete them all
+                query = (
+                    "MATCH (c:COLLECTION {id: $collection_id}) "
+                    "OPTIONAL MATCH (c)-[:CONTAINS]->(n) "
+                    "DETACH DELETE c, n"
+                )
+                session.run(query, collection_id=collection_id)

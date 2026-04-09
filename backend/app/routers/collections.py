@@ -84,6 +84,15 @@ def delete_existing_collection(collection_id: str, db: Connection = Depends(get_
     delete_log_by_collection_id(db, collection_id)
     delete_all_summaries_for_collection(db,collection_id)
 
+    # --- Start Neo4j cleanup ---
+    try:
+        from app.internal.graph_manager import GraphManager
+        gm = GraphManager()
+        gm.delete_collection(collection_id)
+    except Exception as e:
+        print(f"WARNING: Failed to delete collection '{collection_id}' from Neo4j: {e}")
+    # --- End Neo4j cleanup ---
+
     try:
         client = chromadb.PersistentClient(path="./chroma_data")
         client.delete_collection(name=collection_id)
