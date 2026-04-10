@@ -239,3 +239,105 @@ class TestGetSummaryTool:
         
         # Assert
         assert result == {"status": "error", "message": "MCP server is disabled."}
+
+class TestWikiTools:
+
+    @patch('app.internal.tools.get_db_connection')
+    @patch('app.internal.tools.create_summary')
+    def test_add_wiki_page_success(self, mock_create_summary, mock_get_db, captured_tools):
+        # Arrange
+        add_wiki_func = captured_tools['add_wiki_page']
+        
+        from app.schemas.summary import Summary, SummaryType
+        mock_summary = Summary(id="wiki_123", collection_id="test_col", type=SummaryType.WIKI, summary="content", metadata="{}")
+        mock_create_summary.return_value = mock_summary
+        
+        mock_db = MagicMock()
+        mock_get_db.return_value.__enter__.return_value = mock_db
+        
+        # Act
+        result = add_wiki_func(collection_id="Test Col", page_title="My Title", type="Character", tags=["tag1"], text="Wiki content")
+        
+        # Assert
+        assert result["status"] == "success"
+        assert result["page_id"] == "wiki_123"
+        mock_create_summary.assert_called_once()
+        args, _ = mock_create_summary.call_args
+        passed_summary = args[1]
+        assert passed_summary.collection_id == "test_col"
+        assert passed_summary.type == SummaryType.WIKI
+        assert passed_summary.summary == "Wiki content"
+        import json
+        meta = json.loads(passed_summary.metadata)
+        assert meta["title"] == "My Title"
+        assert meta["type"] == "Character"
+        assert meta["tags"] == ["tag1"]
+
+    @patch('app.internal.tools.get_db_connection')
+    @patch('app.internal.tools.get_summary_by_id')
+    @patch('app.internal.tools.edit_summary')
+    def test_edit_wiki_page_success(self, mock_edit_summary, mock_get_summary_by_id, mock_get_db, captured_tools):
+        # Arrange
+        edit_wiki_func = captured_tools['edit_wiki_page']
+        
+        from app.schemas.summary import Summary, SummaryType
+        mock_existing = Summary(id="wiki_123", collection_id="test_col", type=SummaryType.WIKI, summary="old", metadata="{}")
+        mock_get_summary_by_id.return_value = mock_existing
+        
+        mock_db = MagicMock()
+        mock_get_db.return_value.__enter__.return_value = mock_db
+        
+        # Act
+        result = edit_wiki_func(page_id="wiki_123", page_title="New Title", type="Location", tags=["tag2"], text="New content")
+        
+        # Assert
+        assert result["status"] == "success"
+        mock_edit_summary.assert_called_once()
+        args, _ = mock_edit_summary.call_args
+        passed_summary = args[2]
+        assert passed_summary.id == "wiki_123"
+        assert passed_summary.summary == "New content"
+        import json
+        meta = json.loads(passed_summary.metadata)
+        assert meta["title"] == "New Title"
+
+    @patch('app.internal.tools.get_db_connection')
+    @patch('app.internal.tools.get_summary_by_id')
+    def test_get_wiki_page_success(self, mock_get_summary_by_id, mock_get_db, captured_tools):
+        # Arrange
+        get_wiki_func = captured_tools['get_wiki_page']
+        
+        from app.schemas.summary import Summary, SummaryType
+        import json
+        metadata = json.dumps({"title": "Test Wiki", "type": "Plot", "tags": ["important"]})
+        mock_summary = Summary(id="wiki_123", collection_id="test_col", type=SummaryType.WIKI, summary="Wiki text", metadata=metadata)
+        mock_get_summary_by_id.return_value = mock_summary
+        
+        mock_db = MagicMock()
+        mock_get_db.return_value.__enter__.return_value = mock_db
+        
+        # Act
+        result = get_wiki_func(page_id="wiki_123")
+        
+        # Assert
+        assert result["status"] == "success"
+        assert result["result"]["title"] == "Test Wiki"
+        assert result["result"]["text"] == "Wiki text"
+        assert result["result"]["tags"] == ["important"]
+
+    @patch('app.internal.tools.get_db_connection')
+    @patch('app.internal.tools.get_summary_by_id')
+    def test_get_wiki_page_not_found(self, mock_get_summary_by_id, mock_get_db, captured_tools):
+        # Arrange
+        get_wiki_func = captured_tools['get_wiki_page']
+        mock_get_summary_by_id.return_value = None
+        
+        mock_db = MagicMock()
+        mock_get_db.return_value.__enter__.return_value = mock_db
+        
+        # Act
+        result = get_wiki_func(page_id="nonexistent")
+        
+        # Assert
+        assert result["status"] == "error"
+        assert "not found" in result["message"]
