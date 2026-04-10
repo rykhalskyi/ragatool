@@ -10,7 +10,7 @@ from app.internal.extension_manager import ExtensionManager
 from app.schemas.mcp import ExtensionTool
 from app.schemas.collection import CollectionCreate
 from app.internal.embedding_manager import get_embedder
-from app.crud.crud_summary import get_summary_by_type, create_summary, edit_summary, delete_summary_by_id
+from app.crud.crud_summary import get_summary_by_id, get_summary_by_type, create_summary, edit_summary, delete_summary_by_id
 from app.schemas.summary import SummaryType, Summary
 
 def register_tools(mcp_server, mcp_manager):
@@ -391,6 +391,124 @@ def register_tools(mcp_server, mcp_manager):
         except Exception as e:       
             return {"status": "error", "message": str(e)} 
 
+    @mcp_server.tool()
+    def get_wiki_index(collection_id: str):
+        """
+        Returns index of wiki pages for collection.
+        The index contains summary's title, type, tags, and ID.
+        """
+        collection_id = prepare_collection_name(collection_id)
+        
+        if not mcp_manager.is_enabled():
+            return {"status": "error", "message": "MCP server is disabled."}
+        
+        with get_db_connection() as db:
+            summaries = get_summary_by_type(db, collection_id, SummaryType.WIKI)
+            if len(summaries) > 0:
+                wiki_index = []
+                for s in summaries:
+                    # Extract metadata fields
+                    meta = {}
+                    if s.metadata:
+                        try:
+                            meta = json.loads(s.metadata)
+                        except json.JSONDecodeError:
+                            pass
+                    
+                    wiki_index.append({
+                        "id": s.id,
+                        "title": meta.get("title", ""),
+                        "type": meta.get("type", ""),
+                        "tags": meta.get("tags", [])
+                    })
+                return {"status": "success", "wiki index": wiki_index}
+            else:
+                return {"status": "error", "message": f"No wiki pages found in collection '{collection_id}'."}
+
+    @mcp_server.tool()
+    def add_wiki_page(collection_id: str, page_title: str, type: str, tags: List[str], text: str) -> dict:
+        """
+        Adds a wiki page to a collection.
+        - collection_id: id of the collection.
+        - page_title: title of the wiki page. IMPORTANT!
+        - type: category/type of the wiki page (e.g. Character, Location, Plot).
+        - tags: list of tags for the wiki page.
+        - text: the content of the wiki page.
+        """
+        #print("Add wiki called: ", page_title)
+        collection_id = prepare_collection_name(collection_id)
+        
+        if not mcp_manager.is_enabled():
+            return {"status": "error", "message": "MCP server is disabled."}
+        
+        try:
+            metadata = json.dumps({"title": page_title, "type": type, "tags": tags})
+            new_wiki = Summary(id="", collection_id=collection_id, type=SummaryType.WIKI, summary=text, metadata=metadata)
+            with get_db_connection() as db:
+                summary = create_summary(db, new_wiki)
+                return {"status": "success", "message": "Wiki page added.", "page_id": summary.id}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+    @mcp_server.tool()
+    def edit_wiki_page(page_id: str, page_title: str, type: str, tags: List[str], text: str) -> dict:
+        """
+        Edits an existing wiki page.
+        - page_id: the ID of the wiki page to edit.
+        - page_title: new title.
+        - type: new category/type.
+        - tags: new list of tags.
+        - text: new content.
+        """
+        if not mcp_manager.is_enabled():
+            return {"status": "error", "message": "MCP server is disabled."}
+        
+        try:
+            with get_db_connection() as db:
+                existing = get_summary_by_id(db, page_id)
+                if not existing or existing.type != SummaryType.WIKI:
+                    return {"status": "error", "message": f"Wiki page with ID {page_id} not found."}
+                
+                metadata = json.dumps({"title": page_title, "type": type, "tags": tags})
+                updated_wiki = Summary(id=page_id, collection_id=existing.collection_id, type=SummaryType.WIKI, summary=text, metadata=metadata)
+                edit_summary(db, page_id, updated_wiki)
+                return {"status": "success", "message": "Wiki page updated."}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+    @mcp_server.tool()
+    def get_wiki_page(page_id: str) -> dict:
+        """
+        Retrieves a wiki page by ID.
+        - page_id: the ID of the wiki page.
+        """
+        if not mcp_manager.is_enabled():
+            return {"status": "error", "message": "MCP server is disabled."}
+        
+        try:
+            with get_db_connection() as db:
+                summary = get_summary_by_id(db, page_id)
+                if not summary or summary.type != SummaryType.WIKI:
+                    return {"status": "error", "message": f"Wiki page with ID {page_id} not found."}
+                
+                meta = {}
+                if summary.metadata:
+                    try:
+                        meta = json.loads(summary.metadata)
+                    except json.JSONDecodeError:
+                        pass
+                
+                result = {
+                    "id": summary.id,
+                    "collection_id": summary.collection_id,
+                    "title": meta.get("title", ""),
+                    "type": meta.get("type", ""),
+                    "tags": meta.get("tags", []),
+                    "text": summary.summary
+                }
+                return {"status": "success", "result": result}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
 
     def prepare_collection_name(collection_name: str) -> str:
         return collection_name.lower().replace(' ','_')        

@@ -7,6 +7,7 @@ class SummaryType(Enum):
     CHAPTER = 1
     BOOK = 2
     TOC = 3
+    WIKI = 4
 
 class Summary(BaseModel):
     id: str

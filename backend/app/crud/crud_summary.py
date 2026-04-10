@@ -15,6 +15,14 @@ def get_summary_by_type(db: Connection, collection_id: str, summary_type: Summar
     summaries = cursor.fetchall()
     return [Summary(**dict(summary)) for summary in summaries]
 
+def get_summary_by_id(db: Connection, summary_id: str) -> Optional[Summary]:
+    cursor = db.cursor()
+    cursor.execute("SELECT id, collection_id, type, summary, metadata FROM summary WHERE id = ?", (summary_id,))
+    summary = cursor.fetchone()
+    if summary:
+        return Summary(**dict(summary))
+    return None
+
 def create_summary(db: Connection, summary: Summary) -> Summary:
     cursor = db.cursor()
     summary_id = str(uuid4())

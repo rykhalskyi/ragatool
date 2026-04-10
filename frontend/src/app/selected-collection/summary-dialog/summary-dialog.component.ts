@@ -192,6 +192,7 @@ export class SummaryDialogComponent implements OnInit {
       case 1: return 'CHAPTER';
       case 2: return 'BOOK';
       case 3: return 'TOC';
+      case 4: return 'WIKI';
       default: return 'LEVEL ' + type;
     }
   }
