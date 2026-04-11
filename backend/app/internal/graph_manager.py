@@ -1,9 +1,42 @@
 import os
 import threading
+import re
 from neo4j import GraphDatabase
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 class GraphManager:
+# ... (rest of the class remains the same until query_graph)
+
+    def query_graph(self, cypher_query: str) -> List[Dict[str, Any]]:
+        """
+        Executes a read-only Cypher query and returns the results as a list of dictionaries.
+        
+        Args:
+            cypher_query (str): The Cypher query to execute.
+        """
+        # 1. Basic safety check for write keywords (Case-Insensitive)
+        # Using word boundaries to avoid matching keywords inside properties or strings (though not foolproof)
+        forbidden_keywords = r"\b(CREATE|MERGE|DELETE|SET|REMOVE|DETACH|DROP|CALL|LOAD|PERIODIC|COMMIT)\b"
+        if re.search(forbidden_keywords, cypher_query, re.IGNORECASE):
+            raise ValueError("Forbidden keyword detected. Only read-only queries (MATCH...RETURN) are allowed.")
+
+        # 2. Ensure it starts with allowed read keywords (MATCH, OPTIONAL MATCH, WITH, RETURN, UNWIND)
+        # Strip leading whitespace and check start
+        stripped_query = cypher_query.strip().upper()
+        allowed_starts = ("MATCH", "OPTIONAL", "WITH", "RETURN", "UNWIND")
+        if not stripped_query.startswith(allowed_starts):
+            raise ValueError("Query must start with a read-only keyword (MATCH, WITH, RETURN, etc.).")
+
+        self.connect()
+        if not self._driver:
+            raise ConnectionError("Neo4j driver not initialized.")
+            
+        with self._driver.session(default_access_mode="READ") as session:
+            def _read_tx(tx):
+                result = tx.run(cypher_query)
+                return [record.data() for record in result]
+            
+            return session.execute_read(_read_tx)
     """
     Manages connections and operations with Neo4j graph database using environment variables directly.
     Implemented as a thread-safe Singleton.
@@ -120,6 +153,61 @@ class GraphManager:
         id = f"{chapter_name}_{index}"
         self.create_node("CHAPTER", {"id":id, "name":chapter_name, "summary":summary, "index":index})
         self.create_edge(collection_id, id, "CONTAINS", src_label="COLLECTION", dst_label="CHAPTER")
+
+    def create_chapter_with_chunks(self, collection_id: str, chapter_name: str, first_chunk_id: Optional[str] = None, last_chunk_id: Optional[str] = None):
+        """
+        Creates a CHAPTER node, links it to a COLLECTION, and optionally links it to a range of CHUNK nodes.
+        
+        Args:
+            collection_id (str): The ID of the parent COLLECTION.
+            chapter_name (str): The name of the chapter.
+            first_chunk_id (str, optional): The ID of the first chunk in the range.
+            last_chunk_id (str, optional): The ID of the last chunk in the range.
+        """
+        # Generate chapter ID: collection_id_chapter_name slugified
+        chapter_slug = chapter_name.lower().replace(" ", "_")
+        chapter_id = f"{collection_id}_{chapter_slug}"
+        
+        # Create CHAPTER node and link to COLLECTION
+        self.create_node("CHAPTER", {"id": chapter_id, "name": chapter_name})
+        self.create_edge(collection_id, chapter_id, "CONTAINS", src_label="COLLECTION", dst_label="CHAPTER")
+        
+        # Link to chunks if range provided
+        if first_chunk_id and last_chunk_id:
+            try:
+                # Expected format: filename_timestamp_index
+                # e.g., mobydick.txt_1774648463_2165
+                
+                # Split and find the last underscore which separates the index
+                base1, index1_str = first_chunk_id.rsplit("_", 1)
+                base2, index2_str = last_chunk_id.rsplit("_", 1)
+                
+                if base1 != base2:
+                    raise ValueError(f"Chunk ID bases do not match: '{base1}' vs '{base2}'")
+                
+                index1 = int(index1_str)
+                index2 = int(index2_str)
+                
+                # Ensure range is valid
+                start = min(index1, index2)
+                end = max(index1, index2)
+                
+                chunk_ids = [f"{base1}_{i}" for i in range(start, end + 1)]
+                
+                self.connect()
+                with self._driver.session() as session:
+                    # Link CHAPTER to all CHUNKs in the list that exist in the graph
+                    query = (
+                        "MATCH (ch:CHAPTER {id: $chapter_id}), (c:CHUNK) "
+                        "WHERE c.id IN $chunk_ids "
+                        "MERGE (ch)-[:CONTAINS]->(c)"
+                    )
+                    session.run(query, chapter_id=chapter_id, chunk_ids=chunk_ids)
+                    
+            except (ValueError, IndexError) as e:
+                # Log error or re-raise if chunk ID parsing fails
+                print(f"ERROR: Failed to link chunks to chapter: {e}")
+                raise
 
     def delete_collection(self, collection_id: str):
         """

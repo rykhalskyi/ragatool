@@ -133,3 +133,110 @@ def test_add_chapter_mocked(mock_db):
     assert "MERGE (a)-[r:CONTAINS]->(b)" in query1
     assert kwargs1["src_id"] == "col1"
     assert kwargs1["dst_id"] == "Chapter 1_1"
+
+@patch("app.internal.graph_manager.GraphDatabase")
+def test_create_chapter_with_chunks_no_chunks(mock_db):
+    gm = GraphManager()
+    mock_driver = MagicMock()
+    gm._driver = mock_driver
+    mock_session = MagicMock()
+    mock_driver.session.return_value.__enter__.return_value = mock_session
+    
+    gm.create_chapter_with_chunks("col1", "Chapter 1")
+    
+    # create_chapter_with_chunks calls create_node and create_edge
+    assert mock_session.run.call_count == 2
+    
+    # First call: MERGE (n:CHAPTER)
+    args0 = mock_session.run.call_args_list[0]
+    props0 = args0[1]["props"]
+    assert props0["id"] == "col1_chapter_1"
+    assert props0["name"] == "Chapter 1"
+    
+    # Second call: MATCH ... MERGE (a)-[:CONTAINS]->(b)
+    args1 = mock_session.run.call_args_list[1]
+    kwargs1 = args1[1]
+    assert kwargs1["src_id"] == "col1"
+    assert kwargs1["dst_id"] == "col1_chapter_1"
+
+@patch("app.internal.graph_manager.GraphDatabase")
+def test_create_chapter_with_chunks_with_range(mock_db):
+    gm = GraphManager()
+    mock_driver = MagicMock()
+    gm._driver = mock_driver
+    mock_session = MagicMock()
+    mock_driver.session.return_value.__enter__.return_value = mock_session
+    
+    gm.create_chapter_with_chunks(
+        "col1", 
+        "Chapter 1", 
+        "file.txt_ts_10", 
+        "file.txt_ts_12"
+    )
+    
+    # Calls: 1. create_node, 2. create_edge, 3. batch link chunks
+    assert mock_session.run.call_count == 3
+    
+    # Verify third call for batch linking
+    args2 = mock_session.run.call_args_list[2]
+    query2 = args2[0][0]
+    kwargs2 = args2[1]
+    
+    assert "MATCH (ch:CHAPTER {id: $chapter_id}), (c:CHUNK)" in query2
+    assert "WHERE c.id IN $chunk_ids" in query2
+    assert "MERGE (ch)-[:CONTAINS]->(c)" in query2
+    assert kwargs2["chapter_id"] == "col1_chapter_1"
+    assert kwargs2["chunk_ids"] == ["file.txt_ts_10", "file.txt_ts_11", "file.txt_ts_12"]
+
+@patch("app.internal.graph_manager.GraphDatabase")
+def test_create_chapter_with_chunks_invalid_range(mock_db):
+    gm = GraphManager()
+    mock_driver = MagicMock()
+    gm._driver = mock_driver
+    mock_session = MagicMock()
+    mock_driver.session.return_value.__enter__.return_value = mock_session
+    
+    with pytest.raises(ValueError):
+        gm.create_chapter_with_chunks(
+            "col1", 
+            "Chapter 1", 
+            "file1.txt_ts_10", 
+            "file2.txt_ts_12"
+        )
+
+@patch("app.internal.graph_manager.GraphDatabase")
+def test_query_graph_success(mock_db):
+    gm = GraphManager()
+    mock_driver = MagicMock()
+    gm._driver = mock_driver
+    mock_session = MagicMock()
+    mock_driver.session.return_value.__enter__.return_value = mock_session
+    
+    # Mock execute_read to return data
+    mock_session.execute_read.return_value = [{"name": "Chapter 1"}]
+    
+    result = gm.query_graph("MATCH (n:CHAPTER) RETURN n.name as name")
+    
+    assert result == [{"name": "Chapter 1"}]
+    mock_session.execute_read.assert_called_once()
+
+def test_query_graph_forbidden_keywords():
+    gm = GraphManager()
+    
+    queries = [
+        "CREATE (n:Node)",
+        "MATCH (n) DELETE n",
+        "MERGE (n:Node {id: 1})",
+        "MATCH (n) SET n.prop = 1",
+        "CALL apoc.util.sleep(1000)"
+    ]
+    
+    for q in queries:
+        with pytest.raises(ValueError, match="Forbidden keyword detected"):
+            gm.query_graph(q)
+
+def test_query_graph_invalid_start():
+    gm = GraphManager()
+    
+    with pytest.raises(ValueError, match="Query must start with a read-only keyword"):
+        gm.query_graph("FOR n IN nodes() RETURN n")
