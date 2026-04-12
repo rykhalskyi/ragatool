@@ -6,6 +6,7 @@ from app.internal.message_hub import MessageHub
 from .internal.background_task_dispatcher import BackgroundTaskDispatcher
 from app.internal.settings_manager import SettingsManager
 from app.internal.extension_manager import ExtensionManager
+from app.internal.graph_manager import GraphManager
 
 _message_hub_instance: MessageHub | None = None
 _task_dispatcher_instance: BackgroundTaskDispatcher | None = None

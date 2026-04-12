@@ -16,6 +16,7 @@ from app.models.imports import ImportBase
 from app.models.messages import MessageType
 from app.schemas.imports import FileImportSettings, Import
 from app.schemas.setting import SettingsName
+from app.internal.graph_manager import GraphManager
 
 import re
 
@@ -127,6 +128,16 @@ class UrlImport(ImportBase):
                     metadatas=[{"source": file_name, "chunk": i, "ts":ts} for i in range(start, min(end, len(chunks)))],
                     ids=batch_ids
                 )
+
+                # --- Start Neo4j structural backbone integration ---
+                try:
+                    gm = GraphManager()
+                    gm.add_collection(collection_id, collection_id)
+                    for i, (chunk_text, chunk_id) in enumerate(zip(batch_chunks, batch_ids)):
+                        gm.add_chunk(chunk_id, collection_id, chunk_text, start + i)
+                except Exception as e:
+                    print(f"WARNING: Failed to add to Neo4j during batch {batch_num} for URL {file_name}: {e}")
+                # --- End Neo4j structural backbone integration ---
 
                 message_hub.send_message(collection_id, MessageType.INFO, f"Import of batch {batch_num} completed successfully")
                 batch_num += 1

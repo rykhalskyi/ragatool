@@ -1,16 +1,24 @@
 import os
 import threading
 from fastapi import FastAPI
-from app.dependencies import get_message_hub, get_message_hub_instance, get_extension_manager # Added get_extension_manager
+from dotenv import load_dotenv
+
+# Load environment variables from .env file if it exists
+load_dotenv()
+
+from app.dependencies import get_message_hub, get_message_hub_instance, get_extension_manager
+ # Added get_extension_manager
 from app.routers import items, collections, tasks, imports, mcp, logs, settings, files, extensions, summaries # Added summaries router
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import create_tables, get_db_connection
 from contextlib import asynccontextmanager
 from app.internal.mcp_manager import MCPManager
+from app.internal.graph_manager import GraphManager
 from app.crud import crud_task
 
 # Get the singleton instance of MCPManager
 mcp_manager = MCPManager()
+graph_manager = GraphManager()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -47,6 +55,10 @@ async def lifespan(app: FastAPI):
     # Shutdown ExtensionManager if it has a shutdown method
     if hasattr(extension_manager, 'shutdown'):
         extension_manager.shutdown()
+    
+    # Shutdown GraphManager
+    graph_manager.close()
+    
     # MessageHub's broadcast loop is daemon, will exit with app
 
 app = FastAPI(lifespan=lifespan)

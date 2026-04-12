@@ -12,6 +12,7 @@ from app.schemas.collection import CollectionCreate
 from app.internal.embedding_manager import get_embedder
 from app.crud.crud_summary import get_summary_by_id, get_summary_by_type, create_summary, edit_summary, delete_summary_by_id
 from app.schemas.summary import SummaryType, Summary
+from app.internal.graph_manager import GraphManager
 
 def register_tools(mcp_server, mcp_manager):
     """
@@ -390,6 +391,110 @@ def register_tools(mcp_server, mcp_manager):
             return {"status": "success", "message": "Summary deleted."}
         except Exception as e:       
             return {"status": "error", "message": str(e)} 
+
+    @mcp_server.tool()
+    def graph_add_entities(chunk_id: str, entities: str) -> dict:
+        """
+        Adds multiple entities (PERSON, PLACE, EVENT) found in a specific chunk to the graph.
+        - chunk_id: The ID of the chunk where entities were found.
+        - entities: A JSON list of objects: [{"type": "PERSON"|"PLACE"|"EVENT", "name": "Dracula", "description": "The vampire count"}]
+        """
+        if not mcp_manager.is_enabled():
+            return {"status": "error", "message": "MCP server is disabled."}
+        
+        try:
+            entity_list = json.loads(entities)
+            gm = GraphManager()
+            for entity in entity_list:
+                e_type = entity.get("type")
+                e_name = entity.get("name")
+                e_desc = entity.get("description", "")
+                
+                if not e_type or not e_name:
+                    continue
+                
+                # Use name as id for entities for simplicity and entity resolution via MERGE
+                entity_id = e_name.strip().lower().replace(" ", "_")
+                
+                # Create entity node
+                gm.create_node(e_type, {"id": entity_id, "name": e_name, "description": e_desc})
+                # Link CHUNK -[:MENTIONS]-> ENTITY
+                gm.create_edge(chunk_id, entity_id, "MENTIONS", src_label="CHUNK", dst_label=e_type)
+            
+            return {"status": "success", "message": f"Added {len(entity_list)} entities to chunk {chunk_id}."}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+    @mcp_server.tool()
+    def graph_link_entities(source_name: str, source_type: str, target_name: str, target_type: str, relation: str) -> dict:
+        """
+        Creates a relationship between two entities in the graph.
+        - source_name: Name of the source entity (e.g. Dracula).
+        - source_type: Type of the source entity (PERSON, PLACE, EVENT).
+        - target_name: Name of the target entity (e.g. Transylvania).
+        - target_type: Type of the target entity (PERSON, PLACE, EVENT).
+        - relation: Type of relationship (LOCATED_IN, PARTICIPATED_IN, KNOWS).
+        """
+        if not mcp_manager.is_enabled():
+            return {"status": "error", "message": "MCP server is disabled."}
+        
+        try:
+            gm = GraphManager()
+            src_id = source_name.strip().lower().replace(" ", "_")
+            dst_id = target_name.strip().lower().replace(" ", "_")
+            
+            gm.create_edge(src_id, dst_id, relation, src_label=source_type, dst_label=target_type)
+            return {"status": "success", "message": f"Linked {source_name} to {target_name} via {relation}."}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+    @mcp_server.tool()
+    def graph_create_chapter(collection_id: str, chapter_name: str, first_chunk_id: str | None = None, last_chunk_id: str | None = None) -> dict:
+        """
+        Creates a chapter node in the graph and links it to a collection and chunks.
+        - collection_id: The ID of the collection the chapter belongs to.
+        - chapter_name: The name of the chapter.
+        - first_chunk_id: The ID of the first chunk in the range (optional).
+        - last_chunk_id: The ID of the last chunk in the range (optional).
+        """
+        if not mcp_manager.is_enabled():
+            return {"status": "error", "message": "MCP server is disabled."}
+        
+        try:
+            gm = GraphManager()
+            gm.create_chapter_with_chunks(collection_id, chapter_name, first_chunk_id, last_chunk_id)
+            msg = f"Chapter '{chapter_name}' created and linked to collection '{collection_id}'"
+            if first_chunk_id and last_chunk_id:
+                msg += f" and chunks from {first_chunk_id} to {last_chunk_id}."
+            else:
+                msg += "."
+            return {"status": "success", "message": msg}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+    @mcp_server.tool()
+    def graph_query(query: str) -> dict:
+        """
+        Executes a read-only Cypher query against the Neo4j graph.
+        - query: The Cypher query (e.g., 'MATCH (n:CHAPTER) RETURN n.name').
+        Use this to explore relationships between collections, chapters, and chunks.
+        Only MATCH and RETURN operations are allowed.
+        """
+        if not mcp_manager.is_enabled():
+            return {"status": "error", "message": "MCP server is disabled."}
+        
+        try:
+            gm = GraphManager()
+            results = gm.query_graph(query)
+            return {
+                "status": "success",
+                "results": results,
+                "count": len(results)
+            }
+        except ValueError as e:
+            return {"status": "error", "message": f"Security validation failed: {str(e)}"}
+        except Exception as e:
+            return {"status": "error", "message": f"Query execution failed: {str(e)}"}
 
     @mcp_server.tool()
     def get_wiki_index(collection_id: str):

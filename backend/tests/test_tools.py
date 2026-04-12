@@ -1,6 +1,7 @@
 import pytest
 import asyncio
 import numpy as np
+import json
 from unittest.mock import MagicMock, AsyncMock, patch
 
 from app.internal.tools import register_tools
@@ -341,3 +342,146 @@ class TestWikiTools:
         # Assert
         assert result["status"] == "error"
         assert "not found" in result["message"]
+
+class TestCreateChapterTool:
+
+    @patch('app.internal.tools.GraphManager')
+    def test_create_chapter_success(self, MockGraphManager, captured_tools):
+        # Arrange
+        create_chapter_func = captured_tools['graph_create_chapter']
+        mock_gm = MockGraphManager.return_value
+        
+        # Act
+        result = create_chapter_func(
+            collection_id="col1", 
+            chapter_name="Chapter 1", 
+            first_chunk_id="file_ts_1", 
+            last_chunk_id="file_ts_3"
+        )
+        
+        # Assert
+        assert result["status"] == "success"
+        assert "created and linked" in result["message"]
+        mock_gm.create_chapter_with_chunks.assert_called_once_with(
+            "col1", "Chapter 1", "file_ts_1", "file_ts_3"
+        )
+
+    @patch('app.internal.tools.GraphManager')
+    def test_create_chapter_no_chunks(self, MockGraphManager, captured_tools):
+        # Arrange
+        create_chapter_func = captured_tools['graph_create_chapter']
+        mock_gm = MockGraphManager.return_value
+        
+        # Act
+        result = create_chapter_func(collection_id="col1", chapter_name="Chapter 1")
+        
+        # Assert
+        assert result["status"] == "success"
+        mock_gm.create_chapter_with_chunks.assert_called_once_with(
+            "col1", "Chapter 1", None, None
+        )
+
+    @patch('app.internal.tools.GraphManager')
+    def test_create_chapter_error(self, MockGraphManager, captured_tools):
+        # Arrange
+        create_chapter_func = captured_tools['graph_create_chapter']
+        mock_gm = MockGraphManager.return_value
+        mock_gm.create_chapter_with_chunks.side_effect = Exception("Neo4j error")
+        
+        # Act
+        result = create_chapter_func(collection_id="col1", chapter_name="Chapter 1")
+        
+        # Assert
+        assert result["status"] == "error"
+        assert "Neo4j error" in result["message"]
+
+class TestGraphAddEntitiesTool:
+
+    @patch('app.internal.tools.GraphManager')
+    def test_graph_add_entities_success(self, MockGraphManager, captured_tools):
+        # Arrange
+        add_entities_func = captured_tools['graph_add_entities']
+        mock_gm = MockGraphManager.return_value
+        entities = json.dumps([
+            {"type": "PERSON", "name": "Dracula", "description": "Vampire"},
+            {"type": "PLACE", "name": "Transylvania", "description": "Region"}
+        ])
+        
+        # Act
+        result = add_entities_func(chunk_id="chunk1", entities=entities)
+        
+        # Assert
+        assert result["status"] == "success"
+        assert "Added 2 entities" in result["message"]
+        assert mock_gm.create_node.call_count == 2
+        assert mock_gm.create_edge.call_count == 2
+
+class TestGraphLinkEntitiesTool:
+
+    @patch('app.internal.tools.GraphManager')
+    def test_graph_link_entities_success(self, MockGraphManager, captured_tools):
+        # Arrange
+        link_entities_func = captured_tools['graph_link_entities']
+        mock_gm = MockGraphManager.return_value
+        
+        # Act
+        result = link_entities_func(
+            source_name="Dracula", 
+            source_type="PERSON", 
+            target_name="Transylvania", 
+            target_type="PLACE", 
+            relation="LOCATED_IN"
+        )
+        
+        # Assert
+        assert result["status"] == "success"
+        assert "Linked Dracula to Transylvania" in result["message"]
+        mock_gm.create_edge.assert_called_once_with(
+            "dracula", "transylvania", "LOCATED_IN", src_label="PERSON", dst_label="PLACE"
+        )
+
+class TestGraphQueryTool:
+
+    @patch('app.internal.tools.GraphManager')
+    def test_graph_query_success(self, MockGraphManager, captured_tools):
+        # Arrange
+        graph_query_func = captured_tools['graph_query']
+        mock_gm = MockGraphManager.return_value
+        mock_gm.query_graph.return_value = [{"name": "Chapter 1"}]
+        
+        # Act
+        result = graph_query_func(query="MATCH (n:CHAPTER) RETURN n")
+        
+        # Assert
+        assert result["status"] == "success"
+        assert result["results"] == [{"name": "Chapter 1"}]
+        assert result["count"] == 1
+        mock_gm.query_graph.assert_called_once_with("MATCH (n:CHAPTER) RETURN n")
+
+    @patch('app.internal.tools.GraphManager')
+    def test_graph_query_validation_error(self, MockGraphManager, captured_tools):
+        # Arrange
+        graph_query_func = captured_tools['graph_query']
+        mock_gm = MockGraphManager.return_value
+        mock_gm.query_graph.side_effect = ValueError("Forbidden keyword detected")
+        
+        # Act
+        result = graph_query_func(query="CREATE (n:Node)")
+        
+        # Assert
+        assert result["status"] == "error"
+        assert "Security validation failed" in result["message"]
+
+    @patch('app.internal.tools.GraphManager')
+    def test_graph_query_execution_error(self, MockGraphManager, captured_tools):
+        # Arrange
+        graph_query_func = captured_tools['graph_query']
+        mock_gm = MockGraphManager.return_value
+        mock_gm.query_graph.side_effect = Exception("Neo4j down")
+        
+        # Act
+        result = graph_query_func(query="MATCH (n) RETURN n")
+        
+        # Assert
+        assert result["status"] == "error"
+        assert "Query execution failed" in result["message"]
