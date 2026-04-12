@@ -14,6 +14,7 @@ from app.internal.exceptions import DuplicateCollectionError
 from app.internal.utils import prepare_collection_name
 from app.internal.mcp_manager import mcp_manager
 from app.crud.crud_summary import delete_all_summaries_for_collection
+from app.internal.graph_manager import GraphManager
 
 router = APIRouter()
 
@@ -86,7 +87,6 @@ def delete_existing_collection(collection_id: str, db: Connection = Depends(get_
 
     # --- Start Neo4j cleanup ---
     try:
-        from app.internal.graph_manager import GraphManager
         gm = GraphManager()
         gm.delete_collection(collection_id)
     except Exception as e:

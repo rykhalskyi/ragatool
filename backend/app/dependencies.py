@@ -40,9 +40,6 @@ def get_message_hub():
 def get_settings_manager(db: Connection = Depends(get_db)) -> SettingsManager:
     return SettingsManager(db)
 
-def get_graph_manager() -> GraphManager:
-    return GraphManager()
-
 def get_extension_manager() -> ExtensionManager:
     """
     Provides the singleton ExtensionManager instance, ensuring it's initialized with the DB connection.

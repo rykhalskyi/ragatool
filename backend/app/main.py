@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 # Load environment variables from .env file if it exists
 load_dotenv()
 
-from app.dependencies import get_message_hub, get_message_hub_instance, get_extension_manager, get_graph_manager
+from app.dependencies import get_message_hub, get_message_hub_instance, get_extension_manager
  # Added get_extension_manager
 from app.routers import items, collections, tasks, imports, mcp, logs, settings, files, extensions, summaries # Added summaries router
 from fastapi.middleware.cors import CORSMiddleware
