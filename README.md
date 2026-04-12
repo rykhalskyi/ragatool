@@ -14,6 +14,7 @@ All 3rd party integrations (OnlyOffice, Mozilla Thunderbird, Microsoft Outlook) 
 - **Collection-based organization:** Manage your knowledge in logical, configurable units.
 - **Support for different embedders:** Choose the best embedding model for your specific needs.
 - **Configurable chunking settings:** Optimize how your documents are broken down for retrieval.
+- **Graph Database Integration:** Support for Neo4j to manage complex relationships and graph-based retrieval.
 - **User-friendly interface:** Easily manage collections and imports.
 - **API-driven backend:** Robust and extensible API for programmatic access.
 - **Docker/Podman compatibility:** Simple local deployment and management.
@@ -37,7 +38,15 @@ To get started with Ragatool, you will need Docker or Podman installed on your s
 
 You can also run Ragatool using the pre-built images hosted on GitHub Container Registry. 
 
-1. **Create a `docker-compose.ghcr.yml` file:**
+1. **Configure Environment Variables:**
+   Ensure your `backend/.env` file contains the Neo4j credentials:
+   ```env
+   RAG_NEO4J_URI=bolt://neo4j:7687
+   RAG_NEO4J_USER=neo4j
+   RAG_NEO4J_PASSWORD=your_password
+   ```
+
+2. **Create or update a `docker-compose.ghcr.yml` file:**
 
 ```yaml
 version: '3.8'
@@ -49,11 +58,16 @@ services:
       - "4301:8000"
       - "4302:8001"
       - "4303:8002"
+    env_file:
+      - backend/.env
     environment:
       PYTHONUNBUFFERED: 1
       ALLOWED_ORIGINS: http://localhost:4300
       MCP_HOST: "0.0.0.0"
       MCP_PORT: "8001"
+      RAG_NEO4J_URI: bolt://neo4j:7687
+    depends_on:
+      - neo4j
 
   frontend:
     image: ghcr.io/rykhalskyi/ragatool-frontend:latest
@@ -61,16 +75,34 @@ services:
       - "4300:80"
     depends_on:
       - backend
+
+  neo4j:
+    image: neo4j:community
+    ports:
+      - "7474:7474" # Browser
+      - "7687:7687" # Bolt
+    env_file:
+      - backend/.env
+    environment:
+      NEO4J_AUTH: ${RAG_NEO4J_USER:-neo4j}/${RAG_NEO4J_PASSWORD}
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+
+volumes:
+  neo4j_data:
+  neo4j_logs:
 ```
 
-2. **Run the containers:**
+3. **Run the containers:**
 
-   `docker compose -f docker-compose.ghcr.yml up -d`
+   `docker compose -f docker-compose.ghcr.yml --env-file backend/.env up -d`
 
 
-- The FastAPI backend will be accessible externally on `http://localhost:4301`.
-- The Angular frontend will be accessible externally on `http://localhost:4300`.
-- The MCP Server on `http://localhost:4302/mcp`.
+- **FastAPI backend:** `http://localhost:4301`
+- **Angular frontend:** `http://localhost:4300`
+- **MCP Server:** `http://localhost:4302/mcp`
+- **Neo4j Browser:** `http://localhost:7474` (Login with configured user/password)
 
 ## Ragatool MCP Configuration
 

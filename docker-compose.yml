@@ -10,6 +10,8 @@ services:
       - "4302:8001" # Expose FastMCP SSE port 4302 externally, map to FastMCP's internal port 8001
       - "4303:8002" # Expose FastMCP HTTP port 4303 externally, map to FastMCP's internal port 8002
     # Add environment variables if needed for the backend, e.g., database connection
+    env_file:
+      - backend/.env
     environment:
       # Example: DATABASE_URL=postgresql://user:password@db:5432/mydatabase
       # Make sure to update your FastAPI app to read these environment variables
@@ -19,6 +21,9 @@ services:
       MCP_PORT: "8001"
       MCP_HTTP_HOST: "0.0.0.0"
       MCP_HTTP_PORT: "8002"
+      RAG_NEO4J_URI: bolt://neo4j:7687
+    depends_on:
+      - neo4j
     # For development, you might want to mount volumes for live code changes:
     # volumes:
     #   - ./backend:/app
@@ -36,3 +41,20 @@ services:
     # For development, you might want to mount volumes for live code changes:
     # volumes:
     #   - ./frontend:/app
+
+  neo4j:
+    image: neo4j:community
+    ports:
+      - "7474:7474" # Browser
+      - "7687:7687" # Bolt
+    env_file:
+      - backend/.env
+    environment:
+      NEO4J_AUTH: ${RAG_NEO4J_USER:-neo4j}/${RAG_NEO4J_PASSWORD}
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+
+volumes:
+  neo4j_data:
+  neo4j_logs:
