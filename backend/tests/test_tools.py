@@ -413,8 +413,10 @@ class TestGraphAddEntitiesTool:
         # Assert
         assert result["status"] == "success"
         assert "Added 2 entities" in result["message"]
-        assert mock_gm.create_node.call_count == 2
-        assert mock_gm.create_edge.call_count == 2
+        mock_gm.add_entities_to_chunk.assert_called_once_with("chunk1", [
+            {"type": "PERSON", "name": "Dracula", "description": "Vampire"},
+            {"type": "PLACE", "name": "Transylvania", "description": "Region"}
+        ], None)
 
 class TestGraphLinkEntitiesTool:
 

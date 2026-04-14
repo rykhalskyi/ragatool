@@ -3,6 +3,7 @@ import threading
 import re
 from neo4j import GraphDatabase
 from typing import Dict, Any, Optional, List
+from app.internal.utils import prepare_collection_name
 
 class GraphManager:
 # ... (rest of the class remains the same until query_graph)
@@ -53,7 +54,13 @@ class GraphManager:
         return cls._instance
 
     ALLOWED_LABELS = {"COLLECTION", "CHUNK", "PERSON", "EVENT", "PLACE", "Node", "CHAPTER"}
-    ALLOWED_RELATIONS = {"CONTAINS", "MENTIONS", "LOCATED_IN", "PARTICIPATED_IN", "KNOWS"}
+    ALLOWED_RELATIONS = {
+        "CONTAINS", "MENTIONS", "LOCATED_IN", "PARTICIPATED_IN", "KNOWS",
+        "MARRIED_TO", "ENGAGED_TO", "FRIEND_OF", "ENEMY_OF", "ALLIED_WITH",
+        "KIN_OF", "WORKS_FOR", "MEMBER_OF", "LEADER_OF", "TRANSFORMS",
+        "AFFECTS", "INFLUENCES", "OWNS", "RESIDES_IN", "ORIGINATES_FROM",
+        "HUNTS", "MARKS", "LOVES", "HATES", "CONFLICTS_WITH"
+    }
 
     def _initialize(self):
         self._driver = None
@@ -137,22 +144,25 @@ class GraphManager:
         """
         Adds a COLLECTION node to the graph.
         """
-        self.create_node("COLLECTION", {"id": collection_id, "name": name})
+        cid = prepare_collection_name(collection_id)
+        self.create_node("COLLECTION", {"id": cid, "name": name})
 
     def add_chunk(self, chunk_id: str, collection_id: str, text: str, index: int):
         """
         Adds a CHUNK node and links it to its COLLECTION.
         """
-        self.create_node("CHUNK", {"id": chunk_id, "text": text[:1000], "index": index}) # Truncate text for graph storage
-        self.create_edge(collection_id, chunk_id, "CONTAINS", src_label="COLLECTION", dst_label="CHUNK")
+        cid = prepare_collection_name(collection_id)
+        self.create_node("CHUNK", {"id": chunk_id, "text": text[:1000], "index": index, "collection_id": cid}) 
+        self.create_edge(cid, chunk_id, "CONTAINS", src_label="COLLECTION", dst_label="CHUNK")
 
     def add_chapter(self, chapter_name:str, collection_id:str, summary:str, index:int):
         """
         Add CHAPTER node and links it to its COLLECTION.
         """
-        id = f"{chapter_name}_{index}"
-        self.create_node("CHAPTER", {"id":id, "name":chapter_name, "summary":summary, "index":index})
-        self.create_edge(collection_id, id, "CONTAINS", src_label="COLLECTION", dst_label="CHAPTER")
+        cid = prepare_collection_name(collection_id)
+        id = f"{cid}_{chapter_name.lower().replace(' ', '_')}_{index}"
+        self.create_node("CHAPTER", {"id":id, "name":chapter_name, "summary":summary, "index":index, "collection_id": cid})
+        self.create_edge(cid, id, "CONTAINS", src_label="COLLECTION", dst_label="CHAPTER")
 
     def create_chapter_with_chunks(self, collection_id: str, chapter_name: str, first_chunk_id: Optional[str] = None, last_chunk_id: Optional[str] = None):
         """
@@ -164,13 +174,14 @@ class GraphManager:
             first_chunk_id (str, optional): The ID of the first chunk in the range.
             last_chunk_id (str, optional): The ID of the last chunk in the range.
         """
+        cid = prepare_collection_name(collection_id)
         # Generate chapter ID: collection_id_chapter_name slugified
         chapter_slug = chapter_name.lower().replace(" ", "_")
-        chapter_id = f"{collection_id}_{chapter_slug}"
+        chapter_id = f"{cid}_{chapter_slug}"
         
         # Create CHAPTER node and link to COLLECTION
-        self.create_node("CHAPTER", {"id": chapter_id, "name": chapter_name})
-        self.create_edge(collection_id, chapter_id, "CONTAINS", src_label="COLLECTION", dst_label="CHAPTER")
+        self.create_node("CHAPTER", {"id": chapter_id, "name": chapter_name, "collection_id": cid})
+        self.create_edge(cid, chapter_id, "CONTAINS", src_label="COLLECTION", dst_label="CHAPTER")
         
         # Link to chunks if range provided
         if first_chunk_id and last_chunk_id:
@@ -208,6 +219,65 @@ class GraphManager:
                 # Log error or re-raise if chunk ID parsing fails
                 print(f"ERROR: Failed to link chunks to chapter: {e}")
                 raise
+
+    def add_entities_to_chunk(self, chunk_id: str, entities: List[Dict[str, Any]], collection_id: Optional[str] = None):
+        """
+        Adds multiple entities to a chunk and links them to the collection.
+        If collection_id is not provided, it attempts to find it from the chunk's relationship.
+        """
+        self.connect()
+        cid = prepare_collection_name(collection_id) if collection_id else None
+        
+        with self._driver.session() as session:
+            # 1. Find collection_id if not provided
+            if not cid:
+                res = session.run(
+                    "MATCH (c:COLLECTION)-[:CONTAINS]->(ch:CHUNK {id: $chunk_id}) RETURN c.id AS cid",
+                    chunk_id=chunk_id
+                )
+                record = res.single()
+                if record:
+                    cid = record["cid"]
+            
+            for entity in entities:
+                e_type = entity.get("type")
+                e_name = entity.get("name")
+                e_desc = entity.get("description", "")
+                
+                if not e_type or not e_name:
+                    continue
+                
+                self._validate_label(e_type)
+                
+                entity_id = e_name.strip().lower().replace(" ", "_")
+                
+                # Create entity and link to chunk and collection
+                # We use a single query for efficiency and to ensure linking
+                query = (
+                    f"MERGE (e:{e_type} {{id: $entity_id}}) "
+                    "SET e.name = $name, e.description = $desc "
+                    "WITH e "
+                    "MATCH (ch:CHUNK {id: $chunk_id}) "
+                    "MERGE (ch)-[:MENTIONS]->(e) "
+                )
+                
+                params = {
+                    "entity_id": entity_id,
+                    "name": e_name,
+                    "desc": e_desc,
+                    "chunk_id": chunk_id
+                }
+                
+                if cid:
+                    query += (
+                        "WITH e "
+                        "MATCH (c:COLLECTION {id: $cid}) "
+                        "MERGE (c)-[:CONTAINS]->(e) "
+                        "SET e.collection_id = $cid "
+                    )
+                    params["cid"] = cid
+                
+                session.run(query, **params)
 
     def delete_collection(self, collection_id: str):
         """

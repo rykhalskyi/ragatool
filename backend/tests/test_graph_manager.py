@@ -121,7 +121,7 @@ def test_add_chapter_mocked(mock_db):
     query0 = args0[0][0]
     props0 = args0[1]["props"]
     assert "MERGE (n:CHAPTER {id: $props.id})" in query0
-    assert props0["id"] == "Chapter 1_1"
+    assert props0["id"] == "col1_chapter_1_1"
     assert props0["name"] == "Chapter 1"
     assert props0["summary"] == "Summary text"
     
@@ -132,7 +132,7 @@ def test_add_chapter_mocked(mock_db):
     assert "MATCH (a:COLLECTION {id: $src_id}), (b:CHAPTER {id: $dst_id})" in query1
     assert "MERGE (a)-[r:CONTAINS]->(b)" in query1
     assert kwargs1["src_id"] == "col1"
-    assert kwargs1["dst_id"] == "Chapter 1_1"
+    assert kwargs1["dst_id"] == "col1_chapter_1_1"
 
 @patch("app.internal.graph_manager.GraphDatabase")
 def test_create_chapter_with_chunks_no_chunks(mock_db):

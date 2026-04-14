@@ -3,6 +3,7 @@ from typing import List
 import asyncio
 import time
 import json
+from app.internal.utils import prepare_collection_name
 from app.crud.crud_collection_content import query_collection as crud_query_collection
 from app.database import get_db_connection
 from app.crud.crud_collection import get_enabled_collections_for_mcp, get_collection_by_name, create_collection
@@ -28,12 +29,24 @@ def register_tools(mcp_server, mcp_manager):
 
     @mcp_server.tool()
     def collection_list() -> list[dict]:
-        """Returns a list of enabled collections with their names and descriptions."""
+        """Returns a list of enabled collections with their names, IDs, and descriptions."""
         if not mcp_manager.is_enabled():
             return []
         with get_db_connection() as db:
-            collections = get_enabled_collections_for_mcp(db)
-        return collections
+            cursor = db.cursor()
+            cursor.execute("SELECT id, name, description, settings FROM collections WHERE enabled = TRUE")
+            collections_data = cursor.fetchall()
+            
+            result = []
+            for col in collections_data:
+                settings = json.loads(col["settings"]) if col["settings"] else {}
+                result.append({
+                    "id": col["id"],
+                    "name": col["name"],
+                    "description": col["description"],
+                    "properties": f'text is divided to chunks of {settings.get("chunk_size")} symbols and {settings.get("chunk_overlap")} overlap'
+                })
+        return result
 
     @mcp_server.tool()
     def add_fact(fact: str, summary: str) -> dict:
@@ -136,7 +149,7 @@ def register_tools(mcp_server, mcp_manager):
         - query_text: The text to query the collection with.
         - n_results: The number of results to return.
         """
-        collection_name = collection_name.lower().replace(' ','_')
+        collection_id = prepare_collection_name(collection_name)
         if not mcp_manager.is_enabled():
             return {"status": "error", "message": "MCP server is disabled."}
         try:
@@ -157,7 +170,7 @@ def register_tools(mcp_server, mcp_manager):
         - collection_name: name of the ChromaDB collection
         - ids: a single ID (string), a list of IDs (list[str]), or a JSON string representation of a list
         """
-        collection_name = collection_name.lower().replace(' ','_')
+        collection_id = prepare_collection_name(collection_name)
 
         if not mcp_manager.is_enabled():
             return {"status": "error", "message": "MCP server is disabled."}
@@ -393,11 +406,12 @@ def register_tools(mcp_server, mcp_manager):
             return {"status": "error", "message": str(e)} 
 
     @mcp_server.tool()
-    def graph_add_entities(chunk_id: str, entities: str) -> dict:
+    def graph_add_entities(chunk_id: str, entities: str, collection_id: str | None = None) -> dict:
         """
-        Adds multiple entities (PERSON, PLACE, EVENT) found in a specific chunk to the graph.
+        Adds multiple entities (PERSON, PLACE, EVENT) found in a specific chunk to the graph and links them to the collection.
         - chunk_id: The ID of the chunk where entities were found.
         - entities: A JSON list of objects: [{"type": "PERSON"|"PLACE"|"EVENT", "name": "Dracula", "description": "The vampire count"}]
+        - collection_id: The ID of the collection (optional, will be found from chunk if omitted).
         """
         if not mcp_manager.is_enabled():
             return {"status": "error", "message": "MCP server is disabled."}
@@ -405,23 +419,9 @@ def register_tools(mcp_server, mcp_manager):
         try:
             entity_list = json.loads(entities)
             gm = GraphManager()
-            for entity in entity_list:
-                e_type = entity.get("type")
-                e_name = entity.get("name")
-                e_desc = entity.get("description", "")
-                
-                if not e_type or not e_name:
-                    continue
-                
-                # Use name as id for entities for simplicity and entity resolution via MERGE
-                entity_id = e_name.strip().lower().replace(" ", "_")
-                
-                # Create entity node
-                gm.create_node(e_type, {"id": entity_id, "name": e_name, "description": e_desc})
-                # Link CHUNK -[:MENTIONS]-> ENTITY
-                gm.create_edge(chunk_id, entity_id, "MENTIONS", src_label="CHUNK", dst_label=e_type)
+            gm.add_entities_to_chunk(chunk_id, entity_list, collection_id)
             
-            return {"status": "success", "message": f"Added {len(entity_list)} entities to chunk {chunk_id}."}
+            return {"status": "success", "message": f"Added {len(entity_list)} entities to chunk {chunk_id} and linked to collection."}
         except Exception as e:
             return {"status": "error", "message": str(e)}
 
@@ -452,7 +452,7 @@ def register_tools(mcp_server, mcp_manager):
     def graph_create_chapter(collection_id: str, chapter_name: str, first_chunk_id: str | None = None, last_chunk_id: str | None = None) -> dict:
         """
         Creates a chapter node in the graph and links it to a collection and chunks.
-        - collection_id: The ID of the collection the chapter belongs to.
+        - collection_id: The ID or Name of the collection the chapter belongs to.
         - chapter_name: The name of the chapter.
         - first_chunk_id: The ID of the first chunk in the range (optional).
         - last_chunk_id: The ID of the last chunk in the range (optional).
@@ -460,10 +460,13 @@ def register_tools(mcp_server, mcp_manager):
         if not mcp_manager.is_enabled():
             return {"status": "error", "message": "MCP server is disabled."}
         
+        # Normalize collection_id
+        normalized_cid = prepare_collection_name(collection_id)
+        
         try:
             gm = GraphManager()
-            gm.create_chapter_with_chunks(collection_id, chapter_name, first_chunk_id, last_chunk_id)
-            msg = f"Chapter '{chapter_name}' created and linked to collection '{collection_id}'"
+            gm.create_chapter_with_chunks(normalized_cid, chapter_name, first_chunk_id, last_chunk_id)
+            msg = f"Chapter '{chapter_name}' created and linked to collection '{normalized_cid}'"
             if first_chunk_id and last_chunk_id:
                 msg += f" and chunks from {first_chunk_id} to {last_chunk_id}."
             else:
@@ -614,7 +617,4 @@ def register_tools(mcp_server, mcp_manager):
                 return {"status": "success", "result": result}
         except Exception as e:
             return {"status": "error", "message": str(e)}
-
-    def prepare_collection_name(collection_name: str) -> str:
-        return collection_name.lower().replace(' ','_')        
     
