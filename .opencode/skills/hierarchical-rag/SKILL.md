@@ -377,3 +377,31 @@ Return JSON:
 
 9. get_summaries(summary_type=1) to get all chapters, create BOOK, add_summary(summary_type=2)
 ```
+
+## QA Check
+
+Verify summaries created:
+
+```python
+# Get all CHAPTER summaries
+get_summaries(collection_name="{book}", summary_type=1)
+
+# Get BOOK summary
+get_summaries(collection_name="{book}", summary_type=2)
+
+# Verify TOC stored
+get_table_of_contents(collection_name="{book}")
+```
+
+**Checklist:**
+- [ ] All CHAPTER summaries exist (for each chapter)
+- [ ] BOOK summary exists
+- [ ] TOC stored with chapter_summary_ids
+- [ ] No duplicate summaries
+- [ ] Each chapter has valid start chunk ID
+- [ ] Summary text is comprehensive (not empty)
+
+**If issues found:**
+- Missing CHAPTER: Recreate with add_summary
+- Duplicate: Delete via get_summaries and recreate
+- Empty text: Query more chunks and recreate

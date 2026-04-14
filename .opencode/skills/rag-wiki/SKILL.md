@@ -257,3 +257,34 @@ Answers can take different forms:
 - **Summary** - Concise overview from summaries
 
 Choose based on what best serves the query.
+
+## QA Check
+
+After creating wiki pages, verify:
+
+```python
+# List all wiki pages
+get_wiki_index(collection_id="{book}")
+
+# Get specific page
+get_wiki_page(page_id="{page_id}")
+```
+
+**Checklist:**
+- [ ] Source page exists (type: source)
+- [ ] All main characters have pages (type: entity)
+- [ ] Theme pages exist (type: concept)
+- [ ] Plot summary exists (type: analysis)
+- [ ] No orphan pages (pages with no references)
+- [ ] All cross-references valid
+- [ ] Tags are consistent
+
+**Launch QA Agent:**
+```
+Task prompt: "QA check on {book} wiki. Verify: all pages created, no orphans, cross-references valid, tags consistent."
+```
+
+**If issues:**
+- Missing pages: Create with add_wiki_page
+- Orphan: Add cross-reference from another page
+- Invalid reference: Fix link to valid chunk/wiki ID
