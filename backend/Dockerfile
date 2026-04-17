@@ -1,46 +1,42 @@
-###########################################
-# Stage 1 — Build dependencies normally
-###########################################
-FROM python:3.12.3-slim-bookworm AS builder
+FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim AS builder
 
-WORKDIR /app
-
+# Install build dependencies if needed
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# Install everything normally (no wheel build)
+ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
+WORKDIR /app
 
-RUN pip install --upgrade pip
+# Install dependencies first (for caching)
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    uv sync --frozen --no-install-project --no-dev
 
-RUN pip install \
-    fastembed \
-    beautifulsoup4 \
-    fastapi \
-    uvicorn \
-    chromadb \
-    fastmcp \
-    python-multipart \
-    langchain_community \
-    pypdf \
-    docx2txt \
-    trafilatura \
-    wordninja \
-    neo4j
+# Copy the rest of the application
+ADD . /app
+
+# Final sync to install the project itself
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev
 
 ###########################################
 # Stage 2 — Lightweight runtime
 ###########################################
-FROM python:3.12.3-slim-bookworm
+FROM python:3.13-slim-bookworm
 
 WORKDIR /app
 
-# Copy installed packages from builder
-COPY --from=builder /usr/local /usr/local
+# Copy the virtual environment from the builder
+COPY --from=builder /app/.venv /app/.venv
 
-# Copy your project
+# Copy the application
 COPY . .
+
+# Place executable symlinks in the path
+ENV PATH="/app/.venv/bin:$PATH"
 
 EXPOSE 8000
 EXPOSE 8001

@@ -9,7 +9,7 @@ on:
       - '**'
     paths:
       - 'backend/**'
-  workflow_dispatch: # Allows manual triggering from the Actions tab
+  workflow_dispatch:
 
 jobs:
   pytest:
@@ -24,23 +24,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.13
-        uses: actions/setup-python@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
         with:
+          enable-cache: true
+          cache-local-path: "/tmp/uv-cache"
           python-version: '3.13'
-          cache: 'pip' # caching pip dependencies
 
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          # App Core
-          pip install fastembed beautifulsoup4 fastapi uvicorn 
-          pip install chromadb fastmcp python-multipart
-          pip install langchain_community pypdf docx2txt trafilatura neo4j
-          pip install langchain-text-splitters python-dotenv httpx wordninja
-          # Testing Essentials
-          pip install pytest pytest-asyncio
+        run: uv sync
 
       - name: Run Pytest
-        run: |
-          pytest
+        run: uv run pytest
