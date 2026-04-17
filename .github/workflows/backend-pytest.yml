@@ -28,6 +28,7 @@ jobs:
         uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
+          cache-local-path: "/tmp/uv-cache"
           python-version: '3.13'
 
       - name: Install dependencies
