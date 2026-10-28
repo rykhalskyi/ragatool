@@ -3,7 +3,7 @@ import { RouterOutlet } from '@angular/router';
 import { TopbarComponent } from "./topbar/topbar.component";
 import { CollectionsListComponent } from './collections-list/collections-list.component';
 import { OpenAPI } from './client';
-import { environment } from '../environments/environment'; // Import the environment
+import { getApiUrl } from '../environments/runtime-config';
 
 @Component({
   selector: 'app-root',
@@ -19,7 +19,7 @@ export class AppComponent {
   isDragging = false;
 
   constructor(private el: ElementRef, private renderer: Renderer2) {
-    OpenAPI.BASE = environment.apiUrl; // Use the API URL from the environment
+    OpenAPI.BASE = getApiUrl(); // Runtime/deploy-time API URL
   }
 
   startDragging(event: MouseEvent) {

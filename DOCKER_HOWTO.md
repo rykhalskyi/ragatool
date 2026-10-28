@@ -15,7 +15,7 @@ This document provides instructions on how to build and run the Ragatouille back
 │   └── ...
 ├── frontend/               # Angular frontend application
 │   ├── Dockerfile          # Dockerfile for the frontend
-│   ├── nginx.conf          # Nginx configuration for the frontend
+│   ├── nginx.conf.template # Nginx config template (BACKEND_URL substituted at start)
 │   └── ...
 └── docker-compose.yml      # Docker Compose configuration for both services
 ```
@@ -37,7 +37,12 @@ This document provides instructions on how to build and run the Ragatouille back
     ```
 
    * The backend image will be built from `backend/Dockerfile`.
-   * The frontend image will be built from `frontend/Dockerfile`. During this build, the Angular application's API URL will be set to point to the backend service within the Docker network (`http://backend:8000`).
+   * The frontend image will be built from `frontend/Dockerfile`. The API
+     address is resolved at container start, not build time: `API_URL` (default
+     `/api`) is written to `/config.js`, and nginx proxies `/api/` to
+     `BACKEND_URL` (default `http://backend:8000`). Override either variable in
+     `docker-compose.yml` or `docker run -e` to point at another backend or
+     expose a different public API URL.
 
 3. **Run the containers:**
    This command will start both the backend and frontend services in detached mode (in the background).

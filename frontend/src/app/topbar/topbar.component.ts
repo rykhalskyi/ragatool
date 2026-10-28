@@ -15,7 +15,7 @@ import { ComponentPortal } from '@angular/cdk/portal';
 import { TaskCenterComponent } from '../task-center/task-center.component';
 import { MatBadgeModule } from '@angular/material/badge';
 import { TestIds } from '@testing/test-ids';
-import { environment } from '../../environments/environment';
+import { getApiUrl } from '../../environments/runtime-config';
 
 @Component({
   selector: 'app-topbar',
@@ -48,7 +48,7 @@ export class TopbarComponent implements OnInit {
   }
 
   private getVersion(): void {
-    this.http.get<{ version: string }>(`${environment.apiUrl}/version`).subscribe({
+    this.http.get<{ version: string }>(`${getApiUrl()}/version`).subscribe({
       next: response => this.version = response.version,
       error: error => console.error('Error fetching version:', error)
     });

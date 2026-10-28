@@ -1,6 +1,6 @@
 import { Injectable, NgZone } from '@angular/core';
 import { Observable, Subject } from 'rxjs';
-import { environment } from '../environments/environment';
+import { getApiUrl } from '../environments/runtime-config';
 import { LogsService } from './client/services/LogsService'; // Import the generated LogsService
 import { Message } from './client/models/Message';
 
@@ -10,7 +10,7 @@ import { Message } from './client/models/Message';
 export class LogStreamService {
   private logSubject: Subject<Message> = new Subject<Message>();
   private eventSource: EventSource | undefined;
-  private readonly SSE_URL = `${environment.apiUrl}/logs/stream`;
+  private readonly SSE_URL = `${getApiUrl()}/logs/stream`;
 
   private infos: StringDictionary = {};
 
