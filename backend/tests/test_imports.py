@@ -2,6 +2,7 @@ import asyncio
 import io
 import threading
 from unittest.mock import MagicMock, patch
+import numpy as np
 import pytest
 from fastapi import UploadFile
 from app.routers.imports import import_file
@@ -46,13 +47,18 @@ async def test_import_file_background_task():
          patch("app.routers.imports.crud_collection", mock_crud_collection), \
          patch("app.dependencies.get_task_dispatcher", return_value=mock_task_dispatcher), \
          patch("app.dependencies.get_message_hub", return_value=mock_message_hub), \
-         patch("app.routers.imports.get_settings", mock_get_settings):    
+         patch("app.routers.imports.get_settings", mock_get_settings), \
+         patch("app.models.imports.embed_documents", return_value=[np.array([0.1, 0.2, 0.3])]), \
+         patch("app.models.imports.vector_store.get_client") as mock_get_client:
+        mock_collection = MagicMock()
+        mock_collection.metadata = {}
+        mock_get_client.return_value.get_collection.return_value = mock_collection
         create_tables(in_memory_conn)  # Create tables in the in-memory db
-    
+
         # 5. Call the endpoint function
         response = await import_file(
             collection_id="test_collection",
-                            import_params='{"name": "FILE", "model": "all-MiniLM-L6-v2", "settings": {"chunk_size": 800, "chunk_overlap": 10, "no_chunks": false}}',            file=mock_file,
+                            import_params='{"name": "FILE", "model": "BAAI/bge-small-en-v1.5", "settings": {"chunk_size": 800, "chunk_overlap": 10, "no_chunks": false}}',            file=mock_file,
             db=mock_db,
             task_dispatcher=mock_task_dispatcher,
             message_hub=mock_message_hub
@@ -123,13 +129,21 @@ async def test_import_file_with_chunk_type():
          patch("app.dependencies.get_task_dispatcher", return_value=mock_task_dispatcher), \
          patch("app.dependencies.get_message_hub", return_value=mock_message_hub), \
          patch("app.routers.imports.get_settings", mock_get_settings), \
-         patch("app.models.imports.Chunker.create_chunks") as mock_create_chunks:
+         patch("app.models.imports.embed_documents", return_value=[np.array([0.1, 0.2, 0.3])]), \
+         patch("app.models.imports.vector_store.get_client") as mock_get_client, \
+         patch("app.models.imports.Chunker.create_chunks_with_offsets") as mock_create_chunks:
+        mock_collection = MagicMock()
+        mock_collection.metadata = {}
+        mock_get_client.return_value.get_collection.return_value = mock_collection
+        mock_create_chunks.return_value = [
+            {"text": "This is a test file for recursive character chunking.", "start": 0}
+        ]
         create_tables(in_memory_conn)  # Create tables in the in-memory db
     
         # 5. Call the endpoint function
         response = await import_file(
             collection_id="test_collection",
-            import_params='{"name": "FILE", "model": "all-MiniLM-L6-v2", "settings": {"chunk_size": 10, "chunk_overlap": 2, "no_chunks": false, "chunk_type": "RECURSIVE_CHARACTER"}}',
+            import_params='{"name": "FILE", "model": "BAAI/bge-small-en-v1.5", "settings": {"chunk_size": 10, "chunk_overlap": 2, "no_chunks": false, "chunk_type": "RECURSIVE_CHARACTER"}}',
             file=mock_file,
             db=mock_db,
             task_dispatcher=mock_task_dispatcher,

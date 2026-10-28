@@ -51,50 +51,32 @@ def test_get_collection_chunks_not_found(mock_persistent_client):
     with pytest.raises(ValueError, match="Collection 'test_collection' not found"):
         get_collection_chunks("test_collection", 1, 10)
 
-@patch('app.crud.crud_collection_content.get_embedder')
-@patch('chromadb.PersistentClient')
-def test_query_collection_success(mock_persistent_client, mock_get_embedder):
+@patch('app.crud.crud_collection_content.retrieve')
+def test_query_collection_success(mock_retrieve):
     """
     Test successful querying of a collection.
     """
     # Arrange
-    mock_embedder = MagicMock()
-    mock_embedder.embed.return_value = [np.array([0.1, 0.2, 0.3])]
-    mock_get_embedder.return_value = mock_embedder
-    
-    mock_collection = MagicMock()
-    mock_collection.query.return_value = {"results": "some_results"}
-    
-    mock_client_instance = MagicMock()
-    mock_client_instance.get_collection.return_value = mock_collection
-    mock_persistent_client.return_value = mock_client_instance
-    
+    mock_retrieve.return_value = {"status": "success", "results": {"ids": [["chunk-1"]]}}
     collection_id = "test_collection"
     query_text = "test query"
-    
+
     # Act
     result = query_collection(collection_id, query_text)
-    
-    # Assert
-    mock_persistent_client.assert_called_once_with(path="./chroma_data")
-    mock_client_instance.get_collection.assert_called_once_with(name=collection_id)
-    mock_get_embedder.assert_called_once()
-    mock_embedder.embed.assert_called_once_with([query_text])
-    mock_collection.query.assert_called_once()
-    
-    assert result["status"] == "success"
-    assert result["results"] == {"results": "some_results"}
 
-@patch('chromadb.PersistentClient')
-def test_query_collection_not_found(mock_persistent_client):
+    # Assert
+    mock_retrieve.assert_called_once_with(collection_id, query_text, n_results=10)
+    assert result["status"] == "success"
+    assert result["results"] == {"ids": [["chunk-1"]]}
+
+@patch('app.crud.crud_collection_content.retrieve')
+def test_query_collection_not_found(mock_retrieve):
     """
     Test query behavior when the collection is not found.
     """
     # Arrange
-    mock_client_instance = MagicMock()
-    mock_client_instance.get_collection.side_effect = ValueError("Collection not found")
-    mock_persistent_client.return_value = mock_client_instance
-    
+    mock_retrieve.side_effect = ValueError("Collection not found")
+
     # Act & Assert
     with pytest.raises(ValueError, match="Collection 'test_collection' not found"):
         query_collection("test_collection", "test query")

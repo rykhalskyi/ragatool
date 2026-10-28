@@ -21,6 +21,9 @@ services:
       MCP_PORT: "8001"
       MCP_HTTP_HOST: "0.0.0.0"
       MCP_HTTP_PORT: "8002"
+    volumes:
+      # Persist downloaded embedding/reranker models across container restarts.
+      - fastembed_cache:/app/.fastembed
     # For development, you might want to mount volumes for live code changes:
     # volumes:
     #   - ./backend:/app
@@ -39,3 +42,6 @@ services:
     # volumes:
     #   - ./frontend:/app
 
+
+volumes:
+  fastembed_cache:

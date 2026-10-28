@@ -1,4 +1,3 @@
-import chromadb
 from sqlite3 import Connection, IntegrityError
 from typing import List, Optional
 
@@ -7,6 +6,8 @@ from app.schemas.collection import Collection, CollectionCreate, ImportType, Col
 from app.schemas.imports import Import
 
 
+from app.internal import vector_store
+from app.internal.embedding_manager import resolve_embedding_model
 from app.internal.exceptions import DuplicateCollectionError
 from app.internal.utils import prepare_collection_name
 
@@ -51,9 +52,12 @@ def create_collection(db: Connection, collection: CollectionCreate) -> Collectio
         )
         db.commit()
 
-        # Create the collection in ChromaDB
-        client = chromadb.PersistentClient(path="./chroma_data")
-        client.get_or_create_collection(name=prepared_name)
+        # Create the collection in ChromaDB with a cosine metric and the
+        # embedding model that will be used for this collection.
+        vector_store.get_or_create_collection(
+            prepared_name,
+            embedding_model=resolve_embedding_model(collection.model),
+        )
 
     except IntegrityError:
         # This catch might not be strictly necessary if the COUNT(*) check is always reliable,
@@ -120,8 +124,7 @@ def get_collection_details(db: Connection, collection_id: str) -> Optional[Colle
 
     try:
         # Connect to ChromaDB to get more details
-        client = chromadb.PersistentClient(path="./chroma_data")
-        chroma_collection = client.get_collection(name=collection_id)
+        chroma_collection = vector_store.get_collection(collection_id)
 
         # Get count and metadata
         count = chroma_collection.count()
