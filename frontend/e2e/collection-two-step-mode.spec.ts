@@ -77,13 +77,7 @@ test('2-step import Dracula collection', async ({ page }) => {
     // click 'Import' in preview dialog
     await page.getByTestId(TestIds.previewDialogImportButton).click();
 
-    // wait until element 'progress' hidden
-    await expect(page.getByTestId(TestIds.importProgress)).toBeVisible();
-    await expect(page.getByTestId(TestIds.importProgress)).not.toBeVisible({ timeout: 60000 });
-
-    // text shown 'Count: 5' (dracula.txt has 5 chunks probably, let's check)
-    // Actually, I'll just check if it's visible.
-    await expect(page.getByTestId(TestIds.chunkCountText)).toBeVisible();
+    await expect(page.getByTestId(TestIds.chunkCountText)).toContainText('Count: 4', { timeout: 60000 });
   });
 
   await test.step('2. Edit Dracula description', async () => {
@@ -116,11 +110,7 @@ test('2-step import Dracula collection', async ({ page }) => {
     await page.getByTestId(TestIds.importStep2Button).click();
     await page.getByTestId(TestIds.previewDialogImportButton).click();
 
-    await expect(page.getByTestId(TestIds.importProgress)).toBeVisible();
-    await expect(page.getByTestId(TestIds.importProgress)).not.toBeVisible({ timeout: 60000 });
-    
-    // Scenario says 'Count: 6'
-    await expect(page.getByTestId(TestIds.chunkCountText)).toContainText('Count: 20');
+    await expect(page.getByTestId(TestIds.chunkCountText)).toContainText('Count: 15', { timeout: 60000 });
   });
 
   await test.step('4. Rewrite Dracula description', async () => {

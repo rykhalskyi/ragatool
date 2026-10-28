@@ -84,8 +84,8 @@ test('Add Lord of the Rings collection and import file', async ({ page }) => {
     // wait until element 'progress' hidden
     await expect(page.getByTestId(TestIds.importProgress)).not.toBeVisible({ timeout: 60000 });
 
-    // text shown 'Count: 3'
-    await expect(page.getByTestId(TestIds.chunkCountText)).toContainText('Count: 9');
+    // text shown 'Count: 11'
+    await expect(page.getByTestId(TestIds.chunkCountText)).toContainText('Count: 11');
 
     const logItemsCount = await page.getByTestId(TestIds.logItem).count();
     await expect(logItemsCount).toBe(1);
@@ -115,7 +115,7 @@ test('Add Lord of the Rings collection and import file', async ({ page }) => {
 
     await expect(page.getByTestId(TestIds.importProgress)).toBeVisible();
     await expect(page.getByTestId(TestIds.importProgress)).not.toBeVisible({ timeout: 60000 });
-    await expect(page.getByTestId(TestIds.chunkCountText)).toContainText('Count: 18');
+    await expect(page.getByTestId(TestIds.chunkCountText)).toContainText('Count: 22');
     
     const logItemsCount = await page.getByTestId(TestIds.logItem).count();
     await expect(logItemsCount).toBe(2);

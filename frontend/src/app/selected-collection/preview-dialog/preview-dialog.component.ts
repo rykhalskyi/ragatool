@@ -67,9 +67,9 @@ export class PreviewDialogComponent implements OnInit {
   ngOnInit(): void {
     this.chunkForm = this.formBuilder.group({
       model: [this.data.model, Validators.required],
-      chunkSize: [500, [Validators.required, Validators.min(1)]],
-      chunkOverlap: [50, [Validators.required, Validators.min(0)]],
-      chunkType: ['default', Validators.required],
+      chunkSize: [this.data.settings?.chunk_size ?? 500, [Validators.required, Validators.min(1)]],
+      chunkOverlap: [this.data.settings?.chunk_overlap ?? 50, [Validators.required, Validators.min(0)]],
+      chunkType: ['RECURSIVE_CHARACTER', Validators.required],
       noChunks: [false]
     });
 
@@ -92,7 +92,10 @@ export class PreviewDialogComponent implements OnInit {
     ImportService.getChunkTypesImportChunktypesGet()
       .then(chunkTypes => {
         this.chunkTypes = chunkTypes;
-        this.chunkForm.get('chunkType')?.setValue(this.chunkTypes[0]);
+        const currentType = this.chunkForm.get('chunkType')?.value;
+        if (!chunkTypes.includes(currentType)) {
+          this.chunkForm.get('chunkType')?.setValue(chunkTypes[0]);
+        }
         this.cdr.markForCheck();
       })
       .catch(error => {

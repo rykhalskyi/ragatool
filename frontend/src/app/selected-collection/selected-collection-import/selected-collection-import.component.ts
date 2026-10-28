@@ -216,6 +216,11 @@ export class SelectedCollectionImportComponent implements OnInit, OnChanges{
   }
 
   private buildFileFormData(selectedImportType: Import, result: any): Body_import_file_import__collection_id__post {
+    const savedSettings = this.collection?.settings ? JSON.parse(this.collection.settings) : null;
+    const chunkType = savedSettings?.chunk_type
+      ?? selectedImportType.settings?.chunk_type
+      ?? 'RECURSIVE_CHARACTER';
+
     return {
       file: result.selectedFile,
       import_params: JSON.stringify({
@@ -224,7 +229,8 @@ export class SelectedCollectionImportComponent implements OnInit, OnChanges{
         settings: {
           chunk_size: result.chunkSize,
           chunk_overlap: result.chunkOverlap,
-          no_chunks: false
+          no_chunks: false,
+          chunk_type: chunkType
         }
       })
     };
