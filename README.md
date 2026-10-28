@@ -59,6 +59,10 @@ services:
 
   frontend:
     image: ghcr.io/rykhalskyi/ragatool-frontend:latest
+    environment:
+      # Browser calls the same origin; nginx proxies /api to the backend.
+      API_URL: /api
+      BACKEND_URL: http://backend:8000
     ports:
       - "4300:80"
     depends_on:
@@ -69,6 +73,11 @@ services:
 
    `docker compose -f docker-compose.ghcr.yml --env-file backend/.env up -d`
 
+The frontend image is not tied to an API address at build time. At container
+start it writes `/config.js` from `API_URL`, and nginx renders its `/api/` proxy
+from `BACKEND_URL`, so the same image works on any host or in Kubernetes. Set
+`API_URL` to the URL the browser should call (default `/api`, same origin) and
+`BACKEND_URL` to the backend service address nginx should proxy to.
 
 - **FastAPI backend:** `http://localhost:4301`
 - **Angular frontend:** `http://localhost:4300`

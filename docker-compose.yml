@@ -32,8 +32,10 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      args:
-        API_URL: http://localhost:4301 # This points to the backend service within the Docker network
+    environment:
+      # Browser calls the same origin; nginx proxies /api to the backend.
+      API_URL: /api
+      BACKEND_URL: http://backend:8000
     ports:
       - "4300:80" # Expose frontend HTTP port 4300 externally
     depends_on:
