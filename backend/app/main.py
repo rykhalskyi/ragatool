@@ -13,12 +13,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.database import create_tables, get_db_connection
 from contextlib import asynccontextmanager
 from app.internal.mcp_manager import MCPManager
-from app.internal.graph_manager import GraphManager
 from app.crud import crud_task
 
 # Get the singleton instance of MCPManager
 mcp_manager = MCPManager()
-graph_manager = GraphManager()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -55,9 +53,6 @@ async def lifespan(app: FastAPI):
     # Shutdown ExtensionManager if it has a shutdown method
     if hasattr(extension_manager, 'shutdown'):
         extension_manager.shutdown()
-    
-    # Shutdown GraphManager
-    graph_manager.close()
     
     # MessageHub's broadcast loop is daemon, will exit with app
 

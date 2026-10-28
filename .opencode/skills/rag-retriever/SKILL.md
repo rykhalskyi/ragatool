@@ -40,17 +40,19 @@ USER QUESTION
 │ Specific│     │ Check WIKI pages │
 │ chunks  │     │ + BOOK summaries │
 └─────────┘     └────────┬─────────┘
-                         │
-                         ▼
-              ┌──────────────────┐
-              │ Need connections/ │
-              │ relationships?   │
-              └────────┬─────────┘
-                      │
-                      ▼
-              ┌──────────────────┐
-              │ Use GRAPH queries│
-              └──────────────────┘
+                          │
+                          ▼
+               ┌──────────────────┐
+               │ Need connections/│
+               │ relationships?   │
+               └────────┬─────────┘
+                        │
+                        ▼
+               ┌──────────────────┐
+               │ WIKI entity pages│
+               │ + targeted chunk │
+               │ queries          │
+               └──────────────────┘
 ```
 
 ## Question Types & Best Strategies
@@ -94,16 +96,19 @@ get_wiki_index({ collection_id: "x" })
 ### 3. Relationship/Connection Questions
 **Examples**: "How is Ahab connected to Moby Dick?", "Who participated in the final confrontation?"
 
-**Best Strategy**: GRAPH queries
+**Best Strategy**: WIKI entity pages + targeted chunk queries
 ```javascript
-// Find all relationships for a character
-graph_query({ 
-  query: "MATCH (p:PERSON {name: 'Captain Ahab'})-[r]->(n) RETURN type(r), n.name"
-})
+// Browse entity/character pages
+get_wiki_index({ collection_id: "x" })
 
-// Find participants in an event
-graph_query({
-  query: "MATCH (e:EVENT {name: 'The Final Confrontation'})<-[r]-(p) RETURN p.name"
+// Fetch the relevant character or event page
+get_wiki_page({ page_id: "..." })
+
+// Find supporting passages in the source text
+query_collection({
+  collection_name: "x",
+  query_text: "Ahab Moby Dick final confrontation",
+  n_results: 8
 })
 ```
 
@@ -130,6 +135,7 @@ get_wiki_index({ collection_id: "collection_id" })
 | `query_collection` | Semantic search in chunks | Specific facts, quotes, events |
 | `get_chunks_by_id` | Retrieve specific chunk text | Verifying facts, deep dives |
 | `get_wiki_index` | Browse all wiki pages | Finding relevant entities/concepts |
+| `get_wiki_page` | Read a single wiki page | Character/theme/plot synthesis |
 
 ### Summaries
 | Tool | Type | Use Case |
@@ -137,19 +143,6 @@ get_wiki_index({ collection_id: "collection_id" })
 | `get_summaries` (type=0) | CHUNKS | Individual chunk summaries |
 | `get_summaries` (type=1) | CHAPTER | Chapter summaries with key moments |
 | `get_summaries` (type=2) | BOOK | Full book overview, themes, characters |
-
-### Graph Navigation
-| Tool | Use Case |
-|------|----------|
-| `graph_query` | Find relationships between entities |
-| `graph_add_entities` | Add new entities (PERSON, EVENT, PLACE) |
-| `graph_link_entities` | Create relationships |
-
-### Allowed Labels & Relations
-```
-LABELS: COLLECTION, CHUNK, PERSON, EVENT, PLACE, Node, CHAPTER
-RELATIONS: CONTAINS, MENTIONS, LOCATED_IN, PARTICIPATED_IN, KNOWS, MARRIED_TO, ENGAGED_TO, FRIEND_OF, ENEMY_OF, ALLIED_WITH, KIN_OF, WORKS_FOR, MEMBER_OF, LEADER_OF, TRANSFORMS, AFFECTS, INFLUENCES, OWNS, RESIDES_IN, ORIGINATES_FROM, HUNTS, MARKS, LOVES, HATES, CONFLICTS_WITH
-```
 
 ## Retrieval Workflow
 
@@ -163,7 +156,7 @@ collection_list()
 ### Step 2: Determine Question Type
 - **Concrete**: Use `query_collection`
 - **Thematic**: Use wiki + summaries
-- **Relational**: Use `graph_query`
+- **Relational**: Use wiki entity pages + `query_collection`
 - **Structural**: Use TOC
 
 ### Step 3: Execute Strategy
@@ -173,13 +166,11 @@ Execute the appropriate tool(s) based on question type.
 Combine results from multiple sources:
 1. Check wiki pages for synthesized understanding
 2. Verify with specific chunks
-3. Use graph for relationship context
 
 ### Step 5: Answer
 Provide answer with citations referencing:
 - Chunk IDs for specific quotes/facts
 - Wiki page titles for concepts
-- Graph relationships for connections
 
 ## Best Practices
 
@@ -187,7 +178,7 @@ Provide answer with citations referencing:
 - Use specific search terms over full questions
 - Check distance scores (lower = better match)
 - Start with wiki/summaries for overview questions
-- Use graph for understanding relationships
+- Use wiki entity pages to understand relationships
 - Limit n_results for precision (5-10 is often enough)
 
 ### DON'T
@@ -219,7 +210,7 @@ From testing with Moby Dick:
 |---------------|----------|-----------|-------------------|
 | Character actions | query_collection | 5-8 | < 0.8 |
 | Thematic analysis | wiki + book summary | N/A | N/A |
-| Relationships | graph_query | N/A | N/A |
+| Relationships | wiki + query_collection | 5-8 | < 0.8 |
 | Specific quotes | query_collection | 3-5 | < 0.7 |
 | Location events | TOC + query | 5-10 | < 0.9 |
 
@@ -239,12 +230,7 @@ query_collection({
 // 2. Check wiki for context
 get_wiki_page({ page_id: "128cda5e-4375-4a3b-90e9-9099606777b2" })  // Ishmael page
 
-// 3. Verify with graph
-graph_query({
-  query: "MATCH (e:EVENT {name: 'Ishmael\\'s Survival'}) RETURN e"
-})
-
-// 4. Synthesize answer
+// 3. Synthesize answer
 ```
 
 ### Thematic Question
@@ -272,17 +258,20 @@ query_collection({
 User: "Who are all the characters connected to Ahab?"
 
 ```javascript
-// 1. Get all outgoing relationships
-graph_query({
-  query: "MATCH (a:PERSON {name: 'Captain Ahab'})-[r]->(n) RETURN type(r) as rel, n.name as target"
+// 1. Find character pages mentioning Ahab
+get_wiki_index({ collection_id: "moby_dick" })
+
+// 2. Read the Ahab page and related character pages
+get_wiki_page({ page_id: "..." })
+
+// 3. Find supporting passages
+query_collection({
+  collection_name: "moby_dick",
+  query_text: "Ahab crew relationship Starbuck Stubb Flask Queequeg",
+  n_results: 8
 })
 
-// 2. Get incoming relationships
-graph_query({
-  query: "MATCH (p)-[r]->(a:PERSON {name: 'Captain Ahab'}) RETURN type(r) as rel, p.name as source"
-})
-
-// 3. Synthesize connections
+// 4. Synthesize connections
 ```
 
 ## Collection Properties
@@ -305,7 +294,7 @@ This affects how content is chunked and retrieved. Smaller chunks = more precise
 
 1. **Parallel queries**: Execute independent queries simultaneously
 2. **Cache wiki index**: Use `get_wiki_index` once, then filter
-3. **Batch operations**: Use `graph_add_entities` for bulk entity creation
+3. **Reuse fetched pages**: Fetch each wiki page once and keep it in context
 4. **Filter by distance**: Only use chunks with distance < 0.8 for facts
 
 ## Troubleshooting
@@ -314,7 +303,6 @@ This affects how content is chunked and retrieved. Smaller chunks = more precise
 |-------|----------|
 | No relevant chunks found | Broaden search terms, increase n_results |
 | Wiki page not found | Use `get_wiki_index` to find correct page_id |
-| Graph query empty | Check label spelling (case-sensitive) |
 | Distance too high | Use more specific terms |
 
 ## Summary
@@ -324,6 +312,5 @@ The rag-test MCP server provides a powerful multi-layer retrieval system:
 1. **Chunks** - Raw source material, semantic search via `query_collection`
 2. **Summaries** - LLM-generated synthesis (CHUNKS/CHAPTER/BOOK)
 3. **Wiki** - Entity/concept pages for quick reference
-4. **Graph** - Relationship database for connections
 
 Choose your tool based on question type, and combine layers for comprehensive answers.

@@ -1,20 +1,19 @@
 ---
 name: rag-ingest
-description: Complete book ingestion pipeline - hierarchical RAG summaries → wiki pages → graph nodes, with QA checks between each step
+description: Complete book ingestion pipeline - hierarchical RAG summaries → wiki pages, with QA checks between each step
 license: MIT
 compatibility: opencode
 metadata:
   audience: user
-  workflow: rag, wiki, graph, ingestion-pipeline
+  workflow: rag, wiki, ingestion-pipeline
   version: 1
 ---
 
 # RAG Ingest Pipeline
 
-Complete pipeline for ingesting books into knowledge base with 3 sequential steps:
+Complete pipeline for ingesting books into knowledge base with 2 sequential steps:
 1. **Hierarchical RAG** - Build chapter summaries from TOC
 2. **RAG Wiki** - Create wiki pages for characters, themes, plot
-3. **RAG Graph** - Create graph nodes and relationships
 
 ## IMPORTANT: Sequential Pipeline
 
@@ -41,7 +40,7 @@ Build hierarchical RAG summaries by finding Table of Contents, extracting chapte
 
 ### QA Check (Step 1)
 
-After completion, verify with graph query or manual check:
+After completion, verify manually:
 
 ```python
 # Verify CHAPTER summaries exist
@@ -120,92 +119,13 @@ get_wiki_index(collection_id="{book}")
 Task prompt: "QA check on {book} wiki pages. Verify: all pages created, no orphans, cross-references valid."
 ```
 
-### Ask User Before Step 3
+### Ask User Completion
 
 ```
 Step 2 (RAG Wiki) complete.
 - X wiki pages created
 - Characters: list
 - Themes: list
-
-Proceed to Step 3 (RAG Graph)? [Y/N]
-```
-
----
-
-## Step 3: RAG Graph
-
-### Purpose
-Create Neo4j knowledge graph with chapters, entities, relationships.
-
-### Workflow
-
-1. **Get TOC**: Get chapter structure
-2. **Create CHAPTER nodes**: For each chapter (linked to collection + chunks)
-3. **Add PERSON entities**: Characters (from wiki pages)
-4. **Add PLACE entities**: Locations
-5. **Add EVENT entities**: Key plot events
-6. **Link entities**: Create relationships between nodes
-7. **QA check**: Verify graph integrity
-
-### Node Types
-
-| Type | Description |
-|------|------------|
-| CHAPTER | Book chapters |
-| PERSON | Characters |
-| PLACE | Locations |
-| EVENT | Plot events |
-
-### Relationships
-
-Use allowed relations: INFLUENCES, LOVES, FRIEND_OF, KIN_OF, ENEMY_OF, RESIDES_IN, PARTICIPATED_IN, AFFECTS, etc.
-
-### QA Check (Step 3)
-
-Run graph QA:
-
-```cypher
--- Verify chapters
-MATCH (col:COLLECTION {name: '{book}'})-[r:CONTAINS]->(c:CHAPTER) RETURN count(c)
-
--- Verify entities
-MATCH (e) WHERE e.collection_id = '{book}' RETURN labels(e), count(e)
-
--- Check relationships
-MATCH (a)-[r]->(b) WHERE a.collection_id = '{book}' RETURN count(r)
-
--- Check for orphans
-MATCH (e) WHERE e.collection_id = '{book}'
-OPTIONAL MATCH (e)-[r]->(other)
-WITH e, count(r) as rels WHERE rels = 0 RETURN e.name
-```
-
-**Launch QA Agent for graph:**
-```
-Task prompt: "QA check on {book} graph. Verify: chapters linked, entities added, relationships correct, no orphans."
-```
-
-**QA Checklist:**
-- [ ] All chapters created and linked to collection
-- [ ] All main characters added as PERSON
-- [ ] All locations added as PLACE
-- [ ] Key events added as EVENT
-- [ ] No orphan nodes
-- [ ] Relationship directions correct
-- [ ] No duplicate relationships
-- [ ] Graph health score 7+/10
-
-### Ask User Completion
-
-```
-Step 3 (RAG Graph) complete.
-- X CHAPTER nodes
-- X PERSON nodes
-- X PLACE nodes
-- X EVENT nodes
-- X relationships
-- Health score: X/10
 
 Pipeline complete! Book ingestion finished.
 ```
@@ -226,12 +146,6 @@ Step 1: Hierarchical RAG
 Step 2: RAG Wiki  
   ├── Get summaries
   ├── Create wiki pages
-  ├── QA check → ASK USER
-
-Step 3: RAG Graph
-  ├── Create chapters in graph
-  ├── Add entities
-  ├── Link relationships
   ├── QA check → DONE
 ```
 
@@ -241,8 +155,7 @@ Step 3: RAG Graph
 |-------|----------|
 | 1-3 | Missing summaries or TOC |
 | 4-6 | Summaries done, wiki incomplete |
-| 7-8 | Wiki done, graph incomplete |
-| 9-10 | All steps complete, QA passed |
+| 7-10 | All steps complete, QA passed |
 
 ## Usage
 
@@ -251,11 +164,9 @@ For any book in rag-test collection:
 1. **Load rag-ingest skill**
 2. **Confirm collection name**
 3. **Run Step 1** → QA check → Ask user
-4. **Run Step 2** → QA check → Ask user
-5. **Run Step 3** → QA check → Complete
+4. **Run Step 2** → QA check → Complete
 
 ## Example: Dorian Gray
 
 - Step 1: 20 CHAPTER summaries + BOOK summary + TOC
 - Step 2: 11 wiki pages (source, 5 characters, 4 concepts, analysis)
-- Step 3: 20 CHAPTER nodes + 6 PERSON + 3 PLACE + 4 EVENT + 15 relationships

@@ -1,5 +1,4 @@
 name: ragatool
-version: '3.8'
 
 services:
   backend:
@@ -15,9 +14,6 @@ services:
       ALLOWED_ORIGINS: http://localhost:4300
       MCP_HOST: "0.0.0.0"
       MCP_PORT: "8001"
-      RAG_NEO4J_URI: bolt://neo4j:7687
-    depends_on:
-      - neo4j
 
   frontend:
     image: ghcr.io/rykhalskyi/ragatool-frontend:latest
@@ -25,20 +21,3 @@ services:
       - "4300:80"
     depends_on:
       - backend
-
-  neo4j:
-    image: neo4j:community
-    ports:
-      - "7474:7474" # Browser
-      - "7687:7687" # Bolt
-    env_file:
-      - backend/.env
-    environment:
-      NEO4J_AUTH: ${RAG_NEO4J_USER:-neo4j}/${RAG_NEO4J_PASSWORD}
-    volumes:
-      - neo4j_data:/data
-      - neo4j_logs:/logs
-
-volumes:
-  neo4j_data:
-  neo4j_logs:
