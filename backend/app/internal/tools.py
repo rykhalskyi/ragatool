@@ -1,8 +1,8 @@
-import chromadb
 from typing import List
 import asyncio
 import time
 import json
+from app.internal import vector_store
 from app.internal.utils import prepare_collection_name
 from app.crud.crud_collection_content import query_collection as crud_query_collection
 from app.database import get_db_connection
@@ -10,7 +10,7 @@ from app.crud.crud_collection import get_enabled_collections_for_mcp, get_collec
 from app.internal.extension_manager import ExtensionManager
 from app.schemas.mcp import ExtensionTool
 from app.schemas.collection import CollectionCreate
-from app.internal.embedding_manager import get_embedder
+from app.internal.embedding_manager import embed_documents
 from app.crud.crud_summary import get_summary_by_id, get_summary_by_type, create_summary, edit_summary, delete_summary_by_id
 from app.schemas.summary import SummaryType, Summary
 
@@ -83,12 +83,11 @@ def register_tools(mcp_server, mcp_manager):
                         enabled=True
                     ))
             
-            client = chromadb.PersistentClient(path="./chroma_data")
-            collection = client.get_collection(name=collection_name)
-            
-            embedder = get_embedder()
-            embedding = list(embedder.embed([summary]))[0].tolist()
-            
+            collection = vector_store.get_collection(prepare_collection_name(collection_name))
+
+            embedding_model = vector_store.get_collection_embedding_model(collection)
+            embedding = list(embed_documents([summary], embedding_model))[0].tolist()
+
             ts = int(time.time())
             fact_id = f"fact_{ts}"
             
@@ -152,7 +151,7 @@ def register_tools(mcp_server, mcp_manager):
         if not mcp_manager.is_enabled():
             return {"status": "error", "message": "MCP server is disabled."}
         try:
-            return crud_query_collection(collection_name, query_text, n_results)
+            return crud_query_collection(collection_id, query_text, n_results)
         except ValueError as e:
             return {
                 "status": "error",
@@ -198,8 +197,7 @@ def register_tools(mcp_server, mcp_manager):
                     "message": "Parameter 'ids' must be a string or list of strings.",
                 }
 
-            client = chromadb.PersistentClient(path="./chroma_data")
-            collection = client.get_collection(name=collection_name)
+            collection = vector_store.get_collection(collection_id)
 
             results = collection.get(
                 ids=ids,

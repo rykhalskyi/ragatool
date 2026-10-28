@@ -1,0 +1,2 @@
+{"query": "replace me with a real question", "expected_ids": ["document.pdf_1234567890_0"]}
+{"query": "another question about the same collection", "expected_ids": ["document.pdf_1234567890_3", "document.pdf_1234567890_4"]}

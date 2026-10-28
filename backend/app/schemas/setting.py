@@ -6,6 +6,8 @@ class SettingsName(str, Enum):
     TWO_STEP_IMPORT = "TwoStepImport"
     FOR_TEST_ONLY = "ForTestOnly"
     CRAWL_DEPTH = "CrawlDepth"
+    RERANK_ENABLED = "RerankEnabled"
+    RETRIEVAL_FETCH_K = "RetrievalFetchK"
 
 class SettingBase(BaseModel):
     name: str

@@ -7,7 +7,14 @@
   @if (settings$ | async; as settings) {
     @for (setting of settings; track setting.name) {
       <div class="setting-item">
-        @if (isNumeric(setting.value)) {
+        @if (isBoolean(setting.value)) {
+          <mat-slide-toggle
+            [checked]="isTrue(setting.value)"
+            (change)="updateSetting(setting, $event.checked.toString())"
+            [attr.data-testid]="testIdFor(setting)">
+            {{ setting.name }}
+          </mat-slide-toggle>
+        } @else if (isNumeric(setting.value)) {
           <mat-form-field appearance="fill">
             <mat-label>{{ setting.name }}</mat-label>
             <input matInput type="number"
@@ -15,22 +22,26 @@
                    (input)="updateSetting(setting, $event.target.value)"
                    [placeholder]="setting.name"
                    [title]="setting.name"
+                   [attr.data-testid]="testIdFor(setting)"
                    min="1"
-                   max="5"
                    required>
-            @if (isNumeric(setting.value) && +setting.value < 1) {
+            @if (+setting.value < 1) {
               <mat-error>
-                Value must be a non-negative number.
+                Value must be a positive number.
               </mat-error>
             }
           </mat-form-field>
         } @else {
-          <mat-slide-toggle
-            [checked]="setting.value === 'true'"
-            (change)="updateSetting(setting, $event.checked.toString())"
-            [attr.data-testid]="setting.name === 'TwoStepImport' ? TestIds.twoStepImportSwitch : null">
-            {{ setting.name }}
-          </mat-slide-toggle>
+          <mat-form-field appearance="fill">
+            <mat-label>{{ setting.name }}</mat-label>
+            <input matInput type="text"
+                   [value]="setting.value"
+                   (input)="updateSetting(setting, $event.target.value)"
+                   [placeholder]="setting.name"
+                   [title]="setting.name"
+                   [attr.data-testid]="testIdFor(setting)"
+                   required>
+          </mat-form-field>
         }
         <p class="setting-description">{{ setting.description }}</p>
         

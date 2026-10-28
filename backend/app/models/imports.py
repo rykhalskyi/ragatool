@@ -1,9 +1,14 @@
 from abc import ABC, abstractmethod
 import os
+import re
 from threading import Event
 from typing import List
-from app.internal.embedding_manager import get_embedder
-import chromadb
+from app.internal.embedding_manager import (
+    DEFAULT_EMBEDDING_MODEL,
+    embed_documents,
+    resolve_embedding_model,
+)
+from app.internal import vector_store
 import time
 import numpy as np
 from pathlib import Path
@@ -15,7 +20,6 @@ from app.models.import_context import ImportContext
 from app.models.messages import MessageType
 from app.schemas.imports import Import
 from app.internal.temp_file_helper import TempFileHelper
-import wordninja
 
 # Import LangChain loaders
 from langchain_community.document_loaders import Docx2txtLoader
@@ -53,29 +57,43 @@ class FileImport(ImportBase):
     def getDefault() -> Import:
         return Import(
             name="FILE",
-            model="all-MiniLM-L6-v2",
+            model=DEFAULT_EMBEDDING_MODEL,
             settings=FileImportSettings(
                 chunk_size=800,
                 chunk_overlap=80,
                 no_chunks=False,
-                chunk_type=ChunkType.DEFAULT
+                chunk_type=ChunkType.RECURSIVE_CHARACTER
             )
         )
-    
-    def _process_chunks_and_store(self, collection_id: str, file_name: str, file_extension: str, chunks: List[str], import_params: Import, message_hub: MessageHub, cancel_event: Event) -> None:
+
+    def _get_or_create_collection(self, collection_id: str, import_params: Import):
+        """
+        Returns the Chroma collection together with the embedding model it was
+        created with. Existing collections keep their model so new chunks are
+        never embedded with a different model than the stored vectors.
+        """
+        client = vector_store.get_client()
+        try:
+            collection = client.get_collection(name=collection_id)
+            return collection, vector_store.get_collection_embedding_model(collection)
+        except Exception:
+            embedding_model = resolve_embedding_model(import_params.model)
+            collection = vector_store.get_or_create_collection(
+                collection_id, embedding_model=embedding_model, client=client
+            )
+            return collection, embedding_model
+
+    def _process_chunks_and_store(self, collection_id: str, file_name: str, file_extension: str, chunks: List[dict], import_params: Import, message_hub: MessageHub, cancel_event: Event) -> None:
         """Embed chunks and store them in ChromaDB with batching and cancellation support."""
         message_hub.send_message(collection_id, MessageType.INFO, f"Created {len(chunks)} chunks. Embedding....")
 
-        embedder = get_embedder()
-        embeddings = np.array(list(embedder.embed(chunks)))
+        collection, embedding_model = self._get_or_create_collection(collection_id, import_params)
+        embeddings = np.array(list(embed_documents([chunk["text"] for chunk in chunks], embedding_model)))
 
         if self.check_cancelled(collection_id, file_name, message_hub, cancel_event):
             return
 
         message_hub.send_message(collection_id, MessageType.INFO, "Embeddings created. Saving to Database....")
-
-        client = chromadb.PersistentClient(path="./chroma_data")
-        collection = client.get_or_create_collection(name=collection_id, metadata={"hnsw:space": "cosine"} )
 
         ts = int(time.time())
         # ---- batching logic ----
@@ -89,7 +107,7 @@ class FileImport(ImportBase):
 
             end = start + max_batch_size
 
-            batch_chunks = chunks[start:end]
+            batch_records = chunks[start:end]
             batch_embeddings = embeddings[start:end].tolist()
 
             batch_ids = [
@@ -97,10 +115,21 @@ class FileImport(ImportBase):
                 for i in range(start, min(end, len(chunks)))
             ]
 
+            metadatas = [
+                {
+                    "source": file_name,
+                    "chunk": i,
+                    "ts": ts,
+                    "char_start": record["start"],
+                    "char_end": record["start"] + len(record["text"]),
+                }
+                for i, record in zip(range(start, min(end, len(chunks))), batch_records)
+            ]
+
             collection.upsert(
-                documents=batch_chunks,
+                documents=[record["text"] for record in batch_records],
                 embeddings=batch_embeddings,
-                metadatas=[{"source": file_name, "chunk": i, "ts":ts} for i in range(start, min(end, len(chunks)))],
+                metadatas=metadatas,
                 ids=batch_ids
             )
 
@@ -134,9 +163,12 @@ class FileImport(ImportBase):
                         message_hub.send_message(collection_id, MessageType.INFO, f"Parsing PDF file '{file_name}' with PDFPlumberLoader.")
                     
                     if loader != None:
-                        docs = loader.load() 
-                        extracted_text = "\n".join([doc.page_content.replace('\n','') for doc in docs])
-                        extracted_text = " ".join(wordninja.split(extracted_text))
+                        docs = loader.load()
+                        # Preserve paragraph and line structure: the recursive
+                        # splitter relies on newlines to keep chunks coherent.
+                        extracted_text = "\n\n".join(
+                            doc.page_content for doc in docs if doc.page_content
+                        )
 
                 except Exception as e:
                     message_hub.send_message(collection_id, MessageType.INFO, f"Error parsing {file_extension.upper()} file '{file_name}': {e}")
@@ -148,8 +180,16 @@ class FileImport(ImportBase):
         finally:
             if temp_file_path:
                 TempFileHelper.remove_temp(temp_file_path)
-        
-        return extracted_text
+
+        return self._normalize_text(extracted_text)
+
+    @staticmethod
+    def _normalize_text(text: str) -> str:
+        """Collapses runs of spaces but keeps paragraph breaks intact."""
+        text = text.replace("\r\n", "\n").replace("\r", "\n")
+        text = re.sub(r"[ \t]+", " ", text)
+        text = re.sub(r"\n{3,}", "\n\n", text)
+        return text.strip()
 
     async def import_data(self, collection_id: str, file_name: str, file_content_bytes: bytes, context: ImportContext, cancel_event: Event) -> None: # Modified signature
         file_extension = Path(file_name).suffix.lower()
@@ -166,9 +206,9 @@ class FileImport(ImportBase):
 
             chunks = []
             if not import_params.settings.no_chunks:
-                chunks = Chunker().create_chunks(text_content, import_params.settings.chunk_type , import_params.settings.chunk_size, import_params.settings.chunk_overlap)
+                chunks = Chunker().create_chunks_with_offsets(text_content, import_params.settings.chunk_type , import_params.settings.chunk_size, import_params.settings.chunk_overlap)
             else:
-                chunks = [text_content]
+                chunks = [{"text": text_content, "start": 0}]
 
             # delegate embedding + DB storage to helper
             self._process_chunks_and_store(collection_id, file_name, file_extension, chunks, import_params, message_hub, cancel_event)
@@ -213,9 +253,9 @@ class FileImport(ImportBase):
 
                         chunks = []
                         if not context.parameters.settings.no_chunks:
-                            chunks = Chunker().create_chunks(content, context.parameters.settings.chunk_type, context.parameters.settings.chunk_size, context.parameters.settings.chunk_overlap)
+                            chunks = Chunker().create_chunks_with_offsets(content, context.parameters.settings.chunk_type, context.parameters.settings.chunk_size, context.parameters.settings.chunk_overlap)
                         else:
-                            chunks = [content]
+                            chunks = [{"text": content, "start": 0}]
 
                         # delegate embedding + DB storage to helper
                         self._process_chunks_and_store(collection_id, file.source, "txt", chunks, context.parameters, context.messageHub, cancel_event)

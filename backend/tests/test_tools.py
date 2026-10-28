@@ -115,9 +115,9 @@ class TestAddFactTool:
     @patch('app.internal.tools.get_db_connection')
     @patch('app.internal.tools.get_collection_by_name')
     @patch('app.internal.tools.create_collection')
-    @patch('app.internal.tools.chromadb.PersistentClient')
-    @patch('app.internal.tools.get_embedder')
-    def test_add_fact_success(self, mock_get_embedder, mock_chroma_client, mock_create_collection, mock_get_collection_by_name, mock_get_db, captured_tools):
+    @patch('app.internal.tools.vector_store.get_collection')
+    @patch('app.internal.tools.embed_documents')
+    def test_add_fact_success(self, mock_embed_documents, mock_get_collection, mock_create_collection, mock_get_collection_by_name, mock_get_db, captured_tools):
         # Arrange
         add_fact_func = captured_tools['add_fact']
         mock_get_collection_by_name.return_value = None # Simulate collection missing
@@ -126,11 +126,10 @@ class TestAddFactTool:
         mock_get_db.return_value.__enter__.return_value = mock_db
         
         mock_collection = MagicMock()
-        mock_chroma_client.return_value.get_collection.return_value = mock_collection
+        mock_collection.metadata = {}
+        mock_get_collection.return_value = mock_collection
         
-        mock_embedder = MagicMock()
-        mock_get_embedder.return_value = mock_embedder
-        mock_embedder.embed.return_value = iter([np.array([0.1, 0.2, 0.3])])
+        mock_embed_documents.return_value = [np.array([0.1, 0.2, 0.3])]
 
         # Act
         result = add_fact_func(fact="User likes pizza", summary="User's food preference")

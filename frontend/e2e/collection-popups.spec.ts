@@ -72,7 +72,7 @@ test('Dracula_2 Popups Scenario', async ({ page }) => {
     // Navigation in preview
     await expect(page.getByText('Jonathan Harker travels to Transylvania')).toBeVisible();
     await page.getByTestId(TestIds.previewDialogNextButton).click();
-    await expect(page.getByText('vows to stop Dracula’s growing threat.')).toBeVisible();
+    await expect(page.getByText('The hunters track Dracula’s movements across England')).toBeVisible();
     await page.getByTestId(TestIds.previewDialogNextButton).click();
     await expect(page.getByText('In the final confrontation, the hunters intercept Dracula’s caravan')).toBeVisible();
     await page.getByTestId(TestIds.previewDialogPrevButton).click();
@@ -122,7 +122,7 @@ test('Dracula_2 Popups Scenario', async ({ page }) => {
     // 3. Navigation in Inspect Tab
     await expect(page.getByText('Jonathan Harker travels to Transylvania')).toBeVisible();
     await page.getByTestId(TestIds.inspectNextButton).click();
-    await expect(page.getByText('vows to stop Dracula’s growing threat.')).toBeVisible();
+    await expect(page.getByText('The hunters track Dracula’s movements across England')).toBeVisible();
     await page.getByTestId(TestIds.inspectNextButton).click();
     await expect(page.getByText('In the final confrontation, the hunters intercept Dracula’s caravan')).toBeVisible();
     await page.getByTestId(TestIds.inspectNextButton).click();
@@ -141,6 +141,8 @@ test('Dracula_2 Popups Scenario', async ({ page }) => {
     // 6. Navigate Query Results (if multiple)
     await expect(page.getByText('Mina becomes a target')).toBeVisible();
     const nextDocButton = page.getByTestId(TestIds.queryNextDocButton);
+    await nextDocButton.click();
+    await expect(page.getByText('Mina Murray (Harker)')).toBeVisible();
     await nextDocButton.click();
     await expect(page.getByText('His death frees Mina from the curse')).toBeVisible();
     

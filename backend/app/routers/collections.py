@@ -1,4 +1,3 @@
-import chromadb
 import os
 from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import List
@@ -10,6 +9,7 @@ from app.schemas.collection_content import CollectionContentRequest, CollectionC
 from app.crud.crud_collection import get_collections, create_collection, update_collection_description_and_enabled, delete_collection, get_collection, get_collection_details
 from app.crud.crud_collection_content import get_collection_chunks, query_collection
 from app.dependencies import get_db
+from app.internal import vector_store
 from app.internal.exceptions import DuplicateCollectionError
 from app.internal.utils import prepare_collection_name
 from app.internal.mcp_manager import mcp_manager
@@ -85,9 +85,8 @@ def delete_existing_collection(collection_id: str, db: Connection = Depends(get_
     delete_all_summaries_for_collection(db,collection_id)
 
     try:
-        client = chromadb.PersistentClient(path="./chroma_data")
-        client.delete_collection(name=collection_id)
-        
+        vector_store.get_client().delete_collection(name=collection_id)
+
     except Exception as e:
         print(f"Error deleting collection '{collection_id}' from ChromaDB: {e}")
         raise HTTPException(status_code=404, detail="Collection not found")  

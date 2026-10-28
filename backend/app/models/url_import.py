@@ -2,13 +2,15 @@ import os
 from threading import Event
 import time
 
-import chromadb
-from fastembed import TextEmbedding
 import numpy as np
 from app.crud.crud_files import create_file, delete_file, get_files_for_collection
-from app.internal import simple_crawler
-from app.internal.chunker import Chunker
-from app.internal.embedding_manager import get_embedder
+from app.internal import simple_crawler, vector_store
+from app.internal.chunker import Chunker, ChunkType
+from app.internal.embedding_manager import (
+    DEFAULT_EMBEDDING_MODEL,
+    embed_documents,
+    resolve_embedding_model,
+)
 from app.internal.message_hub import MessageHub
 from app.internal.temp_file_helper import TempFileHelper
 from app.models.import_context import ImportContext
@@ -27,11 +29,12 @@ class UrlImport(ImportBase):
     def getDefault() -> Import:
         return Import(
             name="URL",
-            model="all-MiniLM-L6-v2",
+            model=DEFAULT_EMBEDDING_MODEL,
             settings=FileImportSettings(
                 chunk_size=800,
-                chunk_overlap=40,
-                no_chunks=True
+                chunk_overlap=80,
+                no_chunks=False,
+                chunk_type=ChunkType.RECURSIVE_CHARACTER
             )
         )
     
@@ -82,23 +85,29 @@ class UrlImport(ImportBase):
            
             chunks = []
             if not import_params.settings.no_chunks:
-                chunks = Chunker().create_chunks(page_content, import_params.settings.chunk_type, import_params.settings.chunk_size, import_params.settings.chunk_overlap)
+                chunks = Chunker().create_chunks_with_offsets(page_content, import_params.settings.chunk_type, import_params.settings.chunk_size, import_params.settings.chunk_overlap)
             else:
-                chunks = [page_content]
+                chunks = [{"text": page_content, "start": 0}]
 
             message_hub.send_message(collection_id, MessageType.INFO, f"Created {len(chunks)} chunks. Embedding....")
 
-            embedder = get_embedder()
-            embeddings = np.array(list(embedder.embed(chunks)))
+            client = vector_store.get_client()
+            try:
+                collection = client.get_collection(name=collection_id)
+                embedding_model = vector_store.get_collection_embedding_model(collection)
+            except Exception:
+                embedding_model = resolve_embedding_model(import_params.model)
+                collection = vector_store.get_or_create_collection(
+                    collection_id, embedding_model=embedding_model, client=client
+                )
+
+            embeddings = np.array(list(embed_documents([chunk["text"] for chunk in chunks], embedding_model)))
             message_hub.send_message(collection_id, MessageType.INFO, "Embeddings created. Saving to Database....")
 
             if cancel_event.is_set():
                  message_hub.send_message(collection_id, MessageType.UNLOCK, f"Import of {file_name} was cancelled")
                  message_hub.send_message(collection_id, MessageType.LOG, f"CANCELLED Import from {file_name} {len(chunks)} chunks of length {import_params.settings.chunk_size}, overlap {import_params.settings.chunk_overlap}.")
                  return
-
-            client = chromadb.PersistentClient(path="./chroma_data")
-            collection = client.get_or_create_collection(name=collection_id)
 
             ts = int(time.time())
             # ---- batching logic ----
@@ -113,7 +122,7 @@ class UrlImport(ImportBase):
 
                 end = start + max_batch_size
 
-                batch_chunks = chunks[start:end]
+                batch_records = chunks[start:end]
                 batch_embeddings = embeddings[start:end].tolist()
 
                 batch_ids = [
@@ -121,10 +130,21 @@ class UrlImport(ImportBase):
                     for i in range(start, min(end, len(chunks)))
                 ]
 
+                metadatas = [
+                    {
+                        "source": file_name,
+                        "chunk": i,
+                        "ts": ts,
+                        "char_start": record["start"],
+                        "char_end": record["start"] + len(record["text"]),
+                    }
+                    for i, record in zip(range(start, min(end, len(chunks))), batch_records)
+                ]
+
                 collection.upsert(
-                    documents=batch_chunks,
+                    documents=[record["text"] for record in batch_records],
                     embeddings=batch_embeddings,
-                    metadatas=[{"source": file_name, "chunk": i, "ts":ts} for i in range(start, min(end, len(chunks)))],
+                    metadatas=metadatas,
                     ids=batch_ids
                 )
 

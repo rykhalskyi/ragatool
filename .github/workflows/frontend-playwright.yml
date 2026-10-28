@@ -32,6 +32,16 @@ jobs:
         working-directory: backend
         run: uv sync
 
+      - name: Prefetch embedding and reranker models
+        working-directory: backend
+        run: |
+          uv run python - <<'PY'
+          from app.internal.embedding_manager import get_embedder
+          from app.internal.reranker import _get_reranker
+          get_embedder()
+          _get_reranker()
+          PY
+
       - name: Start Backend
         working-directory: backend
         run: |

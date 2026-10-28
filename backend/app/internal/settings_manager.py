@@ -41,5 +41,11 @@ class SettingsManager:
         except (ValueError, TypeError):
             return default_value
 
+    def get_bool(self, name: SettingsName, default_value: bool = False) -> bool:
+        setting = self.get_setting(name)
+        if setting is None:
+            return default_value
+        return str(setting).strip().lower() in ("1", "true", "yes", "on")
+
             
             
