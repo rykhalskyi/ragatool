@@ -2,9 +2,7 @@
   <div class="controls" >
   <img src="assets/ragatouille_logo1_sm.png" height="32" width="32" alt="logo">
     <span class="title"> Ragatool </span>
-    @if (version) {
-      <span class="version" [attr.data-testid]="TestIds.versionLabel">v{{ version }}</span>
-    }
+    
 
     <button mat-button class="menu-button" (click)="openAddCollectionDialog()" [attr.data-testid]="TestIds.addCollectionButton">
       <mat-icon>add</mat-icon>
@@ -19,6 +17,10 @@
   </div>
 
 <div>
+@if (version) {
+      <span class="version" [attr.data-testid]="TestIds.versionLabel">v{{ version }}</span>
+    }
+
     <button #taskCenterButton mat-button class="menu-button" 
         (click)="openTaskCenter()"
         matTooltip="TaskCenter" >
