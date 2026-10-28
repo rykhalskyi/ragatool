@@ -10,10 +10,6 @@ _reranker = None
 _lock = threading.Lock()
 
 
-def is_enabled() -> bool:
-    return os.getenv("RERANK_ENABLED", "true").lower() in ("1", "true", "yes", "on")
-
-
 def _get_reranker():
     global _reranker
     if _reranker is None:
@@ -43,8 +39,6 @@ def rerank(
     """
     if top_k <= 0 or not candidates:
         return candidates[:max(top_k, 0)]
-    if not is_enabled():
-        return candidates[:top_k]
 
     try:
         model = _get_reranker()

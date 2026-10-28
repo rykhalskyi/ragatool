@@ -1,4 +1,5 @@
 import { Component, OnInit, ViewChild, ElementRef } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSlideToggleChange, MatSlideToggleModule } from '@angular/material/slide-toggle';
@@ -14,6 +15,7 @@ import { ComponentPortal } from '@angular/cdk/portal';
 import { TaskCenterComponent } from '../task-center/task-center.component';
 import { MatBadgeModule } from '@angular/material/badge';
 import { TestIds } from '@testing/test-ids';
+import { environment } from '../../environments/environment';
 
 @Component({
   selector: 'app-topbar',
@@ -28,18 +30,28 @@ export class TopbarComponent implements OnInit {
   public taskCount = 0;
   private overlayRef: OverlayRef | null = null;
   public isMcpEnabled: boolean = false; // New property for MCP status
+  public version = '';
 
     constructor(public dialog: MatDialog, 
     private collectionRefreshService: CollectionRefreshService,
     private taskCashedService: TaskCachingService,
     private router: Router,
-    private overlay: Overlay){} // Injected McpService
+    private overlay: Overlay,
+    private http: HttpClient){} // Injected McpService
   
   ngOnInit(): void {
     this.taskCashedService.tasks$.subscribe(tasks => {
       this.taskCount = tasks.length;
     });
     this.getMcpStatus(); // Fetch MCP status on init
+    this.getVersion();
+  }
+
+  private getVersion(): void {
+    this.http.get<{ version: string }>(`${environment.apiUrl}/version`).subscribe({
+      next: response => this.version = response.version,
+      error: error => console.error('Error fetching version:', error)
+    });
   }
 
   private async getMcpStatus(): Promise<void> {

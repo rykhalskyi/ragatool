@@ -68,7 +68,28 @@ export class SettingsComponent implements OnInit {
   }
 
   isNumeric(value: string): boolean {
-    return !isNaN(parseFloat(value)) && isFinite(Number(value));
+    return value.trim() !== '' && !isNaN(parseFloat(value)) && isFinite(Number(value));
+  }
+
+  isBoolean(value: string): boolean {
+    return value.toLowerCase() === 'true' || value.toLowerCase() === 'false';
+  }
+
+  isTrue(value: string): boolean {
+    return value.toLowerCase() === 'true';
+  }
+
+  testIdFor(setting: Setting): string | null {
+    if (setting.name === 'TwoStepImport') {
+      return this.TestIds.twoStepImportSwitch;
+    }
+    if (setting.name === 'RerankEnabled') {
+      return this.TestIds.rerankEnabledSwitch;
+    }
+    if (setting.name === 'RetrievalFetchK') {
+      return this.TestIds.retrievalFetchKInput;
+    }
+    return null;
   }
 
 }

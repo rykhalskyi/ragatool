@@ -74,6 +74,16 @@ def create_tables(conn: Optional[Connection] = None):
     """)
 
     cursor.execute("""
+    INSERT OR IGNORE INTO settings (name, value, description)
+    VALUES ('RerankEnabled', 'True', 'Rerank vector search results with a cross-encoder. More precise but slower.')
+    """)
+
+    cursor.execute("""
+    INSERT OR IGNORE INTO settings (name, value, description)
+    VALUES ('RetrievalFetchK', '40', 'Number of candidates fetched from the vector store before reranking')
+    """)
+
+    cursor.execute("""
     CREATE TABLE IF NOT EXISTS files (
         id TEXT PRIMARY KEY,
         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,

@@ -14,6 +14,7 @@ from app.database import create_tables, get_db_connection
 from contextlib import asynccontextmanager
 from app.internal.mcp_manager import MCPManager
 from app.crud import crud_task
+from app.version import APP_NAME, APP_VERSION
 
 # Get the singleton instance of MCPManager
 mcp_manager = MCPManager()
@@ -83,4 +84,9 @@ app.include_router(summaries.router, prefix="/summaries", tags=["summaries"]) # 
 
 @app.get("/")
 def read_root():
-    return {"Hello": "World"}
+    return {"name": APP_NAME, "version": APP_VERSION}
+
+
+@app.get("/version")
+def read_version():
+    return {"name": APP_NAME, "version": APP_VERSION}

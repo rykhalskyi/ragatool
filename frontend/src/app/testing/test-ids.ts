@@ -9,12 +9,17 @@ export const TestIds = {
   deleteConfirmButton: 'delete-confirm-button',
   deleteCancelButton: 'delete-cancel-button',
 
+  // Topbar
+  versionLabel: 'version-label',
+
   // CollectionsList
   collectionItem: 'collection-item',
 
   // Settings
   settingsButton: 'settings-button',
   twoStepImportSwitch: 'two-step-import-switch',
+  rerankEnabledSwitch: 'rerank-enabled-switch',
+  retrievalFetchKInput: 'retrieval-fetch-k-input',
   saveSettingsButton: 'save-settings-button',
 
   // SelectedCollection
