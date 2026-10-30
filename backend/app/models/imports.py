@@ -160,7 +160,7 @@ class FileImport(ImportBase):
                     elif file_extension == ".pdf":
                         
                         loader = PyPDFLoader(temp_file_path)
-                        message_hub.send_message(collection_id, MessageType.INFO, f"Parsing PDF file '{file_name}' with PDFPlumberLoader.")
+                        message_hub.send_message(collection_id, MessageType.INFO, f"Parsing PDF file '{file_name}' with PyPDFLoader.")
                     
                     if loader != None:
                         docs = loader.load()
