@@ -6,6 +6,7 @@ import time
 import asyncio
 from app.crud import crud_task
 from app.internal.message_hub import MessageHub
+from app.models.messages import MessageType
 
 class BackgroundTaskDispatcher:
     def __init__(self, message_hub: MessageHub, db:Connection, num_workers=4):
@@ -54,6 +55,7 @@ class BackgroundTaskDispatcher:
                 except Exception as e:
                     print(f"Task {task_id} failed: {e}")
                     crud_task.update_task_status(self.db, task_id, "FAILED")
+                    self._send_failure_log(task_id, e)
                 finally:
                     with self.lock:
                         if task_id in self.running_tasks:
@@ -61,6 +63,16 @@ class BackgroundTaskDispatcher:
                     self.task_id_queue.task_done()
                     crud_task.delete_task(self.db, task_id)
                     self.message_hub.send_task_message('Task deleted')
+
+    def _send_failure_log(self, task_id: str, error: Exception):
+        task = crud_task.get_task(self.db, task_id)
+        collection_id = task[1] if task else "GLOBAL"
+        task_name = task[2] if task else task_id
+        self.message_hub.send_message(
+            collection_id,
+            MessageType.LOG,
+            f"FAILED {task_name}: {error}",
+        )
 
     def add_task(self, collection_id: str, task_name: str, task_func, *args, **kwargs):
         task_id = str(uuid.uuid4())

@@ -3,6 +3,7 @@ from unittest.mock import patch, MagicMock, ANY
 import time
 import threading
 from app.internal.background_task_dispatcher import BackgroundTaskDispatcher
+from app.models.messages import MessageType
 
 # A dummy task that can be cancelled
 def cancellable_dummy_task(collection_id: str, duration, cancel_event: threading.Event):
@@ -13,6 +14,10 @@ def cancellable_dummy_task(collection_id: str, duration, cancel_event: threading
             return "cancelling"
         time.sleep(0.01)
     return "completed"
+
+def failing_dummy_task(collection_id: str, cancel_event: threading.Event):
+    raise RuntimeError("boom")
+
 
 class TestBackgroundTaskDispatcher(unittest.TestCase):
     def setUp(self):
@@ -37,6 +42,25 @@ class TestBackgroundTaskDispatcher(unittest.TestCase):
             mock_crud_task.update_task_status.assert_any_call(self.mock_db, task_id, "RUNNING")
             mock_crud_task.update_task_status.assert_any_call(self.mock_db, task_id, "COMPLETED")
             
+            dispatcher.stop()
+
+    def test_failed_task_sends_log_message(self):
+        with patch('app.internal.background_task_dispatcher.crud_task') as mock_crud_task:
+            mock_crud_task.get_task.return_value = (
+                "task-id", "test_collection", "test_task", 0, "RUNNING"
+            )
+            mock_message_hub = MagicMock()
+            dispatcher = BackgroundTaskDispatcher(mock_message_hub, self.mock_db, num_workers=1)
+
+            task_id = dispatcher.add_task("test_collection", "test_task", failing_dummy_task)
+
+            time.sleep(0.2)
+
+            mock_crud_task.update_task_status.assert_any_call(self.mock_db, task_id, "FAILED")
+            mock_message_hub.send_message.assert_any_call(
+                "test_collection", MessageType.LOG, "FAILED test_task: boom"
+            )
+
             dispatcher.stop()
 
     def test_cancel_queued_task(self):
