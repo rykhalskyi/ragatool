@@ -1,80 +1,198 @@
+from collections import deque
+from hashlib import sha256
 from re import Pattern
 from threading import Event
-import requests
-from bs4 import BeautifulSoup
-from urllib.parse import urljoin, urlparse
-from collections import deque
-import trafilatura
+from typing import Callable, Optional
+from urllib.parse import urljoin
 
-def simple_crawl(start_url, cancel_event: Event, regex: Pattern[str] | None, max_depth=1):
-    visited = set()
-    queue = deque([(start_url, 0)])
-    domain = urlparse(start_url).netloc
+from app.internal.browser_renderer import BrowserRenderer
+from app.internal.crawl_options import CrawlOptions
+from app.internal.url_utils import (
+    RobotsCache,
+    ensure_url_allowed,
+    is_asset_url,
+    is_http_url,
+    normalize_url,
+    same_site,
+)
+from app.internal.web_fetcher import (
+    StaticFetcher,
+    extract_links,
+    extract_page,
+    extract_pdf_page,
+    should_render,
+)
 
-    results = []   # ← list of {url, text}
 
-    while queue:
-        if cancel_event.is_set():
-            return
+def simple_crawl(
+    start_url,
+    cancel_event: Event,
+    regex: Optional[Pattern[str]] = None,
+    max_depth: int = 1,
+    options: Optional[CrawlOptions] = None,
+    on_progress: Optional[Callable[[str], None]] = None,
+) -> Optional[list[dict]]:
+    options = options or CrawlOptions()
+    start = normalize_url(start_url)
+    if not is_http_url(start):
+        return []
 
-        url, depth = queue.popleft()
-        if url in visited or depth > max_depth:
-            continue
+    robots = (
+        RobotsCache(options.user_agent, allow_private_urls=options.allow_private_urls)
+        if options.respect_robots_txt
+        else None
+    )
+    renderer = BrowserRenderer(options)
+    visited: set[str] = set()
+    seen_content: set[str] = set()
+    queue = deque([(start, 0)])
+    results: list[dict] = []
+    requests_made = 0
 
-        visited.add(url)
-        print(f"[Depth {depth}] {url}")
+    try:
+        with StaticFetcher(options) as fetcher:
+            while queue:
+                if cancel_event.is_set():
+                    return None
 
-        # Fetch page
-        try:
-            response = requests.get(url, timeout=5)
-            response.raise_for_status()
-        except Exception:
-            continue
+                url, depth = queue.popleft()
+                if url in visited or depth > max_depth:
+                    continue
+                if len(visited) >= options.max_crawl_pages:
+                    break
 
-        soup = BeautifulSoup(response.text, "html.parser")
-
-        # Extract text from the page
-        text = trafilatura.extract(response.text)
-        if text:
-            results.append({"url": url, "text": text})
-
-        # If already at max depth, don't collect more links
-        if depth == max_depth:
-            continue
-
-        # Extract and process internal links
-        for a in soup.find_all("a", href=True):
-            if cancel_event.is_set():
-                return 
-
-            link = urljoin(url, a["href"])
-            parsed = urlparse(link)
-
-            # Only follow links inside same domain
-            if parsed.netloc == domain:
-                link = link.split("#")[0]  # remove fragments
-
-                if regex and not regex.match(link):
+                try:
+                    ensure_url_allowed(url, options.allow_private_urls)
+                except ValueError as exc:
+                    print(f"Skipping {url}: {exc}")
+                    visited.add(url)
                     continue
 
-                if link not in visited:
-                    queue.append((link, depth + 1))
+                if robots is not None and not robots.can_fetch(url):
+                    _report(on_progress, f"Skipping {url} (robots.txt)")
+                    visited.add(url)
+                    continue
+
+                visited.add(url)
+
+                if requests_made > 0 and options.crawl_request_delay_ms > 0:
+                    if cancel_event.wait(options.crawl_request_delay_ms / 1000):
+                        return None
+                requests_made += 1
+
+                _report(on_progress, f"Crawling [{depth}] {url}")
+
+                fetched = fetcher.fetch(url, cancel_event)
+                if cancel_event.is_set():
+                    return None
+
+                if fetched is not None:
+                    try:
+                        ensure_url_allowed(fetched.final_url, options.allow_private_urls)
+                    except ValueError as exc:
+                        print(f"Skipping {fetched.final_url}: {exc}")
+                        continue
+
+                if fetched is not None and fetched.is_pdf:
+                    extracted = extract_pdf_page(fetched.content, fetched.final_url)
+                    final_url = fetched.final_url
+                    links = []
+                    rendered = False
+                else:
+                    render_needed = options.js_render_mode == "always" or (
+                        fetched is None and options.js_render_mode != "off"
+                    )
+                    if fetched is not None and options.js_render_mode != "off":
+                        static_text = extract_page(fetched.html, fetched.final_url, options).text
+                        render_needed = should_render(fetched.html, static_text, options)
+
+                    rendered_page = None
+                    if render_needed and options.js_render_mode != "off":
+                        rendered_page = renderer.render(url, cancel_event)
+                        if cancel_event.is_set():
+                            return None
+
+                    if rendered_page is not None:
+                        extracted = extract_page(
+                            rendered_page.html,
+                            rendered_page.final_url,
+                            options,
+                            fallback_text=rendered_page.text,
+                        )
+                        final_url = rendered_page.final_url
+                        links = rendered_page.links or extract_links(rendered_page.html, final_url)
+                        rendered = True
+                    elif fetched is not None:
+                        extracted = extract_page(fetched.html, fetched.final_url, options)
+                        final_url = fetched.final_url
+                        links = extract_links(fetched.html, final_url)
+                        rendered = False
+                    else:
+                        continue
+
+                normalized_final = normalize_url(final_url)
+                if regex is not None and normalized_final != url and not regex.match(normalized_final):
+                    continue
+
+                text = extracted.text.strip()
+                if not text:
+                    continue
+
+                content_hash = sha256(" ".join(text.split()).encode("utf-8")).hexdigest()
+                if content_hash in seen_content:
+                    continue
+                seen_content.add(content_hash)
+
+                results.append({
+                    "url": url,
+                    "text": text,
+                    "title": extracted.title,
+                    "final_url": final_url,
+                    "rendered": rendered,
+                })
+                _report(on_progress, f"Imported {url}")
+
+                if depth == max_depth:
+                    continue
+
+                for link in links:
+                    if cancel_event.is_set():
+                        return None
+                    candidate = normalize_url(urljoin(final_url, link))
+                    if candidate in visited:
+                        continue
+                    if not _link_allowed(candidate, start, options, regex):
+                        continue
+                    queue.append((candidate, depth + 1))
+    finally:
+        renderer.close()
 
     return results
 
 
-def crawl_from_list(urls):
-    results = []
-    for url in urls:
-      
-        try:
-            response = requests.get(url, timeout=5)
-            response.raise_for_status()
-        except Exception:
-            continue
+def _link_allowed(
+    url: str,
+    start_url: str,
+    options: CrawlOptions,
+    regex: Optional[Pattern[str]],
+) -> bool:
+    """Filter discovered links. The start URL is always imported, even if it
+    does not match ``regex``; redirect targets are checked separately."""
+    if not is_http_url(url):
+        return False
+    if is_asset_url(url):
+        return False
+    if not same_site(url, start_url, options.allow_subdomains):
+        return False
+    if regex is not None and not regex.match(url):
+        return False
+    return True
 
-        text = trafilatura.extract(response.text)
-        if text:
-            results.append({"url": url, "text": text})
 
-    return results
+def _report(on_progress: Optional[Callable[[str], None]], message: str) -> None:
+    if on_progress is None:
+        return
+    try:
+        on_progress(message)
+    except Exception:
+        pass

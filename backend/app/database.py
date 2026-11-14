@@ -75,6 +75,46 @@ def create_tables(conn: Optional[Connection] = None):
 
     cursor.execute("""
     INSERT OR IGNORE INTO settings (name, value, description)
+    VALUES ('JsRenderMode', 'auto', 'Render URLs with headless Chromium: auto, always, or off')
+    """)
+
+    cursor.execute("""
+    INSERT OR IGNORE INTO settings (name, value, description)
+    VALUES ('RenderWaitMs', '1500', 'Milliseconds to wait after a rendered page loads')
+    """)
+
+    cursor.execute("""
+    INSERT OR IGNORE INTO settings (name, value, description)
+    VALUES ('MinStaticTextChars', '300', 'Render when static extraction yields fewer characters than this')
+    """)
+
+    cursor.execute("""
+    INSERT OR IGNORE INTO settings (name, value, description)
+    VALUES ('MaxCrawlPages', '100', 'Maximum number of pages fetched per URL import')
+    """)
+
+    cursor.execute("""
+    INSERT OR IGNORE INTO settings (name, value, description)
+    VALUES ('RequestTimeoutSec', '20', 'HTTP request and browser render timeout in seconds')
+    """)
+
+    cursor.execute("""
+    INSERT OR IGNORE INTO settings (name, value, description)
+    VALUES ('CrawlRequestDelayMs', '300', 'Delay in milliseconds between crawl requests')
+    """)
+
+    cursor.execute("""
+    INSERT OR IGNORE INTO settings (name, value, description)
+    VALUES ('RespectRobotsTxt', 'True', 'Honor robots.txt rules while crawling')
+    """)
+
+    cursor.execute("""
+    INSERT OR IGNORE INTO settings (name, value, description)
+    VALUES ('AllowSubdomains', 'False', 'Allow crawling subdomains of the start URL')
+    """)
+
+    cursor.execute("""
+    INSERT OR IGNORE INTO settings (name, value, description)
     VALUES ('RerankEnabled', 'True', 'Rerank vector search results with a cross-encoder. More precise but slower.')
     """)
 

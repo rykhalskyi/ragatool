@@ -32,11 +32,18 @@ WORKDIR /app
 # Copy the virtual environment from the builder
 COPY --from=builder /app/.venv /app/.venv
 
-# Copy the application
-COPY . .
-
 # Place executable symlinks in the path
 ENV PATH="/app/.venv/bin:$PATH"
+
+# Install the browser before copying source so edits do not invalidate this layer
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libatomic1 \
+    && rm -rf /var/lib/apt/lists/*
+RUN /app/.venv/bin/python -m playwright install --with-deps chromium
+
+# Copy the application
+COPY . .
 
 EXPOSE 8000
 EXPOSE 8001

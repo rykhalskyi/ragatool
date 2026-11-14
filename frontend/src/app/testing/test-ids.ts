@@ -20,6 +20,7 @@ export const TestIds = {
   twoStepImportSwitch: 'two-step-import-switch',
   rerankEnabledSwitch: 'rerank-enabled-switch',
   retrievalFetchKInput: 'retrieval-fetch-k-input',
+  jsRenderModeSelect: 'js-render-mode-select',
   saveSettingsButton: 'save-settings-button',
 
   // SelectedCollection

@@ -1,11 +1,12 @@
-import os
+import asyncio
 from threading import Event
 import time
 
 import numpy as np
-from app.crud.crud_files import create_file, delete_file, get_files_for_collection
+from app.crud.crud_files import create_file
 from app.internal import simple_crawler, vector_store
 from app.internal.chunker import Chunker, ChunkType
+from app.internal.crawl_options import CrawlOptions
 from app.internal.embedding_manager import (
     DEFAULT_EMBEDDING_MODEL,
     embed_documents,
@@ -50,6 +51,7 @@ class UrlImport(ImportBase):
         message_hub.send_message(collection_id, MessageType.INFO, f"Crawling and parsing {file_name} ....")
         
         max_depth = context.settings.get_setting_int(SettingsName.CRAWL_DEPTH, 1)
+        options = CrawlOptions.from_settings(context.settings)
 
         compiled_regex = None
         if context.parameters.settings.filter:
@@ -59,10 +61,19 @@ class UrlImport(ImportBase):
                 # Invalid regex, ignore it
                 pass
             
-        pages = simple_crawler.simple_crawl(file_name, cancel_event, compiled_regex, max_depth=max_depth)
+        pages = await asyncio.to_thread(
+            simple_crawler.simple_crawl,
+            file_name,
+            cancel_event,
+            compiled_regex,
+            max_depth=max_depth,
+            options=options,
+            on_progress=lambda message: message_hub.send_message(collection_id, MessageType.INFO, message),
+        )
 
-        if pages == None:
-             message_hub.send_message(collection_id, MessageType.LOG, f"NOTHING imported from {file_name}. Parsed no pages.")
+        if pages is None:
+             message_hub.send_message(collection_id, MessageType.UNLOCK, f"Import of {file_name} was cancelled")
+             message_hub.send_message(collection_id, MessageType.LOG, f"CANCELLED Import from {file_name}. Parsed no pages.")
              return
 
         message_hub.send_message(collection_id, MessageType.INFO, f"Parsed {len(pages)} pages")
@@ -73,14 +84,11 @@ class UrlImport(ImportBase):
                  message_hub.send_message(collection_id, MessageType.LOG, f"CANCELLED Import from {file_name} chunks of length {import_params.settings.chunk_size}, overlap {import_params.settings.chunk_overlap}.") 
                  return
             
-            if compiled_regex and not compiled_regex.match(page["url"]):
-                continue
-            
-            await self.__import_data_internal(collection_id, page["url"], page["text"], import_params, message_hub,cancel_event )
+            await self.__import_data_internal(collection_id, page["url"], page["text"], import_params, message_hub,cancel_event, title=page.get("title") )
 
         message_hub.send_message(collection_id, MessageType.UNLOCK, f"Import of {file_name} completed.")
 
-    async def __import_data_internal(self, collection_id: str, file_name: str, page_content: str, import_params: Import, message_hub:MessageHub, cancel_event: Event) -> None: # Modified signature
+    async def __import_data_internal(self, collection_id: str, file_name: str, page_content: str, import_params: Import, message_hub:MessageHub, cancel_event: Event, title: str | None = None) -> None: # Modified signature
         try:
            
             chunks = []
@@ -133,6 +141,7 @@ class UrlImport(ImportBase):
                 metadatas = [
                     {
                         "source": file_name,
+                        "title": title or file_name,
                         "chunk": i,
                         "ts": ts,
                         "char_start": record["start"],
@@ -166,6 +175,7 @@ class UrlImport(ImportBase):
         context.messageHub.send_message(collection_id, MessageType.INFO, f"Crawling and parsing {url} ....")
         
         max_depth = context.settings.get_setting_int(SettingsName.CRAWL_DEPTH, 1)
+        options = CrawlOptions.from_settings(context.settings)
 
         compiled_regex = None
         if context.parameters.settings.filter:
@@ -175,10 +185,19 @@ class UrlImport(ImportBase):
                 # Invalid regex, ignore it
                 pass    
         
-        pages = simple_crawler.simple_crawl(url, cancel_event, compiled_regex, max_depth=max_depth)
+        pages = await asyncio.to_thread(
+            simple_crawler.simple_crawl,
+            url,
+            cancel_event,
+            compiled_regex,
+            max_depth=max_depth,
+            options=options,
+            on_progress=lambda message: context.messageHub.send_message(collection_id, MessageType.INFO, message),
+        )
 
-        if pages == None:
-             context.messageHub.send_message(collection_id, MessageType.LOG, f"NOTHING imported from {url}. Parsed no pages.")
+        if pages is None:
+             context.messageHub.send_message(collection_id, MessageType.UNLOCK, f"Import of {url} was cancelled")
+             context.messageHub.send_message(collection_id, MessageType.LOG, f"CANCELLED Import from {url}. Parsed no pages.")
              return
 
         context.messageHub.send_message(collection_id, MessageType.INFO, f"Parsed {len(pages)} pages")
@@ -189,10 +208,6 @@ class UrlImport(ImportBase):
                  context.messageHub.send_message(collection_id, MessageType.LOG, f"CANCELLED Import from {url} chunks of length {context.parameters.settings.chunk_size}, overlap {context.parameters.settings.chunk_overlap}.") 
                  return
             
-            if compiled_regex and not compiled_regex.match(page["url"]):
-                continue
-            
-            print('Match', page["url"])
             tmp_file = TempFileHelper.save_temp_str(page["text"], page["url"])
             create_file(context.db, collection_id, tmp_file, page["url"])
             
