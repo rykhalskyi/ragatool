@@ -19,6 +19,7 @@ from app.internal.web_fetcher import (
     StaticFetcher,
     extract_links,
     extract_page,
+    extract_pdf_page,
     should_render,
 )
 
@@ -88,36 +89,42 @@ def simple_crawl(
                         print(f"Skipping {fetched.final_url}: {exc}")
                         continue
 
-                render_needed = options.js_render_mode == "always" or (
-                    fetched is None and options.js_render_mode != "off"
-                )
-                if fetched is not None and options.js_render_mode != "off":
-                    static_text = extract_page(fetched.html, fetched.final_url, options).text
-                    render_needed = should_render(fetched.html, static_text, options)
-
-                rendered_page = None
-                if render_needed and options.js_render_mode != "off":
-                    rendered_page = renderer.render(url, cancel_event)
-                    if cancel_event.is_set():
-                        return None
-
-                if rendered_page is not None:
-                    extracted = extract_page(
-                        rendered_page.html,
-                        rendered_page.final_url,
-                        options,
-                        fallback_text=rendered_page.text,
-                    )
-                    final_url = rendered_page.final_url
-                    links = rendered_page.links or extract_links(rendered_page.html, final_url)
-                    rendered = True
-                elif fetched is not None:
-                    extracted = extract_page(fetched.html, fetched.final_url, options)
+                if fetched is not None and fetched.is_pdf:
+                    extracted = extract_pdf_page(fetched.content, fetched.final_url)
                     final_url = fetched.final_url
-                    links = extract_links(fetched.html, final_url)
+                    links = []
                     rendered = False
                 else:
-                    continue
+                    render_needed = options.js_render_mode == "always" or (
+                        fetched is None and options.js_render_mode != "off"
+                    )
+                    if fetched is not None and options.js_render_mode != "off":
+                        static_text = extract_page(fetched.html, fetched.final_url, options).text
+                        render_needed = should_render(fetched.html, static_text, options)
+
+                    rendered_page = None
+                    if render_needed and options.js_render_mode != "off":
+                        rendered_page = renderer.render(url, cancel_event)
+                        if cancel_event.is_set():
+                            return None
+
+                    if rendered_page is not None:
+                        extracted = extract_page(
+                            rendered_page.html,
+                            rendered_page.final_url,
+                            options,
+                            fallback_text=rendered_page.text,
+                        )
+                        final_url = rendered_page.final_url
+                        links = rendered_page.links or extract_links(rendered_page.html, final_url)
+                        rendered = True
+                    elif fetched is not None:
+                        extracted = extract_page(fetched.html, fetched.final_url, options)
+                        final_url = fetched.final_url
+                        links = extract_links(fetched.html, final_url)
+                        rendered = False
+                    else:
+                        continue
 
                 text = extracted.text.strip()
                 if not text:
@@ -189,7 +196,10 @@ def crawl_from_list(urls):
             fetched = fetcher.fetch(url)
             if fetched is None:
                 continue
-            extracted = extract_page(fetched.html, fetched.final_url, options)
+            if fetched.is_pdf:
+                extracted = extract_pdf_page(fetched.content, fetched.final_url)
+            else:
+                extracted = extract_page(fetched.html, fetched.final_url, options)
             if extracted.text:
                 results.append({
                     "url": url,

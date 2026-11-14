@@ -7,7 +7,7 @@ import pytest
 from app.internal.crawl_options import CrawlOptions
 from app.internal.simple_crawler import simple_crawl
 from app.internal.url_utils import normalize_url
-from app.internal.web_fetcher import FetchResult
+from app.internal.web_fetcher import ExtractResult, FetchResult
 from app.internal.browser_renderer import RenderResult
 
 
@@ -235,7 +235,6 @@ def test_asset_links_are_skipped():
             '<a href="/image.png">Image</a>'
             '<a href="/app.js">JS</a>'
             '<a href="/archive.zip">Zip</a>'
-            '<a href="/manual.pdf">PDF</a>'
             '<a href="/talk.mp4">Video</a>'
             '<a href="/page2">Page 2</a>'
             "</body></html>",
@@ -250,6 +249,44 @@ def test_asset_links_are_skipped():
     simple_crawl("http://example.com", Event(), None, max_depth=1, options=make_options())
 
     assert FakeFetcher.fetched_urls == ["http://example.com", "http://example.com/page2"]
+
+
+def test_pdf_links_are_parsed():
+    FakeFetcher.responses = {
+        "http://example.com": page(
+            '<html><body><p>Home</p><a href="/manual.pdf">Manual</a></body></html>',
+            "http://example.com",
+        ),
+        "http://example.com/manual.pdf": FetchResult(
+            url="http://example.com/manual.pdf",
+            final_url="http://example.com/manual.pdf",
+            html="",
+            status_code=200,
+            content_type="application/pdf",
+            content=b"%PDF-1.4 fake pdf bytes",
+        ),
+    }
+
+    with patch(
+        "app.internal.simple_crawler.extract_pdf_page",
+        return_value=ExtractResult(text="Extracted PDF text", title="Manual"),
+    ):
+        results = simple_crawl(
+            "http://example.com",
+            Event(),
+            None,
+            max_depth=1,
+            options=make_options(js_render_mode="auto"),
+        )
+
+    assert [result["url"] for result in results] == [
+        "http://example.com",
+        "http://example.com/manual.pdf",
+    ]
+    assert results[1]["text"] == "Extracted PDF text"
+    assert results[1]["title"] == "Manual"
+    assert results[1]["rendered"] is False
+    assert FakeRenderer.rendered_urls == []
 
 
 def test_max_crawl_pages():

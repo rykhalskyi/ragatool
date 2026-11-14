@@ -1,14 +1,20 @@
 from dataclasses import dataclass
+from io import BytesIO
+from pathlib import Path
 from threading import Event
 from typing import Optional
+from urllib.parse import unquote, urlsplit
 
 import httpx
 import trafilatura
 from bs4 import BeautifulSoup
+from pypdf import PdfReader
 
 from app.internal.crawl_options import CrawlOptions
 
 HTML_CONTENT_TYPES = ("text/html", "application/xhtml+xml")
+PDF_CONTENT_TYPE = "application/pdf"
+PDF_MAGIC = b"%PDF"
 
 SPA_MARKERS = (
     'id="root"',
@@ -29,6 +35,11 @@ class FetchResult:
     html: str
     status_code: int
     content_type: str
+    content: Optional[bytes] = None
+
+    @property
+    def is_pdf(self) -> bool:
+        return self.content is not None
 
 
 @dataclass
@@ -73,10 +84,25 @@ class StaticFetcher:
                 response.raise_for_status()
 
                 content_type = response.headers.get("content-type", "").lower()
-                if content_type and not any(t in content_type for t in HTML_CONTENT_TYPES):
+                final_url = str(response.url)
+                is_pdf = _is_pdf(final_url, content_type)
+
+                if content_type and not is_pdf and not any(t in content_type for t in HTML_CONTENT_TYPES):
                     return None
 
-                final_url = str(response.url)
+                if is_pdf:
+                    content = response.content
+                    if not content.lstrip().startswith(PDF_MAGIC):
+                        return None
+                    return FetchResult(
+                        url=url,
+                        final_url=final_url,
+                        html="",
+                        status_code=response.status_code,
+                        content_type=content_type,
+                        content=content,
+                    )
+
                 return FetchResult(
                     url=url,
                     final_url=final_url,
@@ -111,6 +137,43 @@ def _backoff(attempt: int, cancel_event: Optional[Event]) -> bool:
 
     time.sleep(seconds)
     return True
+
+
+def _is_pdf(url: str, content_type: str) -> bool:
+    return PDF_CONTENT_TYPE in content_type or urlsplit(url).path.lower().endswith(".pdf")
+
+
+def extract_pdf_page(content: bytes, url: str) -> ExtractResult:
+    pages = []
+    title = ""
+    try:
+        reader = PdfReader(BytesIO(content))
+        try:
+            metadata_title = reader.metadata.title if reader.metadata else None
+            title = str(metadata_title).strip() if metadata_title else ""
+        except Exception:
+            title = ""
+
+        for pdf_page in reader.pages:
+            try:
+                page_text = pdf_page.extract_text() or ""
+            except Exception:
+                page_text = ""
+            if page_text.strip():
+                pages.append(page_text)
+    except Exception:
+        pages = []
+
+    if not title:
+        title = unquote(Path(urlsplit(url).path).name) or "PDF"
+
+    return ExtractResult(text=_normalize_text("\n\n".join(pages)), title=title)
+
+
+def _normalize_text(text: str) -> str:
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    lines = [" ".join(line.split()) for line in text.split("\n")]
+    return "\n".join(line for line in lines if line).strip()
 
 
 def extract_page(

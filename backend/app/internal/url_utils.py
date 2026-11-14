@@ -13,7 +13,7 @@ ASSET_EXTENSIONS = {
     ".djvu", ".doc", ".docx", ".eot", ".epub", ".eps", ".flac", ".gif",
     ".gz", ".ico", ".jpeg", ".jpg", ".js", ".json", ".m3u8", ".m4a", ".m4v",
     ".map", ".mobi", ".mov", ".mp3", ".mp4", ".mpd", ".mpeg", ".ogg", ".ogv",
-    ".opus", ".otf", ".pdf", ".png", ".ppt", ".pptx", ".ps", ".psd", ".rar",
+    ".opus", ".otf", ".png", ".ppt", ".pptx", ".ps", ".psd", ".rar",
     ".rss", ".svg", ".swf", ".tar", ".tgz", ".tif", ".tiff", ".ttf", ".wav",
     ".webm", ".webmanifest", ".webp", ".wmv", ".woff", ".woff2", ".xls",
     ".xlsx", ".xml", ".zip",

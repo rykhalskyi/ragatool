@@ -30,9 +30,9 @@ def test_http_url_detection():
 def test_asset_detection():
     assert is_asset_url("https://example.com/image.png")
     assert is_asset_url("https://example.com/app.js")
-    assert is_asset_url("https://example.com/manual.pdf")
     assert is_asset_url("https://example.com/talk.mp4")
     assert is_asset_url("https://example.com/book.epub")
+    assert not is_asset_url("https://example.com/manual.pdf")
     assert not is_asset_url("https://example.com/page")
 
 

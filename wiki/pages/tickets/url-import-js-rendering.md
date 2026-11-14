@@ -54,8 +54,8 @@ Current gaps:
 - Crawling authenticated areas or handling login flows.
 - Replacing the existing chunker/embedding pipeline.
 - Changing the frontend URL import flow beyond automatic settings rendering.
-- Ingesting non-text resources. Images, video, audio, archives, office
-  documents, and PDFs are skipped; only HTML text pages are imported for now.
+- Ingesting non-text resources. Images, video, audio, archives, and office
+  documents are skipped. PDF links are accepted and their text is extracted.
 
 ### Decisions
 
@@ -112,7 +112,8 @@ Result shape, extended for compatibility:
   (httpx is already a dependency).
 - Browser-like headers, including `User-Agent: RagatoolBot/0.2`, `Accept`,
   `Accept-Language`.
-- Reject non-HTML content types. PDF support is a follow-up.
+- Accept HTML/XHTML and PDF content types. PDF text is extracted with the
+  existing `pypdf` stack. Other content types are rejected.
 - Retry twice on timeout / 429 / 5xx with exponential backoff.
 - Configurable timeout, default 20 seconds.
 
@@ -152,6 +153,8 @@ Result shape, extended for compatibility:
 - Final fallback: BeautifulSoup text extraction after removing
   `script/style/nav/header/footer/aside`.
 - Capture `<title>` and `og:title`.
+- PDF responses are parsed with `pypdf`; all page text is concatenated and the
+  PDF metadata title (or filename) is used. No links are followed from PDFs.
 
 ### 5. Crawl policy (`simple_crawler.py`, `url_utils.py`)
 
@@ -280,15 +283,15 @@ Manual verification:
 ### Open questions
 
 - ~~Should PDF URLs discovered during a crawl be downloaded and parsed, or
-  skipped?~~ Decided: skip PDFs and other files for now; only text pages are
-  imported. PDF/media ingestion is a possible follow-up.
+  skipped?~~ Decided: download and parse PDF text; other files/media are still
+  skipped.
 - Should per-import overrides (render mode) be exposed in the URL dialog later?
 - Is `MaxCrawlPages=100` a suitable default for local deployments?
 
 ## Outcome
 
 Implemented on `feature/url-import-js-rendering`. Backend suite passes
-(150+ tests). The crawler imports only HTML text pages: non-HTML content
-types and common asset/file extensions (images, audio, video, archives,
-office documents, PDFs, EPUB) are skipped. Manual CSR import and Docker
-image build verification remain pending.
+(155 tests). The crawler imports HTML text pages and extracts text from PDF
+links with `pypdf`; other non-text content types and asset/file extensions
+(images, audio, video, archives, office documents, EPUB) are skipped. Manual
+CSR import and Docker image build verification remain pending.
