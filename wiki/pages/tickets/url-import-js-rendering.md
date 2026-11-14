@@ -54,6 +54,8 @@ Current gaps:
 - Crawling authenticated areas or handling login flows.
 - Replacing the existing chunker/embedding pipeline.
 - Changing the frontend URL import flow beyond automatic settings rendering.
+- Ingesting non-text resources. Images, video, audio, archives, office
+  documents, and PDFs are skipped; only HTML text pages are imported for now.
 
 ### Decisions
 
@@ -254,15 +256,15 @@ Manual verification:
 
 ### 11. Implementation checklist
 
-- [ ] Add `CrawlOptions`, `url_utils`, and settings enum/seed rows.
-- [ ] Implement `StaticFetcher`, extraction fallback, and render decision.
-- [ ] Implement `BrowserRenderer` with reuse, resource blocking, cleanup.
-- [ ] Refactor `simple_crawl` for normalization, limits, robots, dedupe,
+- [x] Add `CrawlOptions`, `url_utils`, and settings enum/seed rows.
+- [x] Implement `StaticFetcher`, extraction fallback, and render decision.
+- [x] Implement `BrowserRenderer` with reuse, resource blocking, cleanup.
+- [x] Refactor `simple_crawl` for normalization, limits, robots, dedupe,
       titles, and progress callback.
-- [ ] Wire `UrlImport` via `asyncio.to_thread`; add title metadata.
-- [ ] Add Playwright dependency and Docker browser installation.
-- [ ] Add SSRF guard and document env vars/limitations.
-- [ ] Update and add tests; run backend test suite.
+- [x] Wire `UrlImport` via `asyncio.to_thread`; add title metadata.
+- [x] Add Playwright dependency and Docker browser installation.
+- [x] Add SSRF guard and document env vars/limitations.
+- [x] Update and add tests; run backend test suite.
 - [ ] Manual CSR import verification and Docker build verification.
 
 ### Risks and tradeoffs
@@ -277,11 +279,16 @@ Manual verification:
 
 ### Open questions
 
-- Should PDF URLs discovered during a crawl be downloaded and parsed, or
-  skipped?
+- ~~Should PDF URLs discovered during a crawl be downloaded and parsed, or
+  skipped?~~ Decided: skip PDFs and other files for now; only text pages are
+  imported. PDF/media ingestion is a possible follow-up.
 - Should per-import overrides (render mode) be exposed in the URL dialog later?
 - Is `MaxCrawlPages=100` a suitable default for local deployments?
 
 ## Outcome
 
-Pending implementation.
+Implemented on `feature/url-import-js-rendering`. Backend suite passes
+(150+ tests). The crawler imports only HTML text pages: non-HTML content
+types and common asset/file extensions (images, audio, video, archives,
+office documents, PDFs, EPUB) are skipped. Manual CSR import and Docker
+image build verification remain pending.

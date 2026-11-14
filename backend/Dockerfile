@@ -38,6 +38,9 @@ COPY . .
 # Place executable symlinks in the path
 ENV PATH="/app/.venv/bin:$PATH"
 
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN /app/.venv/bin/python -m playwright install --with-deps chromium
+
 EXPOSE 8000
 EXPOSE 8001
 EXPOSE 8002
