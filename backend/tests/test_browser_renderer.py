@@ -1,3 +1,4 @@
+from threading import Event
 from unittest.mock import MagicMock, patch
 
 from app.internal import browser_renderer
@@ -149,3 +150,84 @@ def test_resource_types_and_analytics_hosts_are_blocked():
     document_route.request.url = "http://example.com/page"
     renderer._handle_route(document_route)
     document_route.continue_.assert_called_once()
+
+
+def test_route_blocks_hosts_resolving_to_private_addresses():
+    renderer = BrowserRenderer(make_options(allow_private_urls=False))
+    route = MagicMock()
+    route.request.resource_type = "document"
+    route.request.url = "http://127.0.0.1/secret"
+
+    with patch.object(
+        browser_renderer,
+        "ensure_host_allowed",
+        side_effect=ValueError("private"),
+    ):
+        renderer._handle_route(route)
+
+    route.abort.assert_called_once()
+    route.continue_.assert_not_called()
+
+
+def test_route_allows_validated_hosts_and_caches_result():
+    renderer = BrowserRenderer(make_options(allow_private_urls=False))
+    route = MagicMock()
+    route.request.resource_type = "document"
+    route.request.url = "https://example.com/page"
+
+    with patch.object(browser_renderer, "ensure_host_allowed") as guard:
+        renderer._handle_route(route)
+        renderer._handle_route(route)
+
+    assert guard.call_count == 1
+    assert route.continue_.call_count == 2
+
+
+def test_route_blocks_unsupported_schemes():
+    renderer = BrowserRenderer(make_options(allow_private_urls=False))
+    route = MagicMock()
+    route.request.resource_type = "document"
+    route.request.url = "file:///etc/passwd"
+
+    renderer._handle_route(route)
+
+    route.abort.assert_called_once()
+    route.continue_.assert_not_called()
+
+
+def _scroll_page(height):
+    page = MagicMock()
+
+    def evaluate(script):
+        if "scrollHeight" in script:
+            return height
+        if "innerHeight" in script:
+            return 400
+        return None
+
+    page.evaluate.side_effect = evaluate
+    return page
+
+
+def test_auto_scroll_is_bounded():
+    page = _scroll_page(10 ** 9)
+
+    BrowserRenderer(make_options())._auto_scroll(page)
+
+    assert page.wait_for_timeout.call_count == 50
+    scroll_calls = [
+        call.args[0]
+        for call in page.evaluate.call_args_list
+        if "scrollTo" in call.args[0]
+    ]
+    assert len(scroll_calls) == 51
+
+
+def test_auto_scroll_stops_when_cancelled():
+    event = Event()
+    event.set()
+    page = _scroll_page(10 ** 9)
+
+    BrowserRenderer(make_options())._auto_scroll(page, event)
+
+    assert page.wait_for_timeout.call_count == 0

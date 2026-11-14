@@ -1,10 +1,9 @@
 import asyncio
-import os
 from threading import Event
 import time
 
 import numpy as np
-from app.crud.crud_files import create_file, delete_file, get_files_for_collection
+from app.crud.crud_files import create_file
 from app.internal import simple_crawler, vector_store
 from app.internal.chunker import Chunker, ChunkType
 from app.internal.crawl_options import CrawlOptions
@@ -72,8 +71,9 @@ class UrlImport(ImportBase):
             on_progress=lambda message: message_hub.send_message(collection_id, MessageType.INFO, message),
         )
 
-        if pages == None:
-             message_hub.send_message(collection_id, MessageType.LOG, f"NOTHING imported from {file_name}. Parsed no pages.")
+        if pages is None:
+             message_hub.send_message(collection_id, MessageType.UNLOCK, f"Import of {file_name} was cancelled")
+             message_hub.send_message(collection_id, MessageType.LOG, f"CANCELLED Import from {file_name}. Parsed no pages.")
              return
 
         message_hub.send_message(collection_id, MessageType.INFO, f"Parsed {len(pages)} pages")
@@ -195,8 +195,9 @@ class UrlImport(ImportBase):
             on_progress=lambda message: context.messageHub.send_message(collection_id, MessageType.INFO, message),
         )
 
-        if pages == None:
-             context.messageHub.send_message(collection_id, MessageType.LOG, f"NOTHING imported from {url}. Parsed no pages.")
+        if pages is None:
+             context.messageHub.send_message(collection_id, MessageType.UNLOCK, f"Import of {url} was cancelled")
+             context.messageHub.send_message(collection_id, MessageType.LOG, f"CANCELLED Import from {url}. Parsed no pages.")
              return
 
         context.messageHub.send_message(collection_id, MessageType.INFO, f"Parsed {len(pages)} pages")
@@ -207,7 +208,6 @@ class UrlImport(ImportBase):
                  context.messageHub.send_message(collection_id, MessageType.LOG, f"CANCELLED Import from {url} chunks of length {context.parameters.settings.chunk_size}, overlap {context.parameters.settings.chunk_overlap}.") 
                  return
             
-            print('Match', page["url"])
             tmp_file = TempFileHelper.save_temp_str(page["text"], page["url"])
             create_file(context.db, collection_id, tmp_file, page["url"])
             

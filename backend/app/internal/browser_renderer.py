@@ -6,9 +6,11 @@ from typing import Optional
 from urllib.parse import urlparse
 
 from app.internal.crawl_options import CrawlOptions
-from app.internal.url_utils import ensure_url_allowed
+from app.internal.url_utils import ensure_host_allowed, ensure_url_allowed
 
 BLOCKED_RESOURCE_TYPES = {"image", "media", "font"}
+NETWORK_SCHEMES = {"http", "https", "ws", "wss"}
+LOCAL_SCHEMES = {"data", "blob", "about"}
 ANALYTICS_HOSTS = (
     "doubleclick.net",
     "facebook.net",
@@ -59,6 +61,7 @@ class BrowserRenderer:
         self._started = False
         self._unavailable = False
         self._semaphore_acquired = False
+        self._host_allowed: dict[str, bool] = {}
 
     def __enter__(self) -> "BrowserRenderer":
         return self
@@ -103,11 +106,38 @@ class BrowserRenderer:
         if request.resource_type in BLOCKED_RESOURCE_TYPES:
             route.abort()
             return
-        host = (urlparse(request.url).hostname or "").lower()
+
+        parsed = urlparse(request.url)
+        scheme = parsed.scheme.lower()
+        if scheme in LOCAL_SCHEMES:
+            route.continue_()
+            return
+        if scheme not in NETWORK_SCHEMES:
+            route.abort()
+            return
+
+        host = (parsed.hostname or "").lower()
         if any(host == blocked or host.endswith("." + blocked) for blocked in ANALYTICS_HOSTS):
             route.abort()
             return
+        if not self._host_is_allowed(host):
+            route.abort()
+            return
         route.continue_()
+
+    def _host_is_allowed(self, host: str) -> bool:
+        if self.options.allow_private_urls:
+            return True
+        cached = self._host_allowed.get(host)
+        if cached is not None:
+            return cached
+        try:
+            ensure_host_allowed(host, self.options.allow_private_urls)
+            allowed = True
+        except ValueError:
+            allowed = False
+        self._host_allowed[host] = allowed
+        return allowed
 
     def render(self, url: str, cancel_event: Optional[Event] = None) -> Optional[RenderResult]:
         try:
@@ -140,7 +170,7 @@ class BrowserRenderer:
             if cancel_event is not None and cancel_event.is_set():
                 return None
             page.wait_for_timeout(max(0, self.options.render_wait_ms))
-            self._auto_scroll(page)
+            self._auto_scroll(page, cancel_event)
 
             if cancel_event is not None and cancel_event.is_set():
                 return None
@@ -182,20 +212,19 @@ class BrowserRenderer:
                 except Exception:
                     pass
 
-    def _auto_scroll(self, page) -> None:
+    def _auto_scroll(self, page, cancel_event: Optional[Event] = None) -> None:
         try:
-            page.evaluate(
-                """
-                async () => {
-                    const step = Math.max(window.innerHeight, 400);
-                    for (let y = 0; y < document.body.scrollHeight; y += step) {
-                        window.scrollTo(0, y);
-                        await new Promise(resolve => setTimeout(resolve, 120));
-                    }
-                    window.scrollTo(0, 0);
-                }
-                """
-            )
+            height = page.evaluate("() => (document.body ? document.body.scrollHeight : 0)") or 0
+            viewport = page.evaluate("() => Math.max(window.innerHeight, 400)") or 400
+            step = max(int(viewport), 400)
+            max_steps = 50
+            steps = min(max_steps, max(1, int(height / step) + 1))
+            for index in range(steps):
+                if cancel_event is not None and cancel_event.is_set():
+                    break
+                page.evaluate(f"() => window.scrollTo(0, {index * step})")
+                page.wait_for_timeout(120)
+            page.evaluate("() => window.scrollTo(0, 0)")
         except Exception:
             pass
 

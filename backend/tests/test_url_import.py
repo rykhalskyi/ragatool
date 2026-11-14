@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 from threading import Event
 from app.models.url_import import UrlImport
+from app.models.messages import MessageType
 from app.schemas.setting import SettingsName
 from app.models.import_context import ImportContext
 
@@ -74,6 +75,37 @@ class TestUrlImport(unittest.TestCase):
 
         # Assert
         mock_simple_crawl.assert_called_with('http://example.com', cancel_event, unittest.mock.ANY, max_depth=3, options=unittest.mock.ANY, on_progress=unittest.mock.ANY)
+
+    @patch('app.models.url_import.simple_crawler.simple_crawl', return_value=None)
+    def test_import_data_unlocks_when_crawl_is_cancelled(self, mock_simple_crawl):
+        url_import = UrlImport()
+        context = self._create_mock_context('1')
+        cancel_event = Event()
+
+        async def run_test():
+            await url_import.import_data('collection1', 'http://example.com', b'', context, cancel_event)
+
+        import asyncio
+        asyncio.run(run_test())
+
+        topics = [call.args[1] for call in context.messageHub.send_message.call_args_list]
+        assert MessageType.UNLOCK in topics
+        assert MessageType.LOCK in topics
+
+    @patch('app.models.url_import.simple_crawler.simple_crawl', return_value=None)
+    def test_step_1_unlocks_when_crawl_is_cancelled(self, mock_simple_crawl):
+        url_import = UrlImport()
+        context = self._create_mock_context('1', two_step_import='True')
+        cancel_event = Event()
+
+        async def run_test():
+            await url_import.step_1('collection1', 'http://example.com', context, cancel_event)
+
+        import asyncio
+        asyncio.run(run_test())
+
+        topics = [call.args[1] for call in context.messageHub.send_message.call_args_list]
+        assert MessageType.UNLOCK in topics
 
     def _create_mock_context(self, crawl_depth_value, two_step_import='False'):
         mock_settings_manager = MagicMock()

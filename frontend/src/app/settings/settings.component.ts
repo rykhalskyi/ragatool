@@ -5,6 +5,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatSelectModule } from '@angular/material/select';
 import { MatIconModule } from '@angular/material/icon';
 import { SettingsService } from '../settings.service';
 import { Setting } from '../client/models/Setting';
@@ -23,6 +24,7 @@ import { TestIds } from '../testing/test-ids';
     MatInputModule,
     MatButtonModule,
     MatSlideToggleModule,
+    MatSelectModule,
     MatIconModule
   ],
   templateUrl: './settings.component.html',
@@ -31,6 +33,9 @@ import { TestIds } from '../testing/test-ids';
 export class SettingsComponent implements OnInit {
   protected readonly TestIds = TestIds;
   settings$: Observable<Setting[]> = of([]);
+  private readonly selectOptions: Record<string, string[]> = {
+    JsRenderMode: ['auto', 'always', 'off'],
+  };
   
 
   constructor(private settingsService: SettingsService, 
@@ -79,6 +84,14 @@ export class SettingsComponent implements OnInit {
     return value.toLowerCase() === 'true';
   }
 
+  optionsFor(setting: Setting): string[] | null {
+    return this.selectOptions[setting.name] ?? null;
+  }
+
+  minFor(setting: Setting): number {
+    return ['MaxCrawlPages', 'RequestTimeoutSec', 'RetrievalFetchK'].includes(setting.name) ? 1 : 0;
+  }
+
   testIdFor(setting: Setting): string | null {
     if (setting.name === 'TwoStepImport') {
       return this.TestIds.twoStepImportSwitch;
@@ -88,6 +101,9 @@ export class SettingsComponent implements OnInit {
     }
     if (setting.name === 'RetrievalFetchK') {
       return this.TestIds.retrievalFetchKInput;
+    }
+    if (setting.name === 'JsRenderMode') {
+      return this.TestIds.jsRenderModeSelect;
     }
     return null;
   }

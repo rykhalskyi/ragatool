@@ -85,16 +85,13 @@ def same_site(url: str, start_url: str, allow_subdomains: bool = False) -> bool:
     return registrable_domain(host) == registrable_domain(start_host)
 
 
-def ensure_url_allowed(url: str, allow_private: bool = False) -> None:
-    parsed = urlsplit(url)
-    if parsed.scheme.lower() not in ("http", "https"):
-        raise ValueError(f"Unsupported URL scheme: {parsed.scheme}")
-    host = parsed.hostname
+def ensure_host_allowed(host: str, allow_private: bool = False) -> None:
     if not host:
         raise ValueError("URL has no host")
     if allow_private:
         return
 
+    host = host.strip("[]")
     try:
         addresses = socket.getaddrinfo(host, None)
     except socket.gaierror as exc:
@@ -113,10 +110,18 @@ def ensure_url_allowed(url: str, allow_private: bool = False) -> None:
             raise ValueError(f"URL resolves to a non-public address: {host}")
 
 
+def ensure_url_allowed(url: str, allow_private: bool = False) -> None:
+    parsed = urlsplit(url)
+    if parsed.scheme.lower() not in ("http", "https"):
+        raise ValueError(f"Unsupported URL scheme: {parsed.scheme}")
+    ensure_host_allowed(parsed.hostname or "", allow_private)
+
+
 class RobotsCache:
-    def __init__(self, user_agent: str, timeout: float = 10.0):
+    def __init__(self, user_agent: str, timeout: float = 10.0, allow_private_urls: bool = False):
         self.user_agent = user_agent
         self.timeout = timeout
+        self.allow_private_urls = allow_private_urls
         self._cache: dict[str, Optional[RobotFileParser]] = {}
         self._lock = threading.Lock()
 
@@ -141,6 +146,10 @@ class RobotsCache:
     def _load(self, robots_url: str) -> Optional[RobotFileParser]:
         parser = RobotFileParser()
         parser.set_url(robots_url)
+        try:
+            ensure_url_allowed(robots_url, self.allow_private_urls)
+        except ValueError:
+            return None
         request = Request(robots_url, headers={"User-Agent": self.user_agent})
         try:
             with urlopen(request, timeout=self.timeout) as response:

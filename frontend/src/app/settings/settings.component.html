@@ -14,6 +14,18 @@
             [attr.data-testid]="testIdFor(setting)">
             {{ setting.name }}
           </mat-slide-toggle>
+        } @else if (optionsFor(setting); as options) {
+          <mat-form-field appearance="fill">
+            <mat-label>{{ setting.name }}</mat-label>
+            <mat-select
+              [value]="setting.value"
+              (selectionChange)="updateSetting(setting, $event.value)"
+              [attr.data-testid]="testIdFor(setting)">
+              @for (option of options; track option) {
+                <mat-option [value]="option">{{ option }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
         } @else if (isNumeric(setting.value)) {
           <mat-form-field appearance="fill">
             <mat-label>{{ setting.name }}</mat-label>
@@ -23,11 +35,11 @@
                    [placeholder]="setting.name"
                    [title]="setting.name"
                    [attr.data-testid]="testIdFor(setting)"
-                   min="1"
+                   [min]="minFor(setting)"
                    required>
-            @if (+setting.value < 1) {
+            @if (+setting.value < minFor(setting)) {
               <mat-error>
-                Value must be a positive number.
+                Value must be at least {{ minFor(setting) }}.
               </mat-error>
             }
           </mat-form-field>

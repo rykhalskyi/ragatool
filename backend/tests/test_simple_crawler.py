@@ -264,6 +264,7 @@ def test_pdf_links_are_parsed():
             status_code=200,
             content_type="application/pdf",
             content=b"%PDF-1.4 fake pdf bytes",
+            is_pdf=True,
         ),
     }
 
@@ -333,7 +334,7 @@ def test_robots_disallow_skips_page():
     }
 
     class FakeRobots:
-        def __init__(self, user_agent):
+        def __init__(self, user_agent, allow_private_urls=False):
             pass
 
         def can_fetch(self, url):
@@ -396,6 +397,31 @@ def test_regex_filter_applies_to_discovered_links():
     )
 
     assert [result["url"] for result in results] == ["http://example.com", "http://example.com/page2"]
+
+
+def test_regex_cannot_be_bypassed_by_redirects():
+    FakeFetcher.responses = {
+        "http://example.com": page(
+            '<html><body><p>Home</p>'
+            '<a href="http://example.com/page2">Page 2</a>'
+            "</body></html>",
+            "http://example.com",
+        ),
+        "http://example.com/page2": page(
+            "<html><body><p>Redirected</p></body></html>",
+            "http://example.com/login",
+        ),
+    }
+
+    results = simple_crawl(
+        "http://example.com",
+        Event(),
+        re.compile(r"http://example\.com/page2"),
+        max_depth=1,
+        options=make_options(),
+    )
+
+    assert [result["url"] for result in results] == ["http://example.com"]
 
 
 def test_off_domain_links_are_skipped():

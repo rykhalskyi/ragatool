@@ -3,7 +3,7 @@ from io import BytesIO
 from pathlib import Path
 from threading import Event
 from typing import Optional
-from urllib.parse import unquote, urlsplit
+from urllib.parse import unquote, urljoin, urlsplit
 
 import httpx
 import trafilatura
@@ -11,10 +11,12 @@ from bs4 import BeautifulSoup
 from pypdf import PdfReader
 
 from app.internal.crawl_options import CrawlOptions
+from app.internal.url_utils import ensure_url_allowed
 
 HTML_CONTENT_TYPES = ("text/html", "application/xhtml+xml")
 PDF_CONTENT_TYPE = "application/pdf"
 PDF_MAGIC = b"%PDF"
+MAX_REDIRECTS = 5
 
 SPA_MARKERS = (
     'id="root"',
@@ -36,10 +38,7 @@ class FetchResult:
     status_code: int
     content_type: str
     content: Optional[bytes] = None
-
-    @property
-    def is_pdf(self) -> bool:
-        return self.content is not None
+    is_pdf: bool = False
 
 
 @dataclass
@@ -55,7 +54,7 @@ class StaticFetcher:
 
     def __enter__(self) -> "StaticFetcher":
         self._client = httpx.Client(
-            follow_redirects=True,
+            follow_redirects=False,
             timeout=self.options.request_timeout_sec,
             headers={
                 "User-Agent": self.options.user_agent,
@@ -70,13 +69,33 @@ class StaticFetcher:
             self._client.close()
             self._client = None
 
+    def _get_following_redirects(self, url: str) -> Optional[httpx.Response]:
+        current_url = url
+        for hop in range(MAX_REDIRECTS + 1):
+            try:
+                ensure_url_allowed(current_url, self.options.allow_private_urls)
+            except ValueError:
+                return None
+            response = self._client.get(current_url)
+            if response.has_redirect_location:
+                if hop == MAX_REDIRECTS:
+                    return None
+                current_url = urljoin(str(response.url), response.headers["location"])
+                continue
+            if 300 <= response.status_code < 400:
+                return None
+            return response
+        return None
+
     def fetch(self, url: str, cancel_event: Optional[Event] = None) -> Optional[FetchResult]:
         if self._client is None:
             raise RuntimeError("StaticFetcher must be used as a context manager")
 
         for attempt in range(3):
             try:
-                response = self._client.get(url)
+                response = self._get_following_redirects(url)
+                if response is None:
+                    return None
                 if response.status_code == 429 or response.status_code >= 500:
                     if attempt < 2 and not _backoff(attempt, cancel_event):
                         return None
@@ -85,22 +104,20 @@ class StaticFetcher:
 
                 content_type = response.headers.get("content-type", "").lower()
                 final_url = str(response.url)
-                is_pdf = _is_pdf(final_url, content_type)
+                kind = _response_kind(final_url, content_type, response.content)
 
-                if content_type and not is_pdf and not any(t in content_type for t in HTML_CONTENT_TYPES):
+                if kind is None:
                     return None
 
-                if is_pdf:
-                    content = response.content
-                    if not content.lstrip().startswith(PDF_MAGIC):
-                        return None
+                if kind == "pdf":
                     return FetchResult(
                         url=url,
                         final_url=final_url,
                         html="",
                         status_code=response.status_code,
                         content_type=content_type,
-                        content=content,
+                        content=response.content,
+                        is_pdf=True,
                     )
 
                 return FetchResult(
@@ -139,8 +156,23 @@ def _backoff(attempt: int, cancel_event: Optional[Event]) -> bool:
     return True
 
 
-def _is_pdf(url: str, content_type: str) -> bool:
-    return PDF_CONTENT_TYPE in content_type or urlsplit(url).path.lower().endswith(".pdf")
+def _response_kind(url: str, content_type: str, content: bytes) -> Optional[str]:
+    """Return ``pdf``, ``html`` or ``None`` for a fetched response.
+
+    An explicit HTML content type always wins over a ``.pdf`` extension so an
+    HTML error/landing page at a ``.pdf`` URL is still parsed as HTML.
+    """
+    path_is_pdf = urlsplit(url).path.lower().endswith(".pdf")
+    body_is_pdf = content.lstrip().startswith(PDF_MAGIC)
+    if PDF_CONTENT_TYPE in content_type:
+        return "pdf" if body_is_pdf else None
+    if any(t in content_type for t in HTML_CONTENT_TYPES):
+        return "html"
+    if path_is_pdf:
+        return "pdf" if body_is_pdf else None
+    if not content_type:
+        return "pdf" if body_is_pdf else "html"
+    return None
 
 
 def extract_pdf_page(content: bytes, url: str) -> ExtractResult:

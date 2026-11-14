@@ -15,13 +15,6 @@ def _env_bool(name: str, default: bool = False) -> bool:
     return value.strip().lower() in ("1", "true", "yes", "on")
 
 
-def _env_int(name: str, default: int) -> int:
-    try:
-        return int(os.environ.get(name, default))
-    except (TypeError, ValueError):
-        return default
-
-
 @dataclass
 class CrawlOptions:
     js_render_mode: str = "auto"
@@ -32,7 +25,6 @@ class CrawlOptions:
     crawl_request_delay_ms: int = 300
     respect_robots_txt: bool = True
     allow_subdomains: bool = False
-    max_browsers: int = 1
     allow_private_urls: bool = False
     wait_for_selector: Optional[str] = None
     user_agent: str = DEFAULT_USER_AGENT
@@ -76,7 +68,6 @@ class CrawlOptions:
             crawl_request_delay_ms=max(0, setting_int(SettingsName.CRAWL_REQUEST_DELAY_MS, 300)),
             respect_robots_txt=setting_bool(SettingsName.RESPECT_ROBOTS_TXT, True),
             allow_subdomains=setting_bool(SettingsName.ALLOW_SUBDOMAINS, False),
-            max_browsers=max(1, _env_int("CRAWL_MAX_BROWSERS", 1)),
             allow_private_urls=_env_bool("ALLOW_PRIVATE_URLS", False),
             wait_for_selector=wait_for_selector,
             user_agent=DEFAULT_USER_AGENT,

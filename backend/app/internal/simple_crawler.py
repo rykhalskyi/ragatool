@@ -37,7 +37,11 @@ def simple_crawl(
     if not is_http_url(start):
         return []
 
-    robots = RobotsCache(options.user_agent) if options.respect_robots_txt else None
+    robots = (
+        RobotsCache(options.user_agent, allow_private_urls=options.allow_private_urls)
+        if options.respect_robots_txt
+        else None
+    )
     renderer = BrowserRenderer(options)
     visited: set[str] = set()
     seen_content: set[str] = set()
@@ -126,6 +130,10 @@ def simple_crawl(
                     else:
                         continue
 
+                normalized_final = normalize_url(final_url)
+                if regex is not None and normalized_final != url and not regex.match(normalized_final):
+                    continue
+
                 text = extracted.text.strip()
                 if not text:
                     continue
@@ -168,6 +176,8 @@ def _link_allowed(
     options: CrawlOptions,
     regex: Optional[Pattern[str]],
 ) -> bool:
+    """Filter discovered links. The start URL is always imported, even if it
+    does not match ``regex``; redirect targets are checked separately."""
     if not is_http_url(url):
         return False
     if is_asset_url(url):
@@ -186,26 +196,3 @@ def _report(on_progress: Optional[Callable[[str], None]], message: str) -> None:
         on_progress(message)
     except Exception:
         pass
-
-
-def crawl_from_list(urls):
-    options = CrawlOptions()
-    results = []
-    with StaticFetcher(options) as fetcher:
-        for url in urls:
-            fetched = fetcher.fetch(url)
-            if fetched is None:
-                continue
-            if fetched.is_pdf:
-                extracted = extract_pdf_page(fetched.content, fetched.final_url)
-            else:
-                extracted = extract_page(fetched.html, fetched.final_url, options)
-            if extracted.text:
-                results.append({
-                    "url": url,
-                    "text": extracted.text,
-                    "title": extracted.title,
-                    "final_url": fetched.final_url,
-                    "rendered": False,
-                })
-    return results

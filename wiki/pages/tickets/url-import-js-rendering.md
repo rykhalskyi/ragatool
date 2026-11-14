@@ -169,6 +169,8 @@ Result shape, extended for compatibility:
 - Deduplicate page content with SHA-256 of normalized text.
 - Check the cancellation event between pages and during render loops.
 - Optional progress callback so `UrlImport` can emit UI messages.
+- Regex filter semantics: the pattern filters discovered links and redirect
+  targets; the start URL is always imported even if it does not match.
 
 ### 6. Wiring (`url_import.py`)
 
@@ -196,7 +198,11 @@ def simple_crawl(
 ### 7. Settings
 
 Add enum members in `backend/app/schemas/setting.py` and seed rows in
-`backend/app/database.py`. The Settings UI renders value types automatically.
+`backend/app/database.py`. The Settings UI renders booleans as toggles and
+numbers as numeric inputs. `JsRenderMode` is an explicit select with the
+server-accepted values (`auto`, `always`, `off`); numeric inputs enforce the
+backend minimums (`MaxCrawlPages`, `RequestTimeoutSec`, and `RetrievalFetchK`
+are >= 1; wait/threshold/delay/depth settings allow 0).
 
 | Setting | Default | Purpose |
 |---|---|---|
@@ -228,14 +234,25 @@ RUN /app/.venv/bin/python -m playwright install --with-deps chromium
 
 ### 9. Security
 
-A headless browser increases SSRF exposure. Add a best-effort guard:
+A headless browser increases SSRF exposure. Guards are applied before every
+outbound request, not after the fact:
 
-- Reject `file:`, `data:`, and other non-http(s) schemes.
+- Reject `file:` and other unsupported schemes. The browser allows only
+  `http(s)`/`ws(s)` plus local `data:`/`blob:`/`about:` resources.
 - Resolve hostnames and reject private, loopback, link-local, reserved,
   multicast, and unspecified addresses.
-- Re-check the final redirected URL.
+- Static fetching disables automatic redirects and validates each hop before
+  requesting it (`MAX_REDIRECTS = 5`).
+- The renderer validates every request in its Playwright route handler, so
+  redirects, XHR, scripts, and websockets are checked; results are cached per
+  host for the duration of a crawl.
+- `robots.txt` fetches go through the same host guard.
 - Allow bypass with `ALLOW_PRIVATE_URLS=true` for trusted deployments.
-- Note that Playwright does not bypass anti-bot protections.
+
+Residual risk: DNS is resolved during the guard and again by the HTTP client /
+browser, so a DNS-rebinding attacker retains a small TOCTOU window. This is an
+accepted, documented best-effort limitation, not a complete network sandbox.
+Playwright does not bypass anti-bot protections.
 
 ### 10. Tests
 
@@ -246,13 +263,18 @@ Unit tests:
   asset skipping; `MaxCrawlPages`; robots disallow; content dedupe; title
   extraction; Playwright unavailable falls back to static.
 - `test_url_import.py`: update assertions for the new `options=ANY` kwarg.
-- `test_browser_renderer.py`: fake Playwright module; optional real-browser
-  integration test gated by an environment variable.
+- `test_browser_renderer.py`: fake Playwright module; route-level SSRF checks;
+  bounded auto-scroll.
+- `test_browser_renderer_integration.py`: launches real Chromium against a
+  local HTTP server; skipped unless `CRAWL_INTEGRATION=1`. The
+  `browser-integration` CI job installs Chromium and runs it.
+- `test_web_fetcher.py`: manual redirect handling, private redirect rejection,
+  PDF/HTML classification.
 
 Manual verification:
 
 1. `cd backend && uv sync && uv run playwright install chromium`.
-2. `uv run pytest`.
+2. `CRAWL_INTEGRATION=1 uv run pytest tests/test_browser_renderer_integration.py`.
 3. Import a known CSR page with `CrawlDepth=0`; confirm non-empty chunks and
    rendered pages.
 4. `docker compose build backend` to validate browser installation.
@@ -268,6 +290,7 @@ Manual verification:
 - [x] Add Playwright dependency and Docker browser installation.
 - [x] Add SSRF guard and document env vars/limitations.
 - [x] Update and add tests; run backend test suite.
+- [x] Add opt-in real-Chromium integration test and CI job.
 - [ ] Manual CSR import verification and Docker build verification.
 
 ### Risks and tradeoffs
@@ -291,7 +314,16 @@ Manual verification:
 ## Outcome
 
 Implemented on `feature/url-import-js-rendering`. Backend suite passes
-(155 tests). The crawler imports HTML text pages and extracts text from PDF
-links with `pypdf`; other non-text content types and asset/file extensions
-(images, audio, video, archives, office documents, EPUB) are skipped. Manual
-CSR import and Docker image build verification remain pending.
+(170 passed, 1 skipped: the opt-in Chromium integration test). The crawler
+imports HTML text pages and extracts text from PDF links with `pypdf`; other
+non-text content types and asset/file extensions (images, audio, video,
+archives, office documents, EPUB) are skipped.
+
+Follow-up review fixes: dead code removed (`crawl_from_list`, unused
+`max_browsers` option); SSRF guard now validates every redirect hop and browser
+subresource before the request; robots.txt fetches are guarded; cancellation
+now unlocks the collection; regex redirect escapes are closed; PDF vs HTML
+classification is explicit; auto-scroll is bounded and cancellable; the
+settings UI accepts zero-valued numeric settings; the Docker browser layer is
+cached before source copy. Manual CSR import and Docker image build
+verification remain pending.
