@@ -20,6 +20,7 @@ ENV API_URL=/api
 ENV BACKEND_URL=http://backend:8000
 
 COPY nginx.conf.template /etc/nginx/templates/default.conf.template
+COPY nginx-security-headers.conf /etc/nginx/security-headers.conf
 COPY docker-entrypoint.d/40-write-runtime-config.sh /docker-entrypoint.d/40-write-runtime-config.sh
 RUN chmod +x /docker-entrypoint.d/40-write-runtime-config.sh
 

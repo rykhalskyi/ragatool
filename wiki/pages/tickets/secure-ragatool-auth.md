@@ -53,7 +53,7 @@ Relevant files:
 | Decision | Choice |
 |---|---|
 | UI authentication | Username + password, server-side session ID in SQLite referenced by an `HttpOnly` cookie |
-| First-run bootstrap | `/setup` page gated by a one-time code printed in backend logs |
+| First-run bootstrap | `/setup` page gated by a time-limited one-time code printed in backend logs |
 | Machine authentication | Opaque `ragt_...` bearer tokens hashed in SQLite |
 | Token management | Dedicated `/access` page with create/revoke |
 | Extension WebSockets | Same bearer tokens as MCP |
@@ -135,17 +135,19 @@ Session-protected:
 ### First-run flow
 
 1. Startup sees `auth_users` empty and no env hash. Generate
-   `secrets.token_urlsafe(16)` and print it once to stdout:
-   `RAGATOOL SETUP CODE: <code>`.
+   `secrets.token_urlsafe(16)` with a 15-minute TTL and print it once to
+   stdout: `RAGATOOL SETUP CODE: <code> (valid for 15 minutes)`.
 2. `GET /auth/status` returns `initialized: false`; the UI redirects to
    `/setup`.
 3. Setup asks for username (pre-filled `admin`), password, confirmation, and
    the setup code.
-4. `POST /auth/setup` verifies the code with `secrets.compare_digest`, checks
-   in a transaction that the table is still empty, creates the user, opens a
-   session, and invalidates the in-memory code.
+4. `POST /auth/setup` verifies the code with `hmac.compare_digest`, then
+   performs an atomic `INSERT ... WHERE NOT EXISTS` (plus a single-row unique
+   index) so concurrent requests cannot create two admins. It opens a session
+   and invalidates the in-memory code.
 5. `/setup` becomes disabled; later visits redirect to `/login`.
-6. Each restart before setup prints a fresh code. The code is never persisted
+6. Each restart before setup prints a fresh code. Expired codes are rejected
+   and cleared; restart the backend to get a new one. The code is never persisted
    to the `logs` table.
 
 ### Environment
@@ -281,6 +283,7 @@ Operational notes:
 - Expect MCP clients to fail with `401` during cutover. Create tokens before
   updating client configs, or use a short maintenance window.
 - Read the setup code from the current pod; a restart prints a new code.
+- The setup code expires after 15 minutes (`SETUP_CODE_TTL_MINUTES`).
 
 ### 9. Tests
 
@@ -290,7 +293,10 @@ Backend (`uv run pytest`):
 - Login/logout, wrong password, protected route returns `401`.
 - Token create/list/revoke; hashes and plaintext never returned by list.
 - `DbTokenVerifier` accepts, rejects revoked, updates `last_used_at`.
-- Extension WebSocket rejects missing/invalid and accepts valid tokens.
+- Extension WebSocket rejects missing/invalid and accepts valid tokens,
+  including subprotocol auth and ignored query-string tokens.
+- Setup code expiry and atomic single-user creation (including two concurrent
+  attempts).
 - Env password-hash seeding skips `/setup`; existing user ignores env changes.
 
 Frontend:
@@ -314,12 +320,14 @@ Frontend:
   header; fallback is a minimal local token issuer.
 - Browser WebSocket clients cannot set headers, so they offer the API token as
   a subprotocol. Access logs redact any stray `token=`/`ticket=` query values.
-- `COOKIE_SECURE=false` is required for plain-HTTP LAN use; document the
-  trade-off.
-- The one-time setup code is printed to container logs; treat logs as sensitive
-  until setup completes. With multiple replicas each pod has its own code.
-- Data paths are hardcoded to the working directory; k8s must mount
-  `ragatouille.db`, `chroma_data`, and `.fastembed` explicitly.
+- Cookies auto-enable `Secure` when an `ALLOWED_ORIGINS` entry is HTTPS;
+  plain-HTTP LAN deployments get non-Secure cookies, so use HTTPS outside a
+  trusted network.
+- The one-time setup code expires after 15 minutes but is printed to container
+  logs; treat logs as sensitive until setup completes. With multiple replicas
+  each pod has its own code.
+- `DATABASE_PATH` and `CHROMA_PATH` are configurable; Docker/k8s must mount
+  persistent storage for them in addition to `.fastembed`.
 - Upgrading enforces auth immediately; clients without tokens break until
   reconfigured.
 

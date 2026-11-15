@@ -25,6 +25,26 @@ def create_user(db: sqlite3.Connection, username: str, password_hash: str) -> di
     return user
 
 
+def create_first_user(
+    db: sqlite3.Connection, username: str, password_hash: str
+) -> Optional[dict]:
+    """Atomically create the only user. Returns None if a user already exists."""
+    user_id = uuid.uuid4().hex
+    try:
+        cursor = db.execute(
+            "INSERT INTO auth_users (id, username, password_hash) "
+            "SELECT ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM auth_users)",
+            (user_id, username, password_hash),
+        )
+        db.commit()
+    except sqlite3.IntegrityError:
+        db.rollback()
+        return None
+    if cursor.rowcount == 0:
+        return None
+    return get_user_by_id(db, user_id)
+
+
 def get_user_by_id(db: sqlite3.Connection, user_id: str) -> Optional[dict]:
     row = db.execute(
         "SELECT id, username, password_hash, session_version, created_at "

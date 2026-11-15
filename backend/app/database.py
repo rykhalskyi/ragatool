@@ -1,17 +1,34 @@
+import os
 import sqlite3
+from contextlib import contextmanager
 from sqlite3 import Connection
 import sys
 import threading
-from typing import Optional
+from typing import Iterator, Optional
 
-DATABASE_URL = "ragatouille.db"
+DATABASE_URL = os.getenv("DATABASE_PATH", "ragatouille.db")
 lock = threading.Lock()
 
 def get_db_connection() -> Connection:
     with lock:
-        conn = sqlite3.connect(DATABASE_URL, check_same_thread=False)
+        conn = sqlite3.connect(DATABASE_URL, check_same_thread=False, timeout=10)
         conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA busy_timeout = 10000")
         return conn
+
+
+@contextmanager
+def db_session() -> Iterator[Connection]:
+    """Open a connection, commit on success, roll back on error, and close."""
+    conn = get_db_connection()
+    try:
+        yield conn
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
 def create_tables(conn: Optional[Connection] = None):
     if conn is None:
@@ -152,6 +169,17 @@ def create_tables(conn: Optional[Connection] = None):
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
     """)
+
+    try:
+        # Ragatool is single-user; enforce it at the storage layer.
+        cursor.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS auth_users_single ON auth_users ((1))"
+        )
+    except sqlite3.IntegrityError:
+        print(
+            "WARNING: auth_users has multiple rows; single-user index not created.",
+            flush=True,
+        )
 
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS api_tokens (

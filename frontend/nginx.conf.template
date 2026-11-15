@@ -7,12 +7,7 @@ server {
 
   # Baseline security headers. HSTS is intentionally left to the TLS
   # terminator (Cloudflare, ingress) so local HTTP deployments keep working.
-  add_header X-Content-Type-Options "nosniff" always;
-  add_header X-Frame-Options "DENY" always;
-  add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-  add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
-  add_header Cross-Origin-Opener-Policy "same-origin" always;
-  add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
+  include /etc/nginx/security-headers.conf;
 
   # --- FIX: serve favicon correctly ---
   location = /favicon.ico {
@@ -23,9 +18,12 @@ server {
   }
 
   # Never cache the runtime config: it is generated at container start.
+  # add_header in a location disables inheritance, so include the headers
+  # again here instead of losing the CSP for config.js.
   location = /config.js {
     root /usr/share/nginx/html;
-    add_header Cache-Control "no-store";
+    include /etc/nginx/security-headers.conf;
+    add_header Cache-Control "no-store" always;
   }
 
   # Proxy the API through the same origin by default (API_URL=/api). The
@@ -34,9 +32,11 @@ server {
   location /api/ {
     proxy_pass ${BACKEND_URL}/;
     proxy_http_version 1.1;
-    proxy_set_header Host $host;
+    # Preserve the port so the backend's Origin check can compare it.
+    proxy_set_header Host $http_host;
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Host $http_host;
     proxy_set_header X-Forwarded-Proto $scheme;
     proxy_set_header Connection "";
     proxy_buffering off;

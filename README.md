@@ -93,15 +93,25 @@ docker compose logs backend | grep 'SETUP CODE'
 ```
 
 Open the UI and set the admin username and password on the setup screen. The
-code is only required once. After that, sign in with the username and password.
+code is only required once and expires after 15 minutes
+(`SETUP_CODE_TTL_MINUTES`); restart the backend to print a new one. After
+setup, sign in with the username and password.
 
 API tokens for MCP clients and extension WebSockets are managed on the
 **Access** page. Tokens are shown only once; revoking one takes effect
 immediately.
 
 Sessions are stored server-side in SQLite and referenced by an `HttpOnly`
-cookie, so they survive restarts and can be revoked immediately. Use
-`COOKIE_SECURE=true` when serving over HTTPS.
+cookie, so they survive backend process restarts and can be revoked
+immediately. The bundled compose files mount a `ragatool_data` volume at
+`/app/data`, which also persists `ragatouille.db` and `chroma_data`. Without a
+persistent volume, recreating the container resets users, tokens, and sessions.
+When upgrading an existing deployment, copy the old `ragatouille.db` and
+`chroma_data/` into the new volume before recreating the backend container.
+
+Cookies become `Secure` automatically when an `ALLOWED_ORIGINS` entry starts
+with `https://`; override with `COOKIE_SECURE=true|false`. Secure mode uses the
+`__Host-` cookie prefix.
 
 ## Public deployment (Cloudflare Tunnel)
 
@@ -120,6 +130,10 @@ directly. Recommended setup:
    COOKIE_SECURE=true
    ENABLE_API_DOCS=false
    ```
+   `ALLOWED_ORIGINS` takes exact `scheme://host[:port]` entries, comma
+   separated. Add every hostname/IP (with its port) that you use to reach the
+   UI. The bundled nginx forwards the original host and port so the backend's
+   same-origin check works on non-default ports.
 5. The app throttles `/auth/login` itself (5 attempts/min per user and
    20/min per source address). Add Cloudflare WAF rate limits for
    `/api/auth/login` and `/api/auth/setup` as an outer layer.

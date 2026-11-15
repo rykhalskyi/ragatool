@@ -14,19 +14,22 @@ from fastapi import Depends, HTTPException, Request, Response, status
 from fastmcp.server.auth import AccessToken, TokenVerifier
 
 from app.crud import crud_session, crud_token, crud_user
-from app.database import create_tables, get_db_connection
+from app.database import create_tables, db_session
 from app.internal.rate_limit import SlidingWindowRateLimiter
 
 TOKEN_PREFIX = "ragt_"
 SESSION_COOKIE = "ragatool_session"
+SECURE_SESSION_COOKIE = f"__Host-{SESSION_COOKIE}"
 DEFAULT_ALLOWED_ORIGINS = "http://localhost:4200,http://127.0.0.1:4200"
 BCRYPT_MAX_PASSWORD_BYTES = 72
+DEFAULT_SETUP_CODE_TTL_MINUTES = 15
 
 # Throttle failed logins per source address and per (source, username) pair.
 LOGIN_IP_LIMITER = SlidingWindowRateLimiter(max_events=20, window_seconds=60)
 LOGIN_USER_LIMITER = SlidingWindowRateLimiter(max_events=5, window_seconds=60)
 
 _setup_code: Optional[str] = None
+_setup_code_expires_at: Optional[float] = None
 _dummy_password_hash: Optional[str] = None
 
 
@@ -64,12 +67,21 @@ def token_prefix(token: str) -> str:
 
 
 def get_cookie_secure() -> bool:
-    return os.getenv("COOKIE_SECURE", "false").strip().lower() in {
-        "1",
-        "true",
-        "yes",
-        "on",
-    }
+    """Secure cookies unless explicitly disabled or only HTTP origins exist."""
+    explicit = os.getenv("COOKIE_SECURE")
+    if explicit is not None and explicit.strip():
+        return explicit.strip().lower() in {"1", "true", "yes", "on"}
+
+    allowed = os.getenv("ALLOWED_ORIGINS", DEFAULT_ALLOWED_ORIGINS)
+    return any(
+        item.strip().lower().startswith("https://")
+        for item in allowed.split(",")
+        if item.strip()
+    )
+
+
+def get_session_cookie_name() -> str:
+    return SECURE_SESSION_COOKIE if get_cookie_secure() else SESSION_COOKIE
 
 
 def get_session_max_age() -> int:
@@ -80,38 +92,60 @@ def get_session_max_age() -> int:
     return max(hours, 1) * 3600
 
 
+def get_setup_code_ttl_seconds() -> int:
+    try:
+        minutes = int(
+            os.getenv("SETUP_CODE_TTL_MINUTES", str(DEFAULT_SETUP_CODE_TTL_MINUTES))
+        )
+    except ValueError:
+        minutes = DEFAULT_SETUP_CODE_TTL_MINUTES
+    return max(minutes, 1) * 60
+
+
 def generate_setup_code() -> str:
-    global _setup_code
+    global _setup_code, _setup_code_expires_at
     _setup_code = secrets.token_urlsafe(16)
+    _setup_code_expires_at = time.monotonic() + get_setup_code_ttl_seconds()
     return _setup_code
 
 
 def clear_setup_code() -> None:
-    global _setup_code
+    global _setup_code, _setup_code_expires_at
     _setup_code = None
+    _setup_code_expires_at = None
 
 
 def verify_setup_code(code: str) -> bool:
-    return _setup_code is not None and hmac.compare_digest(code, _setup_code)
+    if _setup_code is None or _setup_code_expires_at is None:
+        return False
+    if time.monotonic() >= _setup_code_expires_at:
+        clear_setup_code()
+        return False
+    return hmac.compare_digest(code, _setup_code)
 
 
 def initialize_auth() -> None:
     """Seed an optional admin from env and print the setup code when needed."""
-    with get_db_connection() as db:
+    with db_session() as db:
         if crud_user.count_users(db) == 0:
             password_hash = os.getenv("RAGATOOL_ADMIN_PASSWORD_HASH")
             if password_hash:
                 username = os.getenv("RAGATOOL_ADMIN_USERNAME", "admin")
-                crud_user.create_user(db, username, password_hash)
-                print(
-                    f"INFO: Seeded admin user '{username}' from environment.",
-                    flush=True,
-                )
+                user = crud_user.create_first_user(db, username, password_hash)
+                if user is not None:
+                    print(
+                        f"INFO: Seeded admin user '{username}' from environment.",
+                        flush=True,
+                    )
 
         if crud_user.count_users(db) == 0:
             code = generate_setup_code()
+            ttl_minutes = get_setup_code_ttl_seconds() // 60
             print("RAGATOOL SETUP REQUIRED", flush=True)
-            print(f"RAGATOOL SETUP CODE: {code}", flush=True)
+            print(
+                f"RAGATOOL SETUP CODE: {code} (valid for {ttl_minutes} minutes)",
+                flush=True,
+            )
 
         crud_session.delete_expired(db)
 
@@ -120,7 +154,7 @@ def initialize_auth() -> None:
 
 def create_session(user: dict) -> str:
     token = secrets.token_urlsafe(32)
-    with get_db_connection() as db:
+    with db_session() as db:
         crud_session.create_session(
             db,
             user_id=user["id"],
@@ -133,7 +167,7 @@ def create_session(user: dict) -> str:
 
 def set_session_cookie(response: Response, token: str) -> None:
     response.set_cookie(
-        SESSION_COOKIE,
+        get_session_cookie_name(),
         token,
         max_age=get_session_max_age(),
         httponly=True,
@@ -145,7 +179,7 @@ def set_session_cookie(response: Response, token: str) -> None:
 
 def clear_session_cookie(response: Response) -> None:
     response.delete_cookie(
-        SESSION_COOKIE,
+        get_session_cookie_name(),
         httponly=True,
         samesite="lax",
         secure=get_cookie_secure(),
@@ -154,20 +188,20 @@ def clear_session_cookie(response: Response) -> None:
 
 
 def delete_current_session(request: Request) -> None:
-    token = request.cookies.get(SESSION_COOKIE)
+    token = request.cookies.get(get_session_cookie_name())
     if not token:
         return
-    with get_db_connection() as db:
+    with db_session() as db:
         crud_session.delete_by_hash(db, hash_token(token))
 
 
 def get_current_user(request: Request) -> Optional[dict]:
-    token = request.cookies.get(SESSION_COOKIE)
+    token = request.cookies.get(get_session_cookie_name())
     if not token:
         return None
 
     token_hash = hash_token(token)
-    with get_db_connection() as db:
+    with db_session() as db:
         session = crud_session.find_by_hash(db, token_hash)
         if session is None:
             return None
@@ -199,6 +233,33 @@ def require_user(request: Request) -> dict:
     return user
 
 
+def _origin_components(value: str) -> Optional[tuple[str, str, int]]:
+    """Normalize a URL/Origin into (scheme, hostname, port)."""
+    parsed = urlparse(value)
+    scheme = parsed.scheme.lower()
+    if scheme not in {"http", "https"} or not parsed.hostname:
+        return None
+    try:
+        port = parsed.port
+    except ValueError:
+        return None
+    if port is None:
+        port = 443 if scheme == "https" else 80
+    return scheme, parsed.hostname.lower(), port
+
+
+def _request_origin_components(request: Request) -> Optional[tuple[str, str, int]]:
+    host = request.headers.get("host") or request.headers.get("x-forwarded-host")
+    if not host:
+        return None
+    host = host.split(",")[0].strip()
+
+    scheme = request.headers.get("x-forwarded-proto") or request.url.scheme
+    scheme = scheme.split(",")[0].strip()
+
+    return _origin_components(f"{scheme}://{host}")
+
+
 def check_request_origin(request: Request) -> None:
     """Reject cross-site state-changing requests when an Origin is present."""
     origin = request.headers.get("origin")
@@ -213,9 +274,11 @@ def check_request_origin(request: Request) -> None:
     if origin in allowed:
         return
 
-    origin_host = urlparse(origin).netloc
-    request_host = request.headers.get("host", "")
-    if origin_host and request_host and origin_host == request_host:
+    origin_components = _origin_components(origin)
+    if origin_components is None:
+        raise HTTPException(status_code=403, detail="Origin not allowed")
+
+    if origin_components == _request_origin_components(request):
         return
 
     raise HTTPException(status_code=403, detail="Origin not allowed")
@@ -228,7 +291,7 @@ class DbTokenVerifier(TokenVerifier):
         if not token or not token.startswith(TOKEN_PREFIX):
             return None
 
-        with get_db_connection() as db:
+        with db_session() as db:
             row = crud_token.find_active_by_hash(db, hash_token(token))
             if row is None:
                 return None
@@ -281,7 +344,7 @@ def _cli(argv: Optional[list[str]] = None) -> int:
         print(hash_password(_prompt_password()))
         return 0
 
-    with get_db_connection() as db:
+    with db_session() as db:
         if args.command == "reset-password":
             user = crud_user.get_user_by_username(db, args.username)
             if user is None:

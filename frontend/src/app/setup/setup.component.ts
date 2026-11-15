@@ -72,7 +72,8 @@ export class SetupComponent {
     } catch (error) {
       if (error instanceof HttpErrorResponse) {
         if (error.status === 400) {
-          this.error = 'That setup code is not valid. Check the backend logs.';
+          this.error =
+            'That setup code is invalid or expired. Check the backend logs or restart the backend for a new code.';
         } else if (error.status === 409) {
           await this.router.navigate(['/login']);
         } else if (error.status === 403) {

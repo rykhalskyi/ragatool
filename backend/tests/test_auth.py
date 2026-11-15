@@ -1,9 +1,11 @@
 import asyncio
 import logging
 import queue
+import time
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 from starlette.datastructures import Headers, QueryParams
 from starlette.requests import Request
@@ -14,6 +16,7 @@ from app.crud import crud_token, crud_user
 from app.internal import auth as auth_core
 from app.internal.auth import (
     DbTokenVerifier,
+    check_request_origin,
     generate_token,
     hash_password,
     hash_token,
@@ -412,3 +415,204 @@ def test_websocket_rejects_query_token(client):
         with pytest.raises(WebSocketDisconnect):
             with ws_client.websocket_connect(f"/extensions/ws?token={token}"):
                 pass
+
+
+def _make_request(headers, scheme="http"):
+    raw_headers = [
+        (key.lower().encode("latin-1"), value.encode("latin-1"))
+        for key, value in headers.items()
+    ]
+    return Request(
+        {
+            "type": "http",
+            "method": "POST",
+            "scheme": scheme,
+            "headers": raw_headers,
+            "server": ("testserver", 80),
+            "client": ("127.0.0.1", 1234),
+            "path": "/",
+            "query_string": b"",
+        }
+    )
+
+
+def test_origin_allows_matching_non_default_port():
+    request = _make_request(
+        {"host": "127.0.0.1:4300", "origin": "http://127.0.0.1:4300"}
+    )
+    check_request_origin(request)
+
+
+def test_origin_allows_proxied_https_default_port():
+    request = _make_request(
+        {
+            "host": "ragatool.example.com",
+            "origin": "https://ragatool.example.com",
+            "x-forwarded-proto": "https",
+        }
+    )
+    check_request_origin(request)
+
+
+def test_origin_allows_configured_cross_origin(monkeypatch):
+    monkeypatch.setenv("ALLOWED_ORIGINS", "http://app.local:4200")
+    request = _make_request(
+        {"host": "backend.local:8000", "origin": "http://app.local:4200"}
+    )
+    check_request_origin(request)
+
+
+def test_origin_uses_forwarded_host_when_host_missing():
+    request = _make_request(
+        {
+            "x-forwarded-host": "app.local:4300",
+            "origin": "http://app.local:4300",
+        }
+    )
+    check_request_origin(request)
+
+
+def test_origin_rejects_cross_site():
+    request = _make_request(
+        {"host": "127.0.0.1:4300", "origin": "http://evil.example"}
+    )
+    with pytest.raises(HTTPException) as error:
+        check_request_origin(request)
+    assert error.value.status_code == 403
+
+
+def test_origin_rejects_mismatched_port():
+    request = _make_request(
+        {"host": "localhost:4300", "origin": "http://localhost:4301"}
+    )
+    with pytest.raises(HTTPException) as error:
+        check_request_origin(request)
+    assert error.value.status_code == 403
+
+
+def test_origin_rejects_null():
+    request = _make_request({"host": "localhost:4300", "origin": "null"})
+    with pytest.raises(HTTPException) as error:
+        check_request_origin(request)
+    assert error.value.status_code == 403
+
+
+def test_origin_allows_missing_origin_header():
+    request = _make_request({"host": "localhost:4300"})
+    check_request_origin(request)
+
+
+def test_secure_cookies_follow_https_origin(monkeypatch):
+    monkeypatch.delenv("COOKIE_SECURE", raising=False)
+    monkeypatch.setenv("ALLOWED_ORIGINS", "https://ragatool.example.com")
+
+    assert auth_core.get_cookie_secure()
+    assert auth_core.get_session_cookie_name() == auth_core.SECURE_SESSION_COOKIE
+
+
+def test_secure_cookie_explicit_override(monkeypatch):
+    monkeypatch.setenv("COOKIE_SECURE", "false")
+    monkeypatch.setenv("ALLOWED_ORIGINS", "https://ragatool.example.com")
+
+    assert not auth_core.get_cookie_secure()
+    assert auth_core.get_session_cookie_name() == auth_core.SESSION_COOKIE
+
+
+def test_cookies_not_secure_for_http_only_origins(monkeypatch):
+    monkeypatch.delenv("COOKIE_SECURE", raising=False)
+    monkeypatch.setenv("ALLOWED_ORIGINS", "http://localhost:4300")
+
+    assert not auth_core.get_cookie_secure()
+    assert auth_core.get_session_cookie_name() == auth_core.SESSION_COOKIE
+
+
+def test_setup_uses_host_prefixed_cookie_for_https(client, monkeypatch):
+    monkeypatch.delenv("COOKIE_SECURE", raising=False)
+    monkeypatch.setenv("ALLOWED_ORIGINS", "https://ragatool.example.com")
+    code = auth_core.generate_setup_code()
+
+    response = client.post(
+        "/auth/setup",
+        json={
+            "username": "admin",
+            "password": "password123",
+            "setup_code": code,
+        },
+    )
+
+    assert response.status_code == 200
+    set_cookie = response.headers["set-cookie"]
+    assert f"{auth_core.SECURE_SESSION_COOKIE}=" in set_cookie
+    assert "Secure" in set_cookie
+
+
+def test_setup_code_expires_and_is_cleared(client):
+    code = auth_core.generate_setup_code()
+    auth_core._setup_code_expires_at = time.monotonic() - 1
+
+    response = client.post(
+        "/auth/setup",
+        json={
+            "username": "admin",
+            "password": "password123",
+            "setup_code": code,
+        },
+    )
+
+    assert response.status_code == 400
+    assert auth_core._setup_code is None
+    assert auth_core._setup_code_expires_at is None
+
+
+def test_create_first_user_is_atomic(client):
+    with database.get_db_connection() as db:
+        first = crud_user.create_first_user(db, "first", hash_password("password123"))
+        second = crud_user.create_first_user(
+            db, "second", hash_password("password123")
+        )
+        count = crud_user.count_users(db)
+
+    assert first is not None
+    assert first["username"] == "first"
+    assert second is None
+    assert count == 1
+
+
+def test_concurrent_first_user_creation_keeps_one_user(client):
+    def attempt(username):
+        db = database.get_db_connection()
+        try:
+            return crud_user.create_first_user(
+                db, username, hash_password("password123")
+            )
+        finally:
+            db.close()
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(attempt, ["first", "second"]))
+
+    with database.get_db_connection() as db:
+        count = crud_user.count_users(db)
+
+    assert sum(result is not None for result in results) == 1
+    assert count == 1
+
+
+def test_touch_token_is_throttled(client):
+    token = generate_token()
+    with database.db_session() as db:
+        row = crud_token.create_token(
+            db, "mcp", hash_token(token), token_prefix(token)
+        )
+        crud_token.touch_token(db, row["id"])
+        first = db.execute(
+            "SELECT last_used_at FROM api_tokens WHERE id = ?", (row["id"],)
+        ).fetchone()["last_used_at"]
+
+        crud_token.touch_token(db, row["id"])
+        second = db.execute(
+            "SELECT last_used_at FROM api_tokens WHERE id = ?", (row["id"],)
+        ).fetchone()["last_used_at"]
+
+    assert first is not None
+    assert first == second

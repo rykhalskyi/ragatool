@@ -22,6 +22,9 @@ uv run pytest tests/test_url_import.py -q
   follow `backend/.design-specs/codestyle.md`.
 - `uv` manages the virtualenv and `uv.lock`.
 - Runtime data: `ragatouille.db` (SQLite) and `chroma_data/` (ChromaDB).
+  Override the locations with `DATABASE_PATH` and `CHROMA_PATH`. Docker
+  deployments must persist these paths; the bundled compose files use
+  `ragatool_data:/app/data`.
 - Environment: `backend/.env` is loaded by `app/main.py` via `python-dotenv`.
   Relevant variables include `ALLOWED_ORIGINS`, `MCP_HOST`, `MCP_PORT`,
   `MCP_HTTP_HOST`, `MCP_HTTP_PORT`, and `APP_VERSION`.
@@ -60,6 +63,8 @@ docker compose -f docker-compose.ghcr.yml --env-file backend/.env up -d
 - The backend image uses a two-stage build with `uv`; the runtime is
   `python:3.13-slim-bookworm`.
 - A `fastembed_cache` volume persists downloaded embedding/reranker models.
+- A `ragatool_data` volume persists `ragatouille.db` (users, sessions, tokens,
+  collections) and `chroma_data` across container recreation.
 - See `DOCKER_HOWTO.md` for troubleshooting.
 
 ## Quick verification

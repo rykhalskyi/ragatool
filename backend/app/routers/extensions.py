@@ -7,7 +7,7 @@ import queue # Import queue for type hinting
 from functools import partial
 
 from app.crud import crud_token
-from app.database import get_db_connection
+from app.database import db_session
 from app.internal.auth import TOKEN_PREFIX, hash_token, require_user
 from app.internal.extension_manager import ExtensionManager
 from app.dependencies import get_extension_manager
@@ -49,7 +49,7 @@ def _extract_ws_credentials(websocket: WebSocket) -> tuple[str | None, str | Non
 def _is_valid_ws_token(token: str | None) -> bool:
     if not token or not token.startswith(TOKEN_PREFIX):
         return False
-    with get_db_connection() as db:
+    with db_session() as db:
         row = crud_token.find_active_by_hash(db, hash_token(token))
         if row is None:
             return False

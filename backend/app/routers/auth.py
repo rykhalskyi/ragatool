@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
 from app.crud import crud_user
-from app.database import get_db_connection
+from app.database import db_session
 from app.internal.auth import (
     LOGIN_IP_LIMITER,
     LOGIN_USER_LIMITER,
@@ -24,7 +24,7 @@ router = APIRouter()
 
 @router.get("/status", response_model=AuthStatus)
 def auth_status() -> AuthStatus:
-    with get_db_connection() as db:
+    with db_session() as db:
         return AuthStatus(initialized=crud_user.count_users(db) > 0)
 
 
@@ -32,7 +32,7 @@ def auth_status() -> AuthStatus:
 def setup(request: Request, response: Response, payload: SetupRequest) -> UserOut:
     check_request_origin(request)
 
-    with get_db_connection() as db:
+    with db_session() as db:
         if crud_user.count_users(db) > 0:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -44,8 +44,14 @@ def setup(request: Request, response: Response, payload: SetupRequest) -> UserOu
                 detail="Invalid setup code",
             )
 
-        user = crud_user.create_user(
+        user = crud_user.create_first_user(
             db, payload.username.strip(), hash_password(payload.password)
+        )
+
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Setup has already been completed",
         )
 
     clear_setup_code()
@@ -71,7 +77,7 @@ def login(request: Request, response: Response, payload: LoginRequest) -> UserOu
             headers={"Retry-After": str(retry_after)},
         )
 
-    with get_db_connection() as db:
+    with db_session() as db:
         user = crud_user.get_user_by_username(db, username)
 
     # Always run bcrypt so unknown users and wrong passwords take similar time.

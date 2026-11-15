@@ -17,11 +17,15 @@ services:
       # Make sure to update your FastAPI app to read these environment variables
       PYTHONUNBUFFERED: 1
       ALLOWED_ORIGINS: http://localhost:4300
+      DATABASE_PATH: /app/data/ragatouille.db
+      CHROMA_PATH: /app/data/chroma_data
       MCP_HOST: "0.0.0.0"
       MCP_PORT: "8001"
       MCP_HTTP_HOST: "0.0.0.0"
       MCP_HTTP_PORT: "8002"
     volumes:
+      # Persist auth data, sessions, and the vector store across recreation.
+      - ragatool_data:/app/data
       # Persist downloaded embedding/reranker models across container restarts.
       - fastembed_cache:/app/.fastembed
     # For development, you might want to mount volumes for live code changes:
@@ -46,4 +50,5 @@ services:
 
 
 volumes:
+  ragatool_data:
   fastembed_cache:

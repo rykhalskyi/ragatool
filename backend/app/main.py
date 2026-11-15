@@ -83,7 +83,7 @@ def _env_flag(name: str, default: bool = False) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
-docs_enabled = _env_flag("ENABLE_API_DOCS", True)
+docs_enabled = _env_flag("ENABLE_API_DOCS", False)
 app = FastAPI(
     lifespan=lifespan,
     docs_url="/docs" if docs_enabled else None,

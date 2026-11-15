@@ -1,6 +1,6 @@
 import sqlite3
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 TOKEN_COLUMNS = "id, name, prefix, created_at, last_used_at, revoked_at"
@@ -58,9 +58,15 @@ def revoke_token(db: sqlite3.Connection, token_id: str) -> bool:
     return cursor.rowcount > 0
 
 
-def touch_token(db: sqlite3.Connection, token_id: str) -> None:
+def touch_token(
+    db: sqlite3.Connection, token_id: str, min_interval_seconds: int = 60
+) -> None:
+    """Update last_used_at at most once per interval to avoid write churn."""
+    now = datetime.now(timezone.utc)
+    cutoff = (now - timedelta(seconds=min_interval_seconds)).isoformat()
     db.execute(
-        "UPDATE api_tokens SET last_used_at = ? WHERE id = ?",
-        (_now(), token_id),
+        "UPDATE api_tokens SET last_used_at = ? "
+        "WHERE id = ? AND (last_used_at IS NULL OR last_used_at <= ?)",
+        (now.isoformat(), token_id, cutoff),
     )
     db.commit()
