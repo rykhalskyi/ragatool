@@ -11,6 +11,28 @@ export const TestIds = {
 
   // Topbar
   versionLabel: 'version-label',
+  accessButton: 'access-button',
+
+  // Login
+  loginUsernameInput: 'login-username-input',
+  loginPasswordInput: 'login-password-input',
+  loginSubmitButton: 'login-submit-button',
+
+  // Setup
+  setupCodeInput: 'setup-code-input',
+  setupUsernameInput: 'setup-username-input',
+  setupPasswordInput: 'setup-password-input',
+  setupConfirmPasswordInput: 'setup-confirm-password-input',
+  setupSubmitButton: 'setup-submit-button',
+
+  // Access tokens
+  createTokenButton: 'create-token-button',
+  tokenTable: 'token-table',
+  tokenNameInput: 'token-name-input',
+  tokenCreateSubmitButton: 'token-create-submit-button',
+  tokenRevealValue: 'token-reveal-value',
+  revokeTokenButton: 'revoke-token-button',
+  logoutButton: 'logout-button',
 
   // CollectionsList
   collectionItem: 'collection-item',

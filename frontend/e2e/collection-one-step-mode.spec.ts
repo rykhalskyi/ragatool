@@ -2,6 +2,11 @@ import { test, expect } from '@playwright/test';
 import * as path from 'path';
 
 import { TestIds } from '@testing/test-ids';
+import { ensureLoggedIn } from './auth';
+
+test.beforeEach(async ({ page }) => {
+  await ensureLoggedIn(page);
+});
 
 test('Add Lord of the Rings collection and import file', async ({ page }) => {
   const lotrFilePath = path.resolve(__dirname, 'text/lotr.txt');

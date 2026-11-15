@@ -83,28 +83,116 @@ from `BACKEND_URL`, so the same image works on any host or in Kubernetes. Set
 - **Angular frontend:** `http://localhost:4300`
 - **MCP Server:** `http://localhost:4302/mcp`
 
+## Authentication
+
+The first time the backend starts against an empty database it prints a
+one-time setup code to its logs:
+
+```bash
+docker compose logs backend | grep 'SETUP CODE'
+```
+
+Open the UI and set the admin username and password on the setup screen. The
+code is only required once and expires after 15 minutes
+(`SETUP_CODE_TTL_MINUTES`); restart the backend to print a new one. After
+setup, sign in with the username and password.
+
+API tokens for MCP clients and extension WebSockets are managed on the
+**Access** page. Tokens are shown only once; revoking one takes effect
+immediately.
+
+Sessions are stored server-side in SQLite and referenced by an `HttpOnly`
+cookie, so they survive backend process restarts and can be revoked
+immediately. The bundled compose files mount a `ragatool_data` volume at
+`/app/data`, which also persists `ragatouille.db` and `chroma_data`. Without a
+persistent volume, recreating the container resets users, tokens, and sessions.
+When upgrading an existing deployment, copy the old `ragatouille.db` and
+`chroma_data/` into the new volume before recreating the backend container.
+
+Cookies become `Secure` automatically when an `ALLOWED_ORIGINS` entry starts
+with `https://`; override with `COOKIE_SECURE=true|false`. Secure mode uses the
+`__Host-` cookie prefix.
+
+## Public deployment (Cloudflare Tunnel)
+
+Ragatool can be exposed through a Cloudflare Tunnel, but do not publish it
+directly. Recommended setup:
+
+1. **Complete `/setup` locally first**, then start the tunnel.
+2. **Put Cloudflare Access in front of the hostname** and allow only your
+   identity/group. Treat Cloudflare Access as the first gate and the Ragatool
+   login as the second.
+3. **Route only the frontend** through the tunnel. Do not expose backend
+   ports `4301`, `4302`, or `4303`; they stay on the LAN/VPN.
+4. Set:
+   ```dotenv
+   ALLOWED_ORIGINS=https://ragatool.example.com
+   COOKIE_SECURE=true
+   ENABLE_API_DOCS=false
+   ```
+   `ALLOWED_ORIGINS` takes exact `scheme://host[:port]` entries, comma
+   separated. Add every hostname/IP (with its port) that you use to reach the
+   UI. The bundled nginx forwards the original host and port so the backend's
+   same-origin check works on non-default ports.
+5. The app throttles `/auth/login` itself (5 attempts/min per user and
+   20/min per source address). Add Cloudflare WAF rate limits for
+   `/api/auth/login` and `/api/auth/setup` as an outer layer.
+6. Enable HSTS and the managed WAF rules at Cloudflare.
+7. Keep MCP and extension WebSockets off the public hostname. If remote
+   clients need them, use a separate hostname protected by Cloudflare Access
+   service tokens **and** the Ragatool bearer token. Plugins authenticate the
+   WebSocket handshake with the API token as a `Sec-WebSocket-Protocol`
+   subprotocol, so the token never appears in the URL or proxy access logs.
+   Native clients may instead send `Authorization: Bearer ragt_...`.
+
+Minimal `cloudflared` ingress (frontend only):
+
+```yaml
+tunnel: <tunnel-id>
+credentials-file: /etc/cloudflared/<tunnel-id>.json
+ingress:
+  - hostname: ragatool.example.com
+    service: http://localhost:4300
+  - service: http_status:404
+```
+
+The frontend container proxies `/api` to the backend, so the UI stays
+same-origin and the session cookie uses `SameSite=Lax`. The bundled nginx adds
+CSP and other security headers; the CSP assumes `API_URL=/api` (same origin).
+
 ## Ragatool MCP Configuration
 
-To configure Ragatool MCP, add the following to your configuration:
+Every MCP request requires an API token from the Access page. Add it to your
+client configuration as a bearer header:
 
 1. SSE:
 
 ```json
 "Ragatool": {
-      "url": "http://localhost:4302/mcp"
+      "url": "http://localhost:4302/mcp",
+      "headers": { "Authorization": "Bearer ragt_..." }
     }
 ```
 2. HTTP:
 
 ```json
 "Ragatool": {
-      "url": "http://localhost:4303/mcp"
+      "url": "http://localhost:4303/mcp",
+      "headers": { "Authorization": "Bearer ragt_..." }
     }
 ```
 
 ## 3rd Party Integrations
 
-Ragatool provides plugins for popular desktop applications, enabling AI agents to interact with your data across different platforms. All plugins communicate with the Ragatool server via WebSocket at `ws://localhost:8000/extensions/ws`.
+Ragatool provides plugins for popular desktop applications, enabling AI agents to interact with your data across different platforms. All plugins communicate with the Ragatool server via WebSocket at `ws://localhost:8000/extensions/ws` and require an API token from the Access page.
+
+- Browser-based plugins (OnlyOffice, Thunderbird) pass the token as a
+  WebSocket subprotocol (`ragatool`, `<token>`), so it does not end up in URLs
+  or access logs.
+- The Outlook add-in reads the `RAGATOOL_TOKEN` environment variable (legacy
+  `RAGATOUL_TOKEN` still works) and uses the same subprotocol.
+- Native clients may also send `Authorization: Bearer ragt_...` on the
+  WebSocket handshake.
 
 ### OnlyOffice Plugin
 

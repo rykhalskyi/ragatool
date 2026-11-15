@@ -2,6 +2,7 @@ from fastmcp import FastMCP
 import threading
 import time
 import os
+from app.internal.auth import DbTokenVerifier
 from app.internal.tools import register_tools
 
 
@@ -43,8 +44,12 @@ class MCPManager:
         if not self._is_enabled:
             self._is_enabled = True
             if not self._sse_server:
-                self._sse_server = FastMCP(f"{self.server_name}-SSE")
-                self._http_server = FastMCP(f"{self.server_name}-HTTP")
+                self._sse_server = FastMCP(
+                    f"{self.server_name}-SSE", auth=DbTokenVerifier()
+                )
+                self._http_server = FastMCP(
+                    f"{self.server_name}-HTTP", auth=DbTokenVerifier()
+                )
 
                 register_tools(self._sse_server, self)
                 register_tools(self._http_server, self)
@@ -64,8 +69,12 @@ class MCPManager:
                 # Give the server a moment to start
                 time.sleep(1)
                 print(f"MCP server '{self.server_name}' started.")
-                print(f"  SSE: http://127.0.0.1:8001/mcp")
-                print(f"  HTTP: http://127.0.0.1:8002/mcp")
+                sse_host = os.getenv("MCP_HOST", "127.0.0.1")
+                sse_port = os.getenv("MCP_PORT", "8001")
+                http_host = os.getenv("MCP_HTTP_HOST", "127.0.0.1")
+                http_port = os.getenv("MCP_HTTP_PORT", "8002")
+                print(f"  SSE: http://{sse_host}:{sse_port}/mcp")
+                print(f"  HTTP: http://{http_host}:{http_port}/mcp")
 
     def disable(self):
         if self._is_enabled:

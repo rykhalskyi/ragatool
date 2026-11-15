@@ -98,6 +98,10 @@ export class TopbarComponent implements OnInit {
       this.router.navigate(['/settings']);
   }
 
+  protected access_click() {
+      this.router.navigate(['/access']);
+  }
+
   public openTaskCenter() { 
    if (this.taskCount == 0) return; 
 

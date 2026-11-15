@@ -2,6 +2,11 @@ import { test, expect } from '@playwright/test';
 import * as path from 'path';
 
 import { TestIds } from '../src/app/testing/test-ids';
+import { ensureLoggedIn } from './auth';
+
+test.beforeEach(async ({ page }) => {
+  await ensureLoggedIn(page);
+});
 
 test('2-step import Dracula collection', async ({ page }) => {
   const draculaFilePath = path.resolve(__dirname, 'text/dracula.txt');

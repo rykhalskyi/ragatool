@@ -1,8 +1,12 @@
-<app-topbar></app-topbar>
-<main class="content">
+@if (!isAuthPage()) {
+  <app-topbar></app-topbar>
+}
+<main class="content" [class.auth-layout]="isAuthPage()">
   <div class="main-container">
-    <app-collections-list class="topic-list"></app-collections-list>
-    <div class="vertical-divider" (mousedown)="startDragging($event)"></div>
+    @if (!isAuthPage()) {
+      <app-collections-list class="topic-list"></app-collections-list>
+      <div class="vertical-divider" (mousedown)="startDragging($event)"></div>
+    }
     <div class="selected-topic">
       <router-outlet></router-outlet>
     </div>

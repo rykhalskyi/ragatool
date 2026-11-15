@@ -1,10 +1,11 @@
+import os
 from typing import Optional
 
 import chromadb
 
 from app.internal.embedding_manager import DEFAULT_EMBEDDING_MODEL
 
-CHROMA_PATH = "./chroma_data"
+CHROMA_PATH = os.getenv("CHROMA_PATH", "./chroma_data")
 VECTOR_SPACE = "cosine"
 EMBEDDING_MODEL_METADATA_KEY = "embedding_model"
 

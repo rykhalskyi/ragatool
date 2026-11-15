@@ -7,17 +7,33 @@ let connected = false;
 let client = null;
 let entity_name = 'All email acconts on this instance'
 
+const WS_SUBPROTOCOL = 'ragatool';
+
+function websocketBase() {
+    const secure = typeof globalThis !== 'undefined' &&
+        globalThis.location && globalThis.location.protocol === 'https:';
+    return secure ? 'wss://localhost:8000' : 'ws://localhost:8000';
+}
+
 messenger.runtime.onMessage.addListener((message) => {
     if (message.command === "connect") {
-        connect();
+        connect(message.token);
     }
 });
 
-function connect() {
+function connect(token) {
     console.log("** CONNECT **");
 
     if (!connected) {
-        client = new WebSocketClient('ws://localhost:8000/extensions/ws');
+        const apiToken = (token || '').trim();
+        if (!apiToken) {
+            messenger.runtime.sendMessage({ command: "updateStatus", status: false });
+            return;
+        }
+        client = new WebSocketClient(
+            `${websocketBase()}/extensions/ws`,
+            [WS_SUBPROTOCOL, apiToken]
+        );
 
         client.onOpen = async () => {
             connected = true;

@@ -1,6 +1,7 @@
 import os
 import threading
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 
 # Load environment variables from .env file if it exists
@@ -8,13 +9,30 @@ load_dotenv()
 
 from app.dependencies import get_message_hub, get_message_hub_instance, get_extension_manager
  # Added get_extension_manager
-from app.routers import items, collections, tasks, imports, mcp, logs, settings, files, extensions, summaries # Added summaries router
+from app.routers import (
+    items,
+    collections,
+    tasks,
+    imports,
+    mcp,
+    logs,
+    settings,
+    files,
+    extensions,
+    summaries,
+    auth,
+    tokens,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import create_tables, get_db_connection
 from contextlib import asynccontextmanager
+from app.internal.auth import check_request_origin, initialize_auth, require_user
+from app.internal.log_redaction import install_log_redaction
 from app.internal.mcp_manager import MCPManager
 from app.crud import crud_task
 from app.version import APP_NAME, APP_VERSION
+
+install_log_redaction()
 
 # Get the singleton instance of MCPManager
 mcp_manager = MCPManager()
@@ -23,7 +41,8 @@ mcp_manager = MCPManager()
 async def lifespan(app: FastAPI):
     # Startup: create tables if they don't exist
     create_tables()
-   
+    initialize_auth()
+
     #Clear tasks if application crashed and them left in db
     db = get_db_connection()
     crud_task.delete_all_tasks(db)
@@ -57,7 +76,20 @@ async def lifespan(app: FastAPI):
     
     # MessageHub's broadcast loop is daemon, will exit with app
 
-app = FastAPI(lifespan=lifespan)
+def _env_flag(name: str, default: bool = False) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+docs_enabled = _env_flag("ENABLE_API_DOCS", False)
+app = FastAPI(
+    lifespan=lifespan,
+    docs_url="/docs" if docs_enabled else None,
+    redoc_url="/redoc" if docs_enabled else None,
+    openapi_url="/openapi.json" if docs_enabled else None,
+)
 
 # Read allowed origins from environment variable, or use default for local development
 allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "http://localhost:4200,http://127.0.0.1:4200")
@@ -71,20 +103,57 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization", "Access-Control-Allow-Origin"],
 )
 
-app.include_router(items.router)
-app.include_router(collections.router, prefix="/collections", tags=["collections"])
-app.include_router(tasks.router, prefix="/tasks", tags=["tasks"])
-app.include_router(imports.router, prefix="/import", tags=["import"])
-app.include_router(mcp.router, prefix="/mcp", tags=["mcp"])
-app.include_router(logs.router, prefix="/logs", tags=["logs"])
-app.include_router(settings.router, prefix="/settings", tags=["settings"])
-app.include_router(files.router, prefix="/files", tags=["files"])
-app.include_router(extensions.router, prefix="/extensions", tags=["extensions"]) # Include the new extensions router
-app.include_router(summaries.router, prefix="/summaries", tags=["summaries"]) # Include the new summaries router
+
+@app.middleware("http")
+async def enforce_origin_for_unsafe_methods(request: Request, call_next):
+    """Defense-in-depth CSRF check for mutating requests."""
+    if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
+        try:
+            check_request_origin(request)
+        except HTTPException as exc:
+            return JSONResponse(
+                status_code=exc.status_code, content={"detail": exc.detail}
+            )
+    return await call_next(request)
+
+
+protected = [Depends(require_user)]
+
+app.include_router(items.router, dependencies=protected)
+app.include_router(
+    collections.router,
+    prefix="/collections",
+    tags=["collections"],
+    dependencies=protected,
+)
+app.include_router(tasks.router, prefix="/tasks", tags=["tasks"], dependencies=protected)
+app.include_router(
+    imports.router, prefix="/import", tags=["import"], dependencies=protected
+)
+app.include_router(mcp.router, prefix="/mcp", tags=["mcp"], dependencies=protected)
+app.include_router(logs.router, prefix="/logs", tags=["logs"], dependencies=protected)
+app.include_router(
+    settings.router, prefix="/settings", tags=["settings"], dependencies=protected
+)
+app.include_router(files.router, prefix="/files", tags=["files"], dependencies=protected)
+app.include_router(
+    extensions.router, prefix="/extensions", tags=["extensions"]
+)  # HTTP endpoints are protected individually; the WebSocket uses API tokens.
+app.include_router(
+    summaries.router, prefix="/summaries", tags=["summaries"], dependencies=protected
+)
+
+app.include_router(auth.router, prefix="/auth", tags=["auth"])
+app.include_router(tokens.router, prefix="/tokens", tags=["tokens"])
 
 @app.get("/")
 def read_root():
     return {"name": APP_NAME, "version": APP_VERSION}
+
+
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
 
 
 @app.get("/version")

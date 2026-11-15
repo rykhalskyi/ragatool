@@ -1,0 +1,65 @@
+<div class="auth-page">
+  <mat-card class="auth-card">
+    <img
+      class="mascot"
+      src="assets/login-mouse.png"
+      alt="Ragatool mouse mascot"
+    />
+
+    <h1>Welcome back</h1>
+    <p class="subtitle">Sign in to your Ragatool knowledge base.</p>
+
+    <form (ngSubmit)="submit()" class="auth-form">
+      <mat-form-field appearance="outline">
+        <mat-label>Username</mat-label>
+        <input
+          matInput
+          autocomplete="username"
+          name="username"
+          [(ngModel)]="username"
+          [attr.data-testid]="TestIds.loginUsernameInput"
+          required
+        />
+        <mat-icon matPrefix>person</mat-icon>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Password</mat-label>
+        <input
+          matInput
+          [type]="hidePassword ? 'password' : 'text'"
+          autocomplete="current-password"
+          name="password"
+          [(ngModel)]="password"
+          [attr.data-testid]="TestIds.loginPasswordInput"
+          required
+        />
+        <mat-icon matPrefix>lock</mat-icon>
+        <button
+          mat-icon-button
+          matSuffix
+          type="button"
+          (click)="hidePassword = !hidePassword"
+          [attr.aria-label]="hidePassword ? 'Show password' : 'Hide password'"
+        >
+          <mat-icon>{{ hidePassword ? 'visibility' : 'visibility_off' }}</mat-icon>
+        </button>
+      </mat-form-field>
+
+      @if (error) {
+        <p class="error" role="alert">{{ error }}</p>
+      }
+
+      <button
+        mat-flat-button
+        color="primary"
+        type="submit"
+        class="submit-button"
+        [disabled]="loading || !username || !password"
+        [attr.data-testid]="TestIds.loginSubmitButton"
+      >
+        {{ loading ? 'Signing in…' : 'Sign in' }}
+      </button>
+    </form>
+  </mat-card>
+</div>

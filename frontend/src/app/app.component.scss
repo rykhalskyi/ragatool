@@ -2,6 +2,11 @@
   padding-top: 64px; /* Match topbar height */
   height: calc(100vh - 64px);
 
+  &.auth-layout {
+    padding-top: 0;
+    height: 100vh;
+  }
+
   .main-container {
     display: flex;
     height: 100%;

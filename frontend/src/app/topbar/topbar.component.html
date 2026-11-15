@@ -9,6 +9,11 @@
       Add Collection
     </button>
 
+     <button mat-button class="menu-button" (click)="access_click()" [attr.data-testid]="TestIds.accessButton">
+      <mat-icon>key</mat-icon>
+      Access
+    </button>
+
      <button mat-button class="menu-button" (click)="settings_click()" [attr.data-testid]="TestIds.settingsButton">
       <mat-icon>settings</mat-icon>
       Settings

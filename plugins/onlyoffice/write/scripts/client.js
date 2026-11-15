@@ -1,7 +1,8 @@
 
 class WebSocketClient {
-    constructor(url) {
+    constructor(url, protocols = null) {
         this.url = url;
+        this.protocols = protocols;
         this.socket = null;
         this.onOpen = null;
         this.onMessage = null;
@@ -10,7 +11,9 @@ class WebSocketClient {
     }
 
     connect() {
-        this.socket = new WebSocket(this.url);
+        this.socket = this.protocols
+            ? new WebSocket(this.url, this.protocols)
+            : new WebSocket(this.url);
 
         this.socket.onopen = (event) => {
             if (this.onOpen) {

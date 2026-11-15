@@ -30,7 +30,16 @@ namespace Ragatool.AddIn
                      .With(new CallCommandMessageHandler())
                      .With(new ErrorMessageHandler());
                      
-            WebSocketClient = new WebSocketClient("ws://localhost:8000/extensions/ws");
+            var wsUrl = "ws://localhost:8000/extensions/ws";
+            var apiToken =
+                System.Environment.GetEnvironmentVariable("RAGATOOL_TOKEN")
+                ?? System.Environment.GetEnvironmentVariable("RAGATOUL_TOKEN");
+            List<string> subProtocols = null;
+            if (!string.IsNullOrWhiteSpace(apiToken))
+            {
+                subProtocols = new List<string> { "ragatool", apiToken.Trim() };
+            }
+            WebSocketClient = new WebSocketClient(wsUrl, subProtocols);
             WebSocketClient.OnMessage += async (webSocketMessage) =>
             {
                 await _messageHub.Handle(webSocketMessage);
