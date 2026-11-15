@@ -52,21 +52,21 @@ Relevant files:
 
 | Decision | Choice |
 |---|---|
-| UI authentication | Username + password, signed `HttpOnly` session cookie |
+| UI authentication | Username + password, server-side session ID in SQLite referenced by an `HttpOnly` cookie |
 | First-run bootstrap | `/setup` page gated by a one-time code printed in backend logs |
 | Machine authentication | Opaque `ragt_...` bearer tokens hashed in SQLite |
 | Token management | Dedicated `/access` page with create/revoke |
 | Extension WebSockets | Same bearer tokens as MCP |
 | Database encryption | Out of scope; rely on encrypted PVC/backups |
 
-Recorded as decisions `D-02` and `D-03` in [decisions.md](../../decisions.md).
+Recorded as decisions `D-02`, `D-03`, and `D-04` in [decisions.md](../../decisions.md).
 
 ### Architecture
 
 ```
 Angular UI ──cookie──> FastAPI REST ──> session check ──> routers
                             │
-                            └── SQLite: auth_users, api_tokens
+                            └── SQLite: auth_users, sessions, api_tokens
 
 MCP client ──Bearer ragt_...──> FastMCP SSE/HTTP ──> DbTokenVerifier
                             │
@@ -95,13 +95,24 @@ CREATE TABLE IF NOT EXISTS api_tokens (
     last_used_at DATETIME,
     revoked_at DATETIME
 );
+
+CREATE TABLE IF NOT EXISTS sessions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    token_hash TEXT NOT NULL UNIQUE,
+    created_at INTEGER NOT NULL,
+    expires_at INTEGER NOT NULL,
+    session_version INTEGER NOT NULL
+);
 ```
 
 - Password hashes use bcrypt (add `bcrypt` explicitly to `pyproject.toml`).
 - Tokens are `ragt_` + `secrets.token_urlsafe(32)`; only the SHA-256 hex digest
   is stored. `prefix` is the first 8 characters for display.
-- `session_version` is embedded in the session cookie; incrementing it
-  invalidates all existing sessions.
+- Sessions are random tokens; only their SHA-256 hash is stored. Logout deletes
+  the row, and `session_version` invalidates all sessions after a password
+  reset.
+- Neither the server nor the operator manages a signing key.
 
 ### API contract
 
@@ -141,7 +152,6 @@ Session-protected:
 
 | Variable | Purpose |
 |---|---|
-| `SECRET_KEY` | Session cookie signing; ephemeral with a warning if unset |
 | `COOKIE_SECURE` | `true` behind TLS, default `false` for local HTTP |
 | `SESSION_MAX_AGE_HOURS` | Session lifetime, default `168` |
 | `RAGATOOL_ADMIN_USERNAME` | Optional headless seed, default `admin` |
@@ -154,8 +164,8 @@ If a user already exists, env seeding is ignored.
 ### 1. Auth core (`backend/app/internal/auth.py`)
 
 - `hash_password`, `verify_password`, `generate_token`, `hash_token`.
-- Session helpers over Starlette `SessionMiddleware`; add `itsdangerous` as an
-  explicit dependency.
+- Server-side sessions: create, set/clear cookie, look up by hashed token,
+  delete on logout, and expire on startup.
 - `require_user` FastAPI dependency; `require_setup_available`.
 - Origin check for state-changing requests; `SameSite=Lax` cookies.
 - CLI entry points:
@@ -168,8 +178,9 @@ If a user already exists, env seeding is ignored.
 ### 2. Persistence
 
 - Add tables to `create_tables` in `backend/app/database.py`.
-- New `backend/app/crud/crud_user.py` and `crud_token.py`:
+- New `backend/app/crud/crud_user.py`, `crud_session.py`, and `crud_token.py`:
   - create/find user, verify credentials, reset password.
+  - create/find-by-hash/delete sessions, delete by user, delete expired.
   - create/list/find-by-hash/revoke/touch tokens.
 - All list responses exclude `password_hash` and `token_hash`.
 
@@ -234,9 +245,10 @@ If a user already exists, env seeding is ignored.
 
 ### 8. Migration (existing installations)
 
-The schema change is additive: `create_tables()` adds `auth_users` and
-`api_tokens` without touching existing tables. No data backfill is needed;
-after setup, the single admin implicitly owns every existing collection.
+The schema change is additive: `create_tables()` adds `auth_users`,
+`sessions`, and `api_tokens` without touching existing tables. No data backfill
+is needed; after setup, the single admin implicitly owns every existing
+collection.
 
 Kubernetes runbook:
 
@@ -245,11 +257,12 @@ Kubernetes runbook:
    and fix the PVC mount before rollout. Do not mount a PVC over `/app`; it
    would hide the application code.
 2. Snapshot the PVC, or stop the pod and archive those paths.
-3. Create the auth Secret (with an optional headless admin hash):
-   `kubectl -n <ns> create secret generic ragatool-auth --from-literal=SECRET_KEY=...`
-4. Update the Deployment: new image tag/digest, `SECRET_KEY` via
-   `secretKeyRef`, `COOKIE_SECURE`, probes on `/health` or `/version`, and
-   `strategy: Recreate` for a single RWO SQLite volume.
+3. Optionally create a Secret with a headless admin hash (no signing key is
+   needed):
+   `kubectl -n <ns> create secret generic ragatool-auth --from-literal=RAGATOOL_ADMIN_PASSWORD_HASH=...`
+4. Update the Deployment: new image tag/digest, `COOKIE_SECURE`, probes on
+   `/health` or `/version`, and `strategy: Recreate` for a single RWO SQLite
+   volume.
 5. Roll out and read the code from the new pod:
    `kubectl -n <ns> logs deploy/ragatool -c backend | grep 'SETUP CODE'`.
 6. Complete `/setup`, then verify existing collections and summaries.
@@ -314,21 +327,23 @@ Implemented as specified.
 
 Backend:
 
-- New `app/internal/auth.py`: bcrypt passwords, SHA-256 token hashes, session
-  helpers, origin check, setup-code lifecycle, env admin seeding, CLI
-  (`hash-password`, `reset-password`, `create-token`), and `DbTokenVerifier`.
-- New `app/crud/crud_user.py` and `crud_token.py`; `auth_users` and
-  `api_tokens` tables added in `app/database.py`.
+- New `app/internal/auth.py`: bcrypt passwords, SHA-256 token hashes,
+  server-side session helpers, origin check, setup-code lifecycle, env admin
+  seeding, CLI (`hash-password`, `reset-password`, `create-token`), and
+  `DbTokenVerifier`.
+- New `app/crud/crud_user.py`, `crud_session.py`, and `crud_token.py`;
+  `auth_users`, `sessions`, and `api_tokens` tables added in
+  `app/database.py`.
 - New `app/routers/auth.py` (`status`, `setup`, `login`, `logout`, `me`) and
   `app/routers/tokens.py` (list/create/revoke).
-- `app/main.py`: session middleware, public `/health`, and `require_user`
-  applied to all data routers.
+- `app/main.py`: no session middleware or signing key; public `/health`, and
+  `require_user` applied to all data routers.
 - `MCPManager` passes `DbTokenVerifier` to both FastMCP transports.
 - Extension WebSocket accepts `Authorization: Bearer` or `?token=` and rejects
   invalid tokens with code `1008`; HTTP extension endpoints require a session.
-- Tests: `tests/test_auth.py` covers setup, login/logout, token CRUD, verifier
-  revocation, WS token validation, and env seeding. Existing tests keep their
-  behavior via `tests/conftest.py`.
+- Tests: `tests/test_auth.py` covers setup, login/logout, server-side session
+  deletion, token CRUD, verifier revocation, WS token validation, and env
+  seeding. Existing tests keep their behavior via `tests/conftest.py`.
 
 Frontend:
 
@@ -341,6 +356,17 @@ Frontend:
   covers token create/revoke and logout/login. CI seeds the admin through
   `RAGATOOL_ADMIN_PASSWORD_HASH`.
 
+Public exposure hardening:
+
+- Global `Origin` check for `POST`/`PUT`/`PATCH`/`DELETE` as CSRF
+  defense-in-depth.
+- `ENABLE_API_DOCS=false` disables `/docs`, `/redoc`, and `/openapi.json`.
+- Bundled nginx adds CSP, `X-Frame-Options`, `nosniff`, `Referrer-Policy`,
+  `Permissions-Policy`, and `Cross-Origin-Opener-Policy`.
+- README documents a Cloudflare Tunnel deployment: Cloudflare Access first,
+  expose only the frontend, `COOKIE_SECURE=true`, `ALLOWED_ORIGINS`, WAF rate
+  limits, and keeping MCP/WebSockets off the public hostname.
+
 Plugins and docs:
 
 - OnlyOffice, Thunderbird, and Outlook send the API token (`?token=` for the
@@ -348,7 +374,7 @@ Plugins and docs:
 - README, `backend/.env.example`, and the Playwright workflow document the
   setup code and token configuration.
 
-Verification: `uv run pytest` (178 passed, 1 skipped), `npm run build`, and a
+Verification: `uv run pytest` (179 passed, 1 skipped), `npm run build`, and a
 live uvicorn smoke test of setup, session access, token creation, and MCP
 rejection/acceptance all pass.
 

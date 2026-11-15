@@ -1,6 +1,7 @@
 import os
 import threading
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 
 # Load environment variables from .env file if it exists
@@ -23,16 +24,9 @@ from app.routers import (
     tokens,
 )
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.middleware.sessions import SessionMiddleware
 from app.database import create_tables, get_db_connection
 from contextlib import asynccontextmanager
-from app.internal.auth import (
-    get_cookie_secure,
-    get_secret_key,
-    get_session_max_age,
-    initialize_auth,
-    require_user,
-)
+from app.internal.auth import check_request_origin, initialize_auth, require_user
 from app.internal.mcp_manager import MCPManager
 from app.crud import crud_task
 from app.version import APP_NAME, APP_VERSION
@@ -79,20 +73,24 @@ async def lifespan(app: FastAPI):
     
     # MessageHub's broadcast loop is daemon, will exit with app
 
-app = FastAPI(lifespan=lifespan)
+def _env_flag(name: str, default: bool = False) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+docs_enabled = _env_flag("ENABLE_API_DOCS", True)
+app = FastAPI(
+    lifespan=lifespan,
+    docs_url="/docs" if docs_enabled else None,
+    redoc_url="/redoc" if docs_enabled else None,
+    openapi_url="/openapi.json" if docs_enabled else None,
+)
 
 # Read allowed origins from environment variable, or use default for local development
 allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "http://localhost:4200,http://127.0.0.1:4200")
 allowed_origins = [origin.strip() for origin in allowed_origins_env.split(',')]
-
-app.add_middleware(
-    SessionMiddleware,
-    secret_key=get_secret_key(),
-    session_cookie="ragatool_session",
-    max_age=get_session_max_age(),
-    same_site="lax",
-    https_only=get_cookie_secure(),
-)
 
 app.add_middleware(
     CORSMiddleware,
@@ -101,6 +99,20 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["Content-Type", "Authorization", "Access-Control-Allow-Origin"],
 )
+
+
+@app.middleware("http")
+async def enforce_origin_for_unsafe_methods(request: Request, call_next):
+    """Defense-in-depth CSRF check for mutating requests."""
+    if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
+        try:
+            check_request_origin(request)
+        except HTTPException as exc:
+            return JSONResponse(
+                status_code=exc.status_code, content={"detail": exc.detail}
+            )
+    return await call_next(request)
+
 
 protected = [Depends(require_user)]
 

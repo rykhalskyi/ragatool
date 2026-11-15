@@ -99,8 +99,49 @@ API tokens for MCP clients and extension WebSockets are managed on the
 **Access** page. Tokens are shown only once; revoking one takes effect
 immediately.
 
-Set `SECRET_KEY` in `backend/.env` (or the Kubernetes Secret) so sessions
-survive restarts. Use `COOKIE_SECURE=true` when serving over HTTPS.
+Sessions are stored server-side in SQLite and referenced by an `HttpOnly`
+cookie, so they survive restarts and can be revoked immediately. Use
+`COOKIE_SECURE=true` when serving over HTTPS.
+
+## Public deployment (Cloudflare Tunnel)
+
+Ragatool can be exposed through a Cloudflare Tunnel, but do not publish it
+directly. Recommended setup:
+
+1. **Complete `/setup` locally first**, then start the tunnel.
+2. **Put Cloudflare Access in front of the hostname** and allow only your
+   identity/group. Treat Cloudflare Access as the first gate and the Ragatool
+   login as the second.
+3. **Route only the frontend** through the tunnel. Do not expose backend
+   ports `4301`, `4302`, or `4303`; they stay on the LAN/VPN.
+4. Set:
+   ```dotenv
+   ALLOWED_ORIGINS=https://ragatool.example.com
+   COOKIE_SECURE=true
+   ENABLE_API_DOCS=false
+   ```
+5. Add Cloudflare WAF rate limits for `/api/auth/login` and
+   `/api/auth/setup` (for example, 5 requests per minute per IP).
+6. Enable HSTS and the managed WAF rules at Cloudflare.
+7. Keep MCP and extension WebSockets off the public hostname. If remote
+   clients need them, use a separate hostname protected by Cloudflare Access
+   service tokens **and** the Ragatool bearer token. Browser WebSocket
+   plugins pass the token in `?token=`, which can appear in proxy logs.
+
+Minimal `cloudflared` ingress (frontend only):
+
+```yaml
+tunnel: <tunnel-id>
+credentials-file: /etc/cloudflared/<tunnel-id>.json
+ingress:
+  - hostname: ragatool.example.com
+    service: http://localhost:4300
+  - service: http_status:404
+```
+
+The frontend container proxies `/api` to the backend, so the UI stays
+same-origin and the session cookie uses `SameSite=Lax`. The bundled nginx adds
+CSP and other security headers; the CSP assumes `API_URL=/api` (same origin).
 
 ## Ragatool MCP Configuration
 

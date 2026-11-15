@@ -5,21 +5,22 @@ import hmac
 import os
 import secrets
 import sys
+import time
 from typing import Optional
 from urllib.parse import urlparse
 
 import bcrypt
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, HTTPException, Request, Response, status
 from fastmcp.server.auth import AccessToken, TokenVerifier
 
-from app.crud import crud_token, crud_user
+from app.crud import crud_session, crud_token, crud_user
 from app.database import create_tables, get_db_connection
 
 TOKEN_PREFIX = "ragt_"
+SESSION_COOKIE = "ragatool_session"
 DEFAULT_ALLOWED_ORIGINS = "http://localhost:4200,http://127.0.0.1:4200"
 
 _setup_code: Optional[str] = None
-_secret_key: Optional[str] = None
 
 
 def hash_password(password: str) -> str:
@@ -45,21 +46,6 @@ def hash_token(token: str) -> str:
 
 def token_prefix(token: str) -> str:
     return token[:8]
-
-
-def get_secret_key() -> str:
-    global _secret_key
-    if _secret_key is None:
-        configured = os.getenv("SECRET_KEY")
-        if configured:
-            _secret_key = configured
-        else:
-            _secret_key = secrets.token_urlsafe(48)
-            print(
-                "WARNING: SECRET_KEY is not set; sessions will be invalidated on restart.",
-                flush=True,
-            )
-    return _secret_key
 
 
 def get_cookie_secure() -> bool:
@@ -112,31 +98,72 @@ def initialize_auth() -> None:
             print("RAGATOOL SETUP REQUIRED", flush=True)
             print(f"RAGATOOL SETUP CODE: {code}", flush=True)
 
-
-def set_session(request: Request, user: dict) -> None:
-    request.session.clear()
-    request.session["user_id"] = user["id"]
-    request.session["username"] = user["username"]
-    request.session["session_version"] = user["session_version"]
+        crud_session.delete_expired(db)
 
 
-def clear_session(request: Request) -> None:
-    request.session.clear()
+def create_session(user: dict) -> str:
+    token = secrets.token_urlsafe(32)
+    with get_db_connection() as db:
+        crud_session.create_session(
+            db,
+            user_id=user["id"],
+            token_hash=hash_token(token),
+            expires_at=int(time.time()) + get_session_max_age(),
+            session_version=user["session_version"],
+        )
+    return token
+
+
+def set_session_cookie(response: Response, token: str) -> None:
+    response.set_cookie(
+        SESSION_COOKIE,
+        token,
+        max_age=get_session_max_age(),
+        httponly=True,
+        samesite="lax",
+        secure=get_cookie_secure(),
+        path="/",
+    )
+
+
+def clear_session_cookie(response: Response) -> None:
+    response.delete_cookie(
+        SESSION_COOKIE,
+        httponly=True,
+        samesite="lax",
+        secure=get_cookie_secure(),
+        path="/",
+    )
+
+
+def delete_current_session(request: Request) -> None:
+    token = request.cookies.get(SESSION_COOKIE)
+    if not token:
+        return
+    with get_db_connection() as db:
+        crud_session.delete_by_hash(db, hash_token(token))
 
 
 def get_current_user(request: Request) -> Optional[dict]:
-    user_id = request.session.get("user_id")
-    if not user_id:
+    token = request.cookies.get(SESSION_COOKIE)
+    if not token:
         return None
 
+    token_hash = hash_token(token)
     with get_db_connection() as db:
-        user = crud_user.get_user_by_id(db, user_id)
+        session = crud_session.find_by_hash(db, token_hash)
+        if session is None:
+            return None
 
-    if user is None or user["session_version"] != request.session.get(
-        "session_version"
-    ):
-        request.session.clear()
-        return None
+        if session["expires_at"] <= int(time.time()):
+            crud_session.delete_by_hash(db, token_hash)
+            return None
+
+        user = crud_user.get_user_by_id(db, session["user_id"])
+        if user is None or user["session_version"] != session["session_version"]:
+            crud_session.delete_by_hash(db, token_hash)
+            return None
+
     return user
 
 

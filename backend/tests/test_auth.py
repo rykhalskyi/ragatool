@@ -3,7 +3,6 @@ import asyncio
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from starlette.middleware.sessions import SessionMiddleware
 
 import app.database as database
 from app.crud import crud_token, crud_user
@@ -27,11 +26,6 @@ def client(tmp_path, monkeypatch):
     auth_core.clear_setup_code()
 
     test_app = FastAPI()
-    test_app.add_middleware(
-        SessionMiddleware,
-        secret_key="test-secret",
-        session_cookie="ragatool_session",
-    )
     test_app.include_router(auth.router, prefix="/auth")
     test_app.include_router(tokens.router, prefix="/tokens")
 
@@ -112,6 +106,20 @@ def test_login_logout_and_session(client):
     me = client.get("/auth/me")
     assert me.status_code == 200
     assert me.json()["username"] == "admin"
+
+
+def test_logout_deletes_server_side_session(client):
+    complete_setup(client)
+
+    with database.get_db_connection() as db:
+        count = db.execute("SELECT COUNT(*) AS count FROM sessions").fetchone()["count"]
+    assert count == 1
+
+    client.post("/auth/logout")
+
+    with database.get_db_connection() as db:
+        count = db.execute("SELECT COUNT(*) AS count FROM sessions").fetchone()["count"]
+    assert count == 0
 
 
 def test_password_hashing_round_trip():

@@ -5,3 +5,5 @@
 ## [2026-11-15] ticket | Secure Ragatool: single-user auth, first-run setup, API tokens for MCP and extensions
 ## [2026-11-15] update | Secure Ragatool auth ticket: add Kubernetes migration runbook, create-token CLI, /health probe, and DB-encryption non-goal
 ## [2026-11-15] update | Secure Ragatool auth: implemented session login, first-run setup, MCP/WS tokens, Access page, plugin tokens, and tests
+## [2026-11-15] update | Secure Ragatool auth: switch UI sessions to server-side SQLite session IDs; remove SECRET_KEY/itsdangerous
+## [2026-11-15] update | Secure Ragatool auth: public-exposure hardening (origin guard, docs toggle, nginx headers, Cloudflare Tunnel docs)

@@ -165,6 +165,17 @@ def create_tables(conn: Optional[Connection] = None):
     )
     """)
 
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS sessions (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        token_hash TEXT NOT NULL UNIQUE,
+        created_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL,
+        session_version INTEGER NOT NULL
+    )
+    """)
+
     conn.commit()
     if close_conn:
         conn.close()
