@@ -72,7 +72,7 @@ MCP client ──Bearer ragt_...──> FastMCP SSE/HTTP ──> DbTokenVerifier
                             │
                             └── SQLite: api_tokens (hash lookup)
 
-Plugin ──Bearer / ?token=──> /extensions/ws ──> token check
+Plugin ──Bearer / subprotocol──> /extensions/ws ──> token check
 ```
 
 ### Data model
@@ -206,10 +206,12 @@ If a user already exists, env seeding is ignored.
 ### 5. Extension WebSocket
 
 - In `backend/app/routers/extensions.py`, extract the token from
-  `Authorization: Bearer` or `?token=` and validate before `accept()`.
+  `Authorization: Bearer` or the `Sec-WebSocket-Protocol` subprotocol offer and
+  validate before `accept()`. Never read the token from the query string.
 - Close with code `1008` on failure.
 - Update the OnlyOffice, Thunderbird, and Outlook plugins to send a configured
-  token. Browser WebSocket clients use `?token=`; C# uses the header.
+  token. Browser WebSocket clients offer `ragatool` plus the token as
+  subprotocols; native clients may use the header.
 
 ### 6. Frontend
 
@@ -239,8 +241,8 @@ If a user already exists, env seeding is ignored.
 }
 ```
 
-- Document plugin token setup and the difference between header and
-  `?token=` transports.
+- Document plugin token setup: subprotocol offers for browser plugins and
+  `Authorization: Bearer` for native clients.
 - Document the Kubernetes rollout in the migration section below.
 
 ### 8. Migration (existing installations)
@@ -310,8 +312,8 @@ Frontend:
 
 - Some MCP clients may attempt OAuth discovery instead of sending a static
   header; fallback is a minimal local token issuer.
-- Browser WebSocket cannot set headers, so plugins must use `?token=` and URLs
-  may appear in proxy logs.
+- Browser WebSocket clients cannot set headers, so they offer the API token as
+  a subprotocol. Access logs redact any stray `token=`/`ticket=` query values.
 - `COOKIE_SECURE=false` is required for plain-HTTP LAN use; document the
   trade-off.
 - The one-time setup code is printed to container logs; treat logs as sensitive
@@ -339,8 +341,9 @@ Backend:
 - `app/main.py`: no session middleware or signing key; public `/health`, and
   `require_user` applied to all data routers.
 - `MCPManager` passes `DbTokenVerifier` to both FastMCP transports.
-- Extension WebSocket accepts `Authorization: Bearer` or `?token=` and rejects
-  invalid tokens with code `1008`; HTTP extension endpoints require a session.
+- Extension WebSocket accepts `Authorization: Bearer` or a
+  `Sec-WebSocket-Protocol` token and rejects invalid tokens with code `1008`;
+  query-string tokens are ignored. HTTP extension endpoints require a session.
 - Tests: `tests/test_auth.py` covers setup, login/logout, server-side session
   deletion, token CRUD, verifier revocation, WS token validation, and env
   seeding. Existing tests keep their behavior via `tests/conftest.py`.
@@ -369,8 +372,9 @@ Public exposure hardening:
 
 Plugins and docs:
 
-- OnlyOffice, Thunderbird, and Outlook send the API token (`?token=` for the
-  browser plugins, `RAGATOUL_TOKEN` for Outlook).
+- OnlyOffice, Thunderbird, and Outlook send the API token as a WebSocket
+  subprotocol (`RAGATOOL_TOKEN` for Outlook, with the legacy
+  `RAGATOUL_TOKEN` spelling still accepted).
 - README, `backend/.env.example`, and the Playwright workflow document the
   setup code and token configuration.
 

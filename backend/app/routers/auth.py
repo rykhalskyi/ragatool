@@ -3,11 +3,14 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from app.crud import crud_user
 from app.database import get_db_connection
 from app.internal.auth import (
+    LOGIN_IP_LIMITER,
+    LOGIN_USER_LIMITER,
     check_request_origin,
     clear_session_cookie,
     clear_setup_code,
     create_session,
     delete_current_session,
+    get_dummy_password_hash,
     hash_password,
     require_user,
     set_session_cookie,
@@ -54,15 +57,37 @@ def setup(request: Request, response: Response, payload: SetupRequest) -> UserOu
 def login(request: Request, response: Response, payload: LoginRequest) -> UserOut:
     check_request_origin(request)
 
-    with get_db_connection() as db:
-        user = crud_user.get_user_by_username(db, payload.username.strip())
+    client_ip = request.client.host if request.client else "unknown"
+    username = payload.username.strip()
+    user_key = f"{client_ip}:{username.lower()}"
 
-    if user is None or not verify_password(payload.password, user["password_hash"]):
+    retry_after = LOGIN_IP_LIMITER.consume(client_ip)
+    if not retry_after:
+        retry_after = LOGIN_USER_LIMITER.consume(user_key)
+    if retry_after:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many login attempts. Try again later.",
+            headers={"Retry-After": str(retry_after)},
+        )
+
+    with get_db_connection() as db:
+        user = crud_user.get_user_by_username(db, username)
+
+    # Always run bcrypt so unknown users and wrong passwords take similar time.
+    if user is None:
+        verify_password(payload.password, get_dummy_password_hash())
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid username or password",
+        )
+    if not verify_password(payload.password, user["password_hash"]):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid username or password",
         )
 
+    LOGIN_USER_LIMITER.reset(user_key)
     set_session_cookie(response, create_session(user))
     return UserOut(id=user["id"], username=user["username"])
 

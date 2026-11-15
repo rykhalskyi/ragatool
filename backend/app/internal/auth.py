@@ -15,12 +15,19 @@ from fastmcp.server.auth import AccessToken, TokenVerifier
 
 from app.crud import crud_session, crud_token, crud_user
 from app.database import create_tables, get_db_connection
+from app.internal.rate_limit import SlidingWindowRateLimiter
 
 TOKEN_PREFIX = "ragt_"
 SESSION_COOKIE = "ragatool_session"
 DEFAULT_ALLOWED_ORIGINS = "http://localhost:4200,http://127.0.0.1:4200"
+BCRYPT_MAX_PASSWORD_BYTES = 72
+
+# Throttle failed logins per source address and per (source, username) pair.
+LOGIN_IP_LIMITER = SlidingWindowRateLimiter(max_events=20, window_seconds=60)
+LOGIN_USER_LIMITER = SlidingWindowRateLimiter(max_events=5, window_seconds=60)
 
 _setup_code: Optional[str] = None
+_dummy_password_hash: Optional[str] = None
 
 
 def hash_password(password: str) -> str:
@@ -34,6 +41,14 @@ def verify_password(password: str, password_hash: str) -> bool:
         )
     except (ValueError, TypeError):
         return False
+
+
+def get_dummy_password_hash() -> str:
+    """A valid hash used to keep failed logins for unknown users slow."""
+    global _dummy_password_hash
+    if _dummy_password_hash is None:
+        _dummy_password_hash = hash_password(secrets.token_urlsafe(16))
+    return _dummy_password_hash
 
 
 def generate_token() -> str:
@@ -100,6 +115,8 @@ def initialize_auth() -> None:
 
         crud_session.delete_expired(db)
 
+    get_dummy_password_hash()
+
 
 def create_session(user: dict) -> str:
     token = secrets.token_urlsafe(32)
@@ -164,7 +181,11 @@ def get_current_user(request: Request) -> Optional[dict]:
             crud_session.delete_by_hash(db, token_hash)
             return None
 
-    return user
+    return {
+        "id": user["id"],
+        "username": user["username"],
+        "session_version": user["session_version"],
+    }
 
 
 def require_user(request: Request) -> dict:
@@ -229,6 +250,9 @@ def _prompt_password() -> str:
         raise SystemExit(1)
     if len(password) < 8:
         print("Password must be at least 8 characters.", file=sys.stderr)
+        raise SystemExit(1)
+    if len(password.encode("utf-8")) > BCRYPT_MAX_PASSWORD_BYTES:
+        print("Password must be at most 72 bytes.", file=sys.stderr)
         raise SystemExit(1)
     return password
 

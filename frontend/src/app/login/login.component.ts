@@ -53,6 +53,8 @@ export class LoginComponent {
     } catch (error) {
       if (error instanceof HttpErrorResponse && error.status === 401) {
         this.error = 'Invalid username or password.';
+      } else if (error instanceof HttpErrorResponse && error.status === 429) {
+        this.error = 'Too many login attempts. Please wait a minute and try again.';
       } else {
         this.error = 'Could not reach the Ragatool server.';
       }

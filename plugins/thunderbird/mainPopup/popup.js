@@ -1,19 +1,39 @@
 console.log('Hello, World! - from popup.js');
 
 
+const TOKEN_STORAGE_KEY = 'ragatool_token';
+
+function readStoredToken() {
+    try {
+        return sessionStorage.getItem(TOKEN_STORAGE_KEY) || '';
+    } catch (error) {
+        return '';
+    }
+}
+
+function storeToken(token) {
+    try {
+        if (token) {
+            sessionStorage.setItem(TOKEN_STORAGE_KEY, token);
+        } else {
+            sessionStorage.removeItem(TOKEN_STORAGE_KEY);
+        }
+    } catch (error) {
+        // Storage may be unavailable in some extension contexts.
+    }
+}
+
 function connectClick(event) {
     console.log("CONNECT CLICK");
     const tokenInput = document.getElementById('token');
     const token = tokenInput ? tokenInput.value.trim() : '';
-    if (token) {
-        localStorage.setItem('ragatool_token', token);
-    }
+    storeToken(token);
     messenger.runtime.sendMessage({ command: "connect", token });
 }
 
 const tokenInput = document.getElementById('token');
 if (tokenInput) {
-    tokenInput.value = localStorage.getItem('ragatool_token') || '';
+    tokenInput.value = readStoredToken();
 }
 
 document.getElementById('connectBtn').addEventListener('click', connectClick);

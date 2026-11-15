@@ -8,7 +8,7 @@ from functools import partial
 
 from app.crud import crud_token
 from app.database import get_db_connection
-from app.internal.auth import hash_token, require_user
+from app.internal.auth import TOKEN_PREFIX, hash_token, require_user
 from app.internal.extension_manager import ExtensionManager
 from app.dependencies import get_extension_manager
 from app.schemas.websocket import WebSocketMessage, ClientMessage
@@ -17,15 +17,37 @@ from app.schemas.mcp import ExtensionTool, CallToolRequest, CallToolResponse
 router = APIRouter()
 
 
-def _extract_ws_token(websocket: WebSocket) -> str | None:
+WS_SUBPROTOCOL = "ragatool"
+
+
+def _offered_subprotocols(websocket: WebSocket) -> list[str]:
+    raw = websocket.headers.get("sec-websocket-protocol", "")
+    return [item.strip() for item in raw.split(",") if item.strip()]
+
+
+def _extract_ws_credentials(websocket: WebSocket) -> tuple[str | None, str | None]:
+    """Return (api_token, subprotocol_to_accept).
+
+    The token may come from an Authorization header (native clients) or from a
+    WebSocket subprotocol offer (browser clients). It is never accepted from the
+    query string, where it would end up in access logs.
+    """
     authorization = websocket.headers.get("authorization", "")
     if authorization.lower().startswith("bearer "):
-        return authorization[7:].strip()
-    return websocket.query_params.get("token")
+        token = authorization[7:].strip()
+        if token.startswith(TOKEN_PREFIX):
+            return token, None
+
+    offered = _offered_subprotocols(websocket)
+    if WS_SUBPROTOCOL in offered:
+        for protocol in offered:
+            if protocol != WS_SUBPROTOCOL and protocol.startswith(TOKEN_PREFIX):
+                return protocol, WS_SUBPROTOCOL
+    return None, None
 
 
 def _is_valid_ws_token(token: str | None) -> bool:
-    if not token:
+    if not token or not token.startswith(TOKEN_PREFIX):
         return False
     with get_db_connection() as db:
         row = crud_token.find_active_by_hash(db, hash_token(token))
@@ -65,12 +87,13 @@ async def websocket_endpoint(
     extension_manager: ExtensionManager = Depends(get_extension_manager)
 ):
     print("INFO: WebSocket connection requested.")
-    if not _is_valid_ws_token(_extract_ws_token(websocket)):
+    token, subprotocol = _extract_ws_credentials(websocket)
+    if not _is_valid_ws_token(token):
         print("WARNING: Rejecting extension WebSocket with a missing or invalid token.")
         await websocket.close(code=1008)
         return
 
-    await websocket.accept()
+    await websocket.accept(subprotocol=subprotocol)
     client_id, client_queue = extension_manager.register_client()
     print(f"INFO: WebSocket accepted connection for client: {client_id}")
     

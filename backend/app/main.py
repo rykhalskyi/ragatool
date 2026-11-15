@@ -27,9 +27,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.database import create_tables, get_db_connection
 from contextlib import asynccontextmanager
 from app.internal.auth import check_request_origin, initialize_auth, require_user
+from app.internal.log_redaction import install_log_redaction
 from app.internal.mcp_manager import MCPManager
 from app.crud import crud_task
 from app.version import APP_NAME, APP_VERSION
+
+install_log_redaction()
 
 # Get the singleton instance of MCPManager
 mcp_manager = MCPManager()

@@ -120,13 +120,16 @@ directly. Recommended setup:
    COOKIE_SECURE=true
    ENABLE_API_DOCS=false
    ```
-5. Add Cloudflare WAF rate limits for `/api/auth/login` and
-   `/api/auth/setup` (for example, 5 requests per minute per IP).
+5. The app throttles `/auth/login` itself (5 attempts/min per user and
+   20/min per source address). Add Cloudflare WAF rate limits for
+   `/api/auth/login` and `/api/auth/setup` as an outer layer.
 6. Enable HSTS and the managed WAF rules at Cloudflare.
 7. Keep MCP and extension WebSockets off the public hostname. If remote
    clients need them, use a separate hostname protected by Cloudflare Access
-   service tokens **and** the Ragatool bearer token. Browser WebSocket
-   plugins pass the token in `?token=`, which can appear in proxy logs.
+   service tokens **and** the Ragatool bearer token. Plugins authenticate the
+   WebSocket handshake with the API token as a `Sec-WebSocket-Protocol`
+   subprotocol, so the token never appears in the URL or proxy access logs.
+   Native clients may instead send `Authorization: Bearer ragt_...`.
 
 Minimal `cloudflared` ingress (frontend only):
 
@@ -169,10 +172,13 @@ client configuration as a bearer header:
 
 Ragatool provides plugins for popular desktop applications, enabling AI agents to interact with your data across different platforms. All plugins communicate with the Ragatool server via WebSocket at `ws://localhost:8000/extensions/ws` and require an API token from the Access page.
 
-- Browser-based plugins (OnlyOffice, Thunderbird) pass the token as the
-  `?token=` query parameter.
-- The Outlook add-in reads the `RAGATOUL_TOKEN` environment variable and uses
-  it the same way.
+- Browser-based plugins (OnlyOffice, Thunderbird) pass the token as a
+  WebSocket subprotocol (`ragatool`, `<token>`), so it does not end up in URLs
+  or access logs.
+- The Outlook add-in reads the `RAGATOOL_TOKEN` environment variable (legacy
+  `RAGATOUL_TOKEN` still works) and uses the same subprotocol.
+- Native clients may also send `Authorization: Bearer ragt_...` on the
+  WebSocket handshake.
 
 ### OnlyOffice Plugin
 

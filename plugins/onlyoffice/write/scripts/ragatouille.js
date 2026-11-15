@@ -4,6 +4,35 @@ let client = null;
 let connected = false;
 let file_name = "";
 
+const WS_SUBPROTOCOL = 'ragatool';
+const TOKEN_STORAGE_KEY = 'ragatool_token';
+
+function websocketBase() {
+    const secure = typeof window !== 'undefined' &&
+        window.location && window.location.protocol === 'https:';
+    return secure ? 'wss://localhost:8000' : 'ws://localhost:8000';
+}
+
+function readStoredToken() {
+    try {
+        return sessionStorage.getItem(TOKEN_STORAGE_KEY) || '';
+    } catch (error) {
+        return '';
+    }
+}
+
+function storeToken(token) {
+    try {
+        if (token) {
+            sessionStorage.setItem(TOKEN_STORAGE_KEY, token);
+        } else {
+            sessionStorage.removeItem(TOKEN_STORAGE_KEY);
+        }
+    } catch (error) {
+        // Storage can be unavailable in sandboxed plugin contexts.
+    }
+}
+
 function connectClick() {
     console.log('CONNECT CLICK');
     const statusElement = document.getElementById('status');
@@ -11,17 +40,16 @@ function connectClick() {
 
     if (!connected) {
         const tokenInput = document.getElementById('token');
-        if (tokenInput) {
-            tokenInput.value = localStorage.getItem('ragatool_token') || tokenInput.value || '';
-        }
         const token = tokenInput ? tokenInput.value.trim() : '';
-        if (token) {
-            localStorage.setItem('ragatool_token', token);
+        storeToken(token);
+        if (!token) {
+            statusElement.textContent = 'API token required';
+            return;
         }
-        const url = token
-            ? `ws://localhost:8000/extensions/ws?token=${encodeURIComponent(token)}`
-            : 'ws://localhost:8000/extensions/ws';
-        client = new WebSocketClient(url);
+        client = new WebSocketClient(
+            `${websocketBase()}/extensions/ws`,
+            [WS_SUBPROTOCOL, token]
+        );
 
         client.onOpen = () => {
             statusElement.textContent = 'Connected';
@@ -130,3 +158,8 @@ window.Editor = Editor;
 })(window, undefined);
 
 window.connectClick = connectClick;
+
+const tokenField = document.getElementById('token');
+if (tokenField) {
+    tokenField.value = readStoredToken();
+}

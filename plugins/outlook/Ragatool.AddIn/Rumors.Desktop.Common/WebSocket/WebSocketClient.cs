@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net.WebSockets;
 using System.Text;
@@ -11,6 +12,7 @@ namespace Rumors.Desktop.Common.WebSocket
     public class WebSocketClient : IDisposable
     {
         private readonly string _url;
+        private readonly IReadOnlyList<string> _subProtocols;
         private ClientWebSocket _socket;
         private CancellationTokenSource _cts;
         private readonly ILogger _logger;
@@ -22,9 +24,10 @@ namespace Rumors.Desktop.Common.WebSocket
 
         public bool Connected { get; private set; }
 
-        public WebSocketClient(string url, ILogger logger = null)
+        public WebSocketClient(string url, IEnumerable<string> subProtocols = null, ILogger logger = null)
         {
             _url = url;
+            _subProtocols = subProtocols is null ? null : new List<string>(subProtocols);
             _logger = logger;
         }
 
@@ -34,6 +37,14 @@ namespace Rumors.Desktop.Common.WebSocket
             {
                 _socket = new ClientWebSocket();
                 _cts = new CancellationTokenSource();
+
+                if (_subProtocols != null)
+                {
+                    foreach (var protocol in _subProtocols)
+                    {
+                        _socket.Options.AddSubProtocol(protocol);
+                    }
+                }
 
                 await _socket.ConnectAsync(new Uri(_url), _cts.Token);
 
