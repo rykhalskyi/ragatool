@@ -83,28 +83,55 @@ from `BACKEND_URL`, so the same image works on any host or in Kubernetes. Set
 - **Angular frontend:** `http://localhost:4300`
 - **MCP Server:** `http://localhost:4302/mcp`
 
+## Authentication
+
+The first time the backend starts against an empty database it prints a
+one-time setup code to its logs:
+
+```bash
+docker compose logs backend | grep 'SETUP CODE'
+```
+
+Open the UI and set the admin username and password on the setup screen. The
+code is only required once. After that, sign in with the username and password.
+
+API tokens for MCP clients and extension WebSockets are managed on the
+**Access** page. Tokens are shown only once; revoking one takes effect
+immediately.
+
+Set `SECRET_KEY` in `backend/.env` (or the Kubernetes Secret) so sessions
+survive restarts. Use `COOKIE_SECURE=true` when serving over HTTPS.
+
 ## Ragatool MCP Configuration
 
-To configure Ragatool MCP, add the following to your configuration:
+Every MCP request requires an API token from the Access page. Add it to your
+client configuration as a bearer header:
 
 1. SSE:
 
 ```json
 "Ragatool": {
-      "url": "http://localhost:4302/mcp"
+      "url": "http://localhost:4302/mcp",
+      "headers": { "Authorization": "Bearer ragt_..." }
     }
 ```
 2. HTTP:
 
 ```json
 "Ragatool": {
-      "url": "http://localhost:4303/mcp"
+      "url": "http://localhost:4303/mcp",
+      "headers": { "Authorization": "Bearer ragt_..." }
     }
 ```
 
 ## 3rd Party Integrations
 
-Ragatool provides plugins for popular desktop applications, enabling AI agents to interact with your data across different platforms. All plugins communicate with the Ragatool server via WebSocket at `ws://localhost:8000/extensions/ws`.
+Ragatool provides plugins for popular desktop applications, enabling AI agents to interact with your data across different platforms. All plugins communicate with the Ragatool server via WebSocket at `ws://localhost:8000/extensions/ws` and require an API token from the Access page.
+
+- Browser-based plugins (OnlyOffice, Thunderbird) pass the token as the
+  `?token=` query parameter.
+- The Outlook add-in reads the `RAGATOUL_TOKEN` environment variable and uses
+  it the same way.
 
 ### OnlyOffice Plugin
 

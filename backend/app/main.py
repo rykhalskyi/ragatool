@@ -1,6 +1,6 @@
 import os
 import threading
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from dotenv import load_dotenv
 
 # Load environment variables from .env file if it exists
@@ -8,10 +8,31 @@ load_dotenv()
 
 from app.dependencies import get_message_hub, get_message_hub_instance, get_extension_manager
  # Added get_extension_manager
-from app.routers import items, collections, tasks, imports, mcp, logs, settings, files, extensions, summaries # Added summaries router
+from app.routers import (
+    items,
+    collections,
+    tasks,
+    imports,
+    mcp,
+    logs,
+    settings,
+    files,
+    extensions,
+    summaries,
+    auth,
+    tokens,
+)
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 from app.database import create_tables, get_db_connection
 from contextlib import asynccontextmanager
+from app.internal.auth import (
+    get_cookie_secure,
+    get_secret_key,
+    get_session_max_age,
+    initialize_auth,
+    require_user,
+)
 from app.internal.mcp_manager import MCPManager
 from app.crud import crud_task
 from app.version import APP_NAME, APP_VERSION
@@ -23,7 +44,8 @@ mcp_manager = MCPManager()
 async def lifespan(app: FastAPI):
     # Startup: create tables if they don't exist
     create_tables()
-   
+    initialize_auth()
+
     #Clear tasks if application crashed and them left in db
     db = get_db_connection()
     crud_task.delete_all_tasks(db)
@@ -64,6 +86,15 @@ allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "http://localhost:4200,http:/
 allowed_origins = [origin.strip() for origin in allowed_origins_env.split(',')]
 
 app.add_middleware(
+    SessionMiddleware,
+    secret_key=get_secret_key(),
+    session_cookie="ragatool_session",
+    max_age=get_session_max_age(),
+    same_site="lax",
+    https_only=get_cookie_secure(),
+)
+
+app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
     allow_credentials=True,
@@ -71,20 +102,43 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization", "Access-Control-Allow-Origin"],
 )
 
-app.include_router(items.router)
-app.include_router(collections.router, prefix="/collections", tags=["collections"])
-app.include_router(tasks.router, prefix="/tasks", tags=["tasks"])
-app.include_router(imports.router, prefix="/import", tags=["import"])
-app.include_router(mcp.router, prefix="/mcp", tags=["mcp"])
-app.include_router(logs.router, prefix="/logs", tags=["logs"])
-app.include_router(settings.router, prefix="/settings", tags=["settings"])
-app.include_router(files.router, prefix="/files", tags=["files"])
-app.include_router(extensions.router, prefix="/extensions", tags=["extensions"]) # Include the new extensions router
-app.include_router(summaries.router, prefix="/summaries", tags=["summaries"]) # Include the new summaries router
+protected = [Depends(require_user)]
+
+app.include_router(items.router, dependencies=protected)
+app.include_router(
+    collections.router,
+    prefix="/collections",
+    tags=["collections"],
+    dependencies=protected,
+)
+app.include_router(tasks.router, prefix="/tasks", tags=["tasks"], dependencies=protected)
+app.include_router(
+    imports.router, prefix="/import", tags=["import"], dependencies=protected
+)
+app.include_router(mcp.router, prefix="/mcp", tags=["mcp"], dependencies=protected)
+app.include_router(logs.router, prefix="/logs", tags=["logs"], dependencies=protected)
+app.include_router(
+    settings.router, prefix="/settings", tags=["settings"], dependencies=protected
+)
+app.include_router(files.router, prefix="/files", tags=["files"], dependencies=protected)
+app.include_router(
+    extensions.router, prefix="/extensions", tags=["extensions"]
+)  # HTTP endpoints are protected individually; the WebSocket uses API tokens.
+app.include_router(
+    summaries.router, prefix="/summaries", tags=["summaries"], dependencies=protected
+)
+
+app.include_router(auth.router, prefix="/auth", tags=["auth"])
+app.include_router(tokens.router, prefix="/tokens", tags=["tokens"])
 
 @app.get("/")
 def read_root():
     return {"name": APP_NAME, "version": APP_VERSION}
+
+
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
 
 
 @app.get("/version")

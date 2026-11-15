@@ -143,6 +143,28 @@ def create_tables(conn: Optional[Connection] = None):
     )
     """)
 
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS auth_users (
+        id TEXT PRIMARY KEY,
+        username TEXT NOT NULL UNIQUE,
+        password_hash TEXT NOT NULL,
+        session_version INTEGER NOT NULL DEFAULT 1,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+    """)
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS api_tokens (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        token_hash TEXT NOT NULL UNIQUE,
+        prefix TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        last_used_at DATETIME,
+        revoked_at DATETIME
+    )
+    """)
+
     conn.commit()
     if close_conn:
         conn.close()

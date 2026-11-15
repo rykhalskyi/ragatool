@@ -1,7 +1,7 @@
 ---
 created: 2026-11-15
 type: ticket
-status: proposed
+status: implemented
 summary: Add single-user login, first-run setup, and revocable API tokens for the UI, MCP servers, and extension WebSockets.
 ---
 
@@ -44,6 +44,8 @@ Relevant files:
 - Multi-user accounts, roles, or per-collection permissions.
 - OAuth/OIDC, social login, passkeys, or email recovery.
 - Token scopes; Phase 1 tokens grant full access.
+- Database-at-rest encryption. SQLite/Chroma stay plaintext; rely on an
+  encrypted PVC and encrypted backups at the platform level.
 - Changes to the RAG, import, or summary pipelines.
 
 ### Decisions
@@ -55,6 +57,7 @@ Relevant files:
 | Machine authentication | Opaque `ragt_...` bearer tokens hashed in SQLite |
 | Token management | Dedicated `/access` page with create/revoke |
 | Extension WebSockets | Same bearer tokens as MCP |
+| Database encryption | Out of scope; rely on encrypted PVC/backups |
 
 Recorded as decisions `D-02` and `D-03` in [decisions.md](../../decisions.md).
 
@@ -107,7 +110,8 @@ Public:
 - `GET /auth/status` -> `{ initialized: bool }`
 - `POST /auth/setup` -> `{ username, password, setup_code }`
 - `POST /auth/login` -> `{ username, password }`
-- `GET /version`
+- `GET /health` -> `{ status: "ok" }` (for Kubernetes probes)
+- `GET /` and `GET /version`
 
 Session-protected:
 
@@ -158,6 +162,8 @@ If a user already exists, env seeding is ignored.
   - `python -m app.internal.auth hash-password`
   - `python -m app.internal.auth reset-password` (increments
     `session_version`)
+  - `python -m app.internal.auth create-token --name <name>` (prints the
+    plaintext token once; for bootstrap when the UI is not reachable)
 
 ### 2. Persistence
 
@@ -173,6 +179,7 @@ If a user already exists, env seeding is ignored.
 - New `backend/app/routers/tokens.py`.
 - Wire in `backend/app/main.py`; add `Depends(require_user)` to every data
   router. Keep only the public list above unauthenticated.
+- Add a public `GET /health` endpoint for Kubernetes probes.
 - Return `401` with `WWW-Authenticate` semantics for missing/expired sessions.
 
 ### 4. MCP authentication
@@ -223,8 +230,44 @@ If a user already exists, env seeding is ignored.
 
 - Document plugin token setup and the difference between header and
   `?token=` transports.
+- Document the Kubernetes rollout in the migration section below.
 
-### 8. Tests
+### 8. Migration (existing installations)
+
+The schema change is additive: `create_tables()` adds `auth_users` and
+`api_tokens` without touching existing tables. No data backfill is needed;
+after setup, the single admin implicitly owns every existing collection.
+
+Kubernetes runbook:
+
+1. Confirm the data paths are persistent: `/app/ragatouille.db`,
+   `/app/chroma_data`, `/app/.fastembed`. If any is container-local, back it up
+   and fix the PVC mount before rollout. Do not mount a PVC over `/app`; it
+   would hide the application code.
+2. Snapshot the PVC, or stop the pod and archive those paths.
+3. Create the auth Secret (with an optional headless admin hash):
+   `kubectl -n <ns> create secret generic ragatool-auth --from-literal=SECRET_KEY=...`
+4. Update the Deployment: new image tag/digest, `SECRET_KEY` via
+   `secretKeyRef`, `COOKIE_SECURE`, probes on `/health` or `/version`, and
+   `strategy: Recreate` for a single RWO SQLite volume.
+5. Roll out and read the code from the new pod:
+   `kubectl -n <ns> logs deploy/ragatool -c backend | grep 'SETUP CODE'`.
+6. Complete `/setup`, then verify existing collections and summaries.
+7. Create tokens in `/access`, or bootstrap without the UI:
+   `kubectl -n <ns> exec deploy/ragatool -c backend -- python -m app.internal.auth create-token --name opencode`.
+8. Update MCP clients and plugins, then verify `query_collection` over SSE and
+   HTTP and one extension WebSocket.
+9. Rollback is safe: the previous image ignores the new tables and existing
+   data stays intact.
+
+Operational notes:
+
+- Keep one replica until setup is complete; the setup code is per-process.
+- Expect MCP clients to fail with `401` during cutover. Create tokens before
+  updating client configs, or use a short maintenance window.
+- Read the setup code from the current pod; a restart prints a new code.
+
+### 9. Tests
 
 Backend (`uv run pytest`):
 
@@ -239,17 +282,18 @@ Frontend:
 
 - Playwright: setup -> login -> create token -> revoke token -> logout.
 
-### 9. Acceptance
+### 10. Acceptance
 
 - Fresh database shows a setup code in logs and `/setup` works only with it.
 - No anonymous REST, MCP, or WebSocket access.
 - A token created in `/access` works against both MCP ports and the extension
   WebSocket; revoking it takes effect immediately.
 - Logout and password reset invalidate existing sessions.
-- Existing databases upgrade via `CREATE TABLE IF NOT EXISTS` without manual
-  migration.
+- An existing installation upgrades via `CREATE TABLE IF NOT EXISTS`, requires
+  one-time setup, and still shows all pre-existing collections after login.
+- Kubernetes probes stay healthy before, during, and after setup.
 
-### 10. Risks
+### 11. Risks
 
 - Some MCP clients may attempt OAuth discovery instead of sending a static
   header; fallback is a minimal local token issuer.
@@ -258,8 +302,54 @@ Frontend:
 - `COOKIE_SECURE=false` is required for plain-HTTP LAN use; document the
   trade-off.
 - The one-time setup code is printed to container logs; treat logs as sensitive
-  until setup completes.
+  until setup completes. With multiple replicas each pod has its own code.
+- Data paths are hardcoded to the working directory; k8s must mount
+  `ragatouille.db`, `chroma_data`, and `.fastembed` explicitly.
+- Upgrading enforces auth immediately; clients without tokens break until
+  reconfigured.
 
 ## Outcome
 
-Not implemented yet.
+Implemented as specified.
+
+Backend:
+
+- New `app/internal/auth.py`: bcrypt passwords, SHA-256 token hashes, session
+  helpers, origin check, setup-code lifecycle, env admin seeding, CLI
+  (`hash-password`, `reset-password`, `create-token`), and `DbTokenVerifier`.
+- New `app/crud/crud_user.py` and `crud_token.py`; `auth_users` and
+  `api_tokens` tables added in `app/database.py`.
+- New `app/routers/auth.py` (`status`, `setup`, `login`, `logout`, `me`) and
+  `app/routers/tokens.py` (list/create/revoke).
+- `app/main.py`: session middleware, public `/health`, and `require_user`
+  applied to all data routers.
+- `MCPManager` passes `DbTokenVerifier` to both FastMCP transports.
+- Extension WebSocket accepts `Authorization: Bearer` or `?token=` and rejects
+  invalid tokens with code `1008`; HTTP extension endpoints require a session.
+- Tests: `tests/test_auth.py` covers setup, login/logout, token CRUD, verifier
+  revocation, WS token validation, and env seeding. Existing tests keep their
+  behavior via `tests/conftest.py`.
+
+Frontend:
+
+- New `AuthService`, guards, credentials interceptor, and login/setup screens
+  using `assets/login-mouse.png`.
+- New `/access` page with create, copy-once, and revoke dialogs; nav button in
+  the topbar.
+- `OpenAPI.WITH_CREDENTIALS` enabled; SSE log stream sends cookies.
+- Playwright helper logs in before existing scenarios; new `auth.spec.ts`
+  covers token create/revoke and logout/login. CI seeds the admin through
+  `RAGATOOL_ADMIN_PASSWORD_HASH`.
+
+Plugins and docs:
+
+- OnlyOffice, Thunderbird, and Outlook send the API token (`?token=` for the
+  browser plugins, `RAGATOUL_TOKEN` for Outlook).
+- README, `backend/.env.example`, and the Playwright workflow document the
+  setup code and token configuration.
+
+Verification: `uv run pytest` (178 passed, 1 skipped), `npm run build`, and a
+live uvicorn smoke test of setup, session access, token creation, and MCP
+rejection/acceptance all pass.
+
+Deviations: none. Database-at-rest encryption remains out of scope as agreed.

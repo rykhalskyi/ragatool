@@ -1,6 +1,11 @@
 import { test, expect } from '@playwright/test';
 import { TestIds } from '../src/app/testing/test-ids';
 import path from 'path';
+import { ensureLoggedIn } from './auth';
+
+test.beforeEach(async ({ page }) => {
+  await ensureLoggedIn(page);
+});
 
 test('Dracula_2 Popups Scenario', async ({ page }) => {
   const filePath = path.resolve(__dirname, 'text/dracula.txt');

@@ -48,6 +48,9 @@ jobs:
           nohup uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 &
         env:
           PYTHONUNBUFFERED: 1
+          SECRET_KEY: "playwright-test-secret"
+          RAGATOOL_ADMIN_USERNAME: "admin"
+          RAGATOOL_ADMIN_PASSWORD_HASH: "$2b$12$l03m77Y8eHpzq5Vis1JfLu/.6DUOUzq8ctusoFRolIumX0JQcnYPO"
           MCP_HOST: "0.0.0.0"
           MCP_PORT: "8001"
           MCP_HTTP_HOST: "0.0.0.0"

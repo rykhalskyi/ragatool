@@ -10,7 +10,18 @@ function connectClick() {
     const connectButton = document.querySelector('button');
 
     if (!connected) {
-        client = new WebSocketClient('ws://localhost:8000/extensions/ws');
+        const tokenInput = document.getElementById('token');
+        if (tokenInput) {
+            tokenInput.value = localStorage.getItem('ragatool_token') || tokenInput.value || '';
+        }
+        const token = tokenInput ? tokenInput.value.trim() : '';
+        if (token) {
+            localStorage.setItem('ragatool_token', token);
+        }
+        const url = token
+            ? `ws://localhost:8000/extensions/ws?token=${encodeURIComponent(token)}`
+            : 'ws://localhost:8000/extensions/ws';
+        client = new WebSocketClient(url);
 
         client.onOpen = () => {
             statusElement.textContent = 'Connected';

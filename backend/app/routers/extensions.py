@@ -6,12 +6,33 @@ import asyncio
 import queue # Import queue for type hinting
 from functools import partial
 
+from app.crud import crud_token
+from app.database import get_db_connection
+from app.internal.auth import hash_token, require_user
 from app.internal.extension_manager import ExtensionManager
 from app.dependencies import get_extension_manager
 from app.schemas.websocket import WebSocketMessage, ClientMessage
 from app.schemas.mcp import ExtensionTool, CallToolRequest, CallToolResponse
 
 router = APIRouter()
+
+
+def _extract_ws_token(websocket: WebSocket) -> str | None:
+    authorization = websocket.headers.get("authorization", "")
+    if authorization.lower().startswith("bearer "):
+        return authorization[7:].strip()
+    return websocket.query_params.get("token")
+
+
+def _is_valid_ws_token(token: str | None) -> bool:
+    if not token:
+        return False
+    with get_db_connection() as db:
+        row = crud_token.find_active_by_hash(db, hash_token(token))
+        if row is None:
+            return False
+        crud_token.touch_token(db, row["id"])
+    return True
 
 async def send_messages_to_client(websocket: WebSocket, client_id: str, client_queue: queue.Queue, extension_manager: ExtensionManager):
     """
@@ -44,6 +65,11 @@ async def websocket_endpoint(
     extension_manager: ExtensionManager = Depends(get_extension_manager)
 ):
     print("INFO: WebSocket connection requested.")
+    if not _is_valid_ws_token(_extract_ws_token(websocket)):
+        print("WARNING: Rejecting extension WebSocket with a missing or invalid token.")
+        await websocket.close(code=1008)
+        return
+
     await websocket.accept()
     client_id, client_queue = extension_manager.register_client()
     print(f"INFO: WebSocket accepted connection for client: {client_id}")
@@ -76,7 +102,8 @@ async def websocket_endpoint(
 
 @router.get("/connected_tools", response_model=List[ExtensionTool])
 def get_connected_extension_tools(
-    extension_manager: ExtensionManager = Depends(get_extension_manager)
+    extension_manager: ExtensionManager = Depends(get_extension_manager),
+    _user: dict = Depends(require_user),
 ):
     """
     Returns a list of all currently registered and connected extension tools.
@@ -86,7 +113,8 @@ def get_connected_extension_tools(
 @router.post("/call_tool", response_model=CallToolResponse)
 async def call_extension_tool(
     request: CallToolRequest,
-    extension_manager: ExtensionManager = Depends(get_extension_manager)
+    extension_manager: ExtensionManager = Depends(get_extension_manager),
+    _user: dict = Depends(require_user),
 ):
     """
     Calls a command on a connected extension tool.

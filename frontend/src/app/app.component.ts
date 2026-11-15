@@ -1,5 +1,6 @@
-import { Component, HostListener, ElementRef, Renderer2 } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { Component, HostListener, ElementRef, Renderer2, signal } from '@angular/core';
+import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
+import { filter } from 'rxjs';
 import { TopbarComponent } from "./topbar/topbar.component";
 import { CollectionsListComponent } from './collections-list/collections-list.component';
 import { OpenAPI } from './client';
@@ -17,9 +18,24 @@ export class AppComponent {
   title = 'ragatool';
 
   isDragging = false;
+  readonly isAuthPage = signal(false);
 
-  constructor(private el: ElementRef, private renderer: Renderer2) {
+  constructor(
+    private el: ElementRef,
+    private renderer: Renderer2,
+    private router: Router
+  ) {
     OpenAPI.BASE = getApiUrl(); // Runtime/deploy-time API URL
+    OpenAPI.WITH_CREDENTIALS = true;
+
+    this.updateLayout(this.router.url);
+    this.router.events
+      .pipe(filter((event) => event instanceof NavigationEnd))
+      .subscribe((event) => this.updateLayout((event as NavigationEnd).urlAfterRedirects));
+  }
+
+  private updateLayout(url: string): void {
+    this.isAuthPage.set(url.startsWith('/login') || url.startsWith('/setup'));
   }
 
   startDragging(event: MouseEvent) {

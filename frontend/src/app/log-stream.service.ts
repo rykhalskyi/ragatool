@@ -24,7 +24,7 @@ export class LogStreamService {
   private connect(): void {
     if (typeof EventSource !== 'undefined') {
       
-      this.eventSource = new EventSource(this.SSE_URL);
+      this.eventSource = new EventSource(this.SSE_URL, { withCredentials: true });
 
       this.eventSource.onmessage = (event) => {
         this.ngZone.run(() => {
