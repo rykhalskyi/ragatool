@@ -1,0 +1,172 @@
+<section class="preview-panel" [attr.data-testid]="TestIds.previewPanel">
+  <div class="preview-header">
+    <div class="preview-title">
+      <h2>Review and Import</h2>
+      @if (collectionName) {
+        <span class="preview-subtitle">{{ collectionName }}</span>
+      }
+    </div>
+    <button
+      mat-icon-button
+      type="button"
+      aria-label="Close preview"
+      (click)="onCancel()"
+      [attr.data-testid]="TestIds.previewPanelCloseButton">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <div class="preview-body">
+    <div class="file-list-container">
+      <div class="file-list-toolbar">
+        <mat-checkbox
+          [checked]="allFilteredSelected()"
+          [indeterminate]="someFilteredSelected()"
+          (change)="toggleSelectAll($event.checked)"
+          [attr.data-testid]="TestIds.previewPanelSelectAll">
+          Select all @if (searchTerm()) { (filtered) }
+        </mat-checkbox>
+        <span class="selected-count" [attr.data-testid]="TestIds.previewPanelSelectedCount">
+          {{ selectedCount() }} of {{ files().length }} selected
+        </span>
+      </div>
+
+      <mat-form-field appearance="outline" class="search-field">
+        <mat-label>Search pages</mat-label>
+        <mat-icon matPrefix>search</mat-icon>
+        <input
+          matInput
+          type="text"
+          autocomplete="off"
+          [value]="searchTerm()"
+          (input)="onSearch($event)"
+          placeholder="Filter by URL"
+          [attr.data-testid]="TestIds.previewPanelSearchInput">
+        @if (searchTerm()) {
+          <button
+            matSuffix
+            mat-icon-button
+            type="button"
+            aria-label="Clear search"
+            (click)="clearSearch()">
+            <mat-icon>close</mat-icon>
+          </button>
+        }
+      </mat-form-field>
+
+      @if (isLoading()) {
+        <div class="state-message">Loading files...</div>
+      } @else if (error()) {
+        <div class="state-message error">{{ error() }}</div>
+      } @else if (files().length === 0) {
+        <div class="state-message">No prepared files found.</div>
+      } @else if (filteredFiles().length === 0) {
+        <div class="state-message">No pages match "{{ searchTerm() }}".</div>
+      } @else {
+        <div class="scrollable-nav-list">
+          @for (file of filteredFiles(); track file.id) {
+            @let parts = file.source | urlParts;
+            <div
+              class="file-item"
+              [class.active]="selectedFile()?.id === file.id"
+              (click)="onFileSelected(file)"
+              [matTooltip]="file.source"
+              matTooltipPosition="right"
+              [attr.data-testid]="TestIds.previewDialogFileItem">
+              <mat-checkbox
+                [checked]="isFileSelected(file)"
+                (change)="toggleFileSelection(file)"
+                (click)="$event.stopPropagation()">
+              </mat-checkbox>
+              <div class="file-text">
+                @if (parts.isUrl) {
+                  <span class="url-origin">{{ parts.origin }}</span>
+                }
+                <span class="url-tail"><span>{{ parts.tail }}</span></span>
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </div>
+
+    <div class="content-viewer-container">
+      <form class="import-form" [formGroup]="chunkForm" (ngSubmit)="onUpdateChunks()">
+        <div class="parameters">
+          <mat-form-field appearance="fill">
+            <mat-label>Model</mat-label>
+            <input matInput formControlName="model" [attr.data-testid]="TestIds.modelInput">
+          </mat-form-field>
+
+          <mat-form-field appearance="fill">
+            <mat-label>Chunk Size</mat-label>
+            <input matInput type="number" formControlName="chunkSize" [attr.data-testid]="TestIds.chunkSizeInput">
+            @if (chunkForm.get('chunkSize')?.hasError('required') && chunkForm.get('chunkSize')?.touched) {
+              <mat-error>Chunk size is required.</mat-error>
+            }
+            @if (chunkForm.get('chunkSize')?.hasError('min') && chunkForm.get('chunkSize')?.touched) {
+              <mat-error>Chunk size must be at least 1.</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field appearance="fill">
+            <mat-label>Chunk Overlap</mat-label>
+            <input matInput type="number" formControlName="chunkOverlap" [attr.data-testid]="TestIds.chunkOverlapInput">
+            @if (chunkForm.get('chunkOverlap')?.hasError('required') && chunkForm.get('chunkOverlap')?.touched) {
+              <mat-error>Chunk overlap is required.</mat-error>
+            }
+            @if (chunkForm.get('chunkOverlap')?.hasError('min') && chunkForm.get('chunkOverlap')?.touched) {
+              <mat-error>Chunk overlap must be at least 0.</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field appearance="fill" class="chunk-type">
+            <mat-label>Select Chunk Type</mat-label>
+            <mat-select formControlName="chunkType" [attr.data-testid]="TestIds.previewDialogChunkTypeSelect">
+              @for (type of chunkTypes(); track type) {
+                <mat-option [value]="type">{{ type }}</mat-option>
+              }
+            </mat-select>
+            @if (chunkForm.get('chunkType')?.hasError('required') && chunkForm.get('chunkType')?.touched) {
+              <mat-error>Chunk type is required.</mat-error>
+            }
+          </mat-form-field>
+        </div>
+
+        <div class="form-actions">
+          <mat-checkbox formControlName="noChunks" [attr.data-testid]="TestIds.previewDialogNoChunksCheckbox">No chunks</mat-checkbox>
+          <button
+            mat-raised-button
+            type="button"
+            color="accent"
+            (click)="onUpdateChunks()"
+            [attr.data-testid]="TestIds.previewDialogUpdateChunksButton">
+            Update
+          </button>
+        </div>
+      </form>
+
+      <div class="chunk-viewer">
+        <p>{{ chunk() }}</p>
+      </div>
+
+      <div class="chunk-navigation">
+        <button mat-button type="button" (click)="onPrevious()" [attr.data-testid]="TestIds.previewDialogPrevButton">prev</button>
+        <button mat-button type="button" (click)="onNext()" [attr.data-testid]="TestIds.previewDialogNextButton">next</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="preview-actions">
+    <button mat-button type="button" (click)="onCancel()" [attr.data-testid]="TestIds.previewDialogCancelButton">Close</button>
+    <button
+      mat-raised-button
+      color="primary"
+      type="button"
+      (click)="onImport()"
+      [disabled]="selectedCount() === 0"
+      [attr.data-testid]="TestIds.previewDialogImportButton">
+      Import
+    </button>
+  </div>
+</section>

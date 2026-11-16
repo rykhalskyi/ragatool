@@ -27,7 +27,7 @@
          <button mat-raised-button type="button" class="import-control" color="accent" (click)="openSelectedImportDialog()" [disabled]="!importForm.get('importType')?.value || showProgressBar() || task()" [attr.data-testid]="TestIds.importStep1Button">1. Load to files</button>
         @if (filesImported)
         {
-            <button mat-raised-button type="button" class="import-control" color="accent" (click)="openPreviewDialog()" [disabled]="!importForm.get('importType')?.value || showProgressBar() || task()" [attr.data-testid]="TestIds.importStep2Button">2. Review and vectorize</button>
+            <button mat-raised-button type="button" class="import-control" color="accent" (click)="openPreviewPanel()" [disabled]="!importForm.get('importType')?.value || showProgressBar() || task()" [attr.data-testid]="TestIds.importStep2Button">2. Review and vectorize</button>
         }
           
         <button mat-raised-button type="button" class="import-control" color="accent" (click)="onDeleteFiles()" [disabled]="!filesImported || showProgressBar() || task()" [attr.data-testid]="TestIds.deleteFilesButton">Delete Files</button>
@@ -41,12 +41,32 @@
       </app-collection-details>
 
   </div>
+  @if (showPreview()) {
+    @if (previewData(); as preview) {
+      <app-preview-panel
+        [collectionId]="preview.collectionId"
+        [collectionName]="preview.collectionName"
+        [model]="preview.model"
+        [settings]="preview.settings"
+        (importRequest)="onPreviewImport($event)"
+        (cancel)="closePreviewPanel()">
+      </app-preview-panel>
+    }
+  }
  @if (showProgressBar() && task() !== undefined) {
     <div class="import-progress-bar" [attr.data-testid]="TestIds.importProgress">
       <div class="progressbar-line">
         <mat-progress-bar mode="indeterminate"></mat-progress-bar>
-        <button mat-icon-button (click)="cancelTask(task()!.id)" >
-            <mat-icon>cancel</mat-icon>
+        <button
+          mat-stroked-button
+          color="warn"
+          type="button"
+          (click)="cancelTask(task()!.id)"
+          [disabled]="task()!.status === 'CANCELLING'"
+          matTooltip="Stops the current task. In 2-step URL import, pages crawled so far are kept as files so you can review, import, or delete them."
+          [attr.data-testid]="TestIds.stopImportButton">
+          <mat-icon>{{ task()!.status === 'CANCELLING' ? 'hourglass_top' : 'stop_circle' }}</mat-icon>
+          {{ task()!.status === 'CANCELLING' ? 'Stopping…' : 'Stop' }}
         </button>
       </div>
       <p>

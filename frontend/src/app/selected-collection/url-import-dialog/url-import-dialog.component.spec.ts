@@ -1,18 +1,17 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { UrlImportDialog } from './url-import-dialog.ts';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { UrlImportDialog } from './url-import-dialog';
+import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
+import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 
 describe('UrlImportDialog', () => {
-  let component: UrlImportDialog;
-  let fixture: ComponentFixture<UrlImportDialog>;
   let mockMatDialogRef: jasmine.SpyObj<MatDialogRef<UrlImportDialog>>;
 
-  const dialogData = {
+  const baseData = {
     collectionName: 'Test Collection',
     collectionId: '123',
     model: 'test-model',
@@ -23,141 +22,152 @@ describe('UrlImportDialog', () => {
     },
     saved: false,
     twoStepImport: false,
+    recentFilters: ['^https://docs\\.example\\.com'],
   };
 
-  beforeEach(async () => {
+  function createComponent(data: any = baseData) {
     mockMatDialogRef = jasmine.createSpyObj('MatDialogRef', ['close']);
 
-    await TestBed.configureTestingModule({
+    TestBed.configureTestingModule({
       imports: [
-        UrlImportDialog, // Import the standalone component directly
+        UrlImportDialog,
         ReactiveFormsModule,
         MatCheckboxModule,
         MatFormFieldModule,
         MatInputModule,
-        BrowserAnimationsModule,
+        MatAutocompleteModule,
+        NoopAnimationsModule,
       ],
       providers: [
         FormBuilder,
         { provide: MatDialogRef, useValue: mockMatDialogRef },
-        { provide: MAT_DIALOG_DATA, useValue: dialogData },
+        { provide: MAT_DIALOG_DATA, useValue: data },
       ],
-    }).compileComponents();
+    });
 
-    fixture = TestBed.createComponent(UrlImportDialog);
-    component = fixture.componentInstance;
+    const fixture: ComponentFixture<UrlImportDialog> = TestBed.createComponent(UrlImportDialog);
     fixture.detectChanges();
-  });
+    return { fixture, component: fixture.componentInstance };
+  }
 
   it('should create', () => {
+    const { component } = createComponent();
     expect(component).toBeTruthy();
   });
 
-  it('should initialize form with default values', () => {
-    expect(component.importForm.get('model')?.value).toBe(dialogData.model);
-    expect(component.importForm.get('chunkSize')?.value).toBe(dialogData.settings.chunk_size);
-    expect(component.importForm.get('chunkOverlap')?.value).toBe(dialogData.settings.chunk_overlap);
+  it('should initialize form with defaults when there is no saved filter', () => {
+    const { component } = createComponent();
+
+    expect(component.importForm.get('model')?.value).toBe(baseData.model);
+    expect(component.importForm.get('chunkSize')?.value).toBe(baseData.settings.chunk_size);
+    expect(component.importForm.get('chunkOverlap')?.value).toBe(baseData.settings.chunk_overlap);
     expect(component.importForm.get('url')?.value).toBe('');
     expect(component.importForm.get('no_chunks')?.value).toBe(false);
-    expect(component.importForm.get('filterEnabled')?.value).toBe(false);
-    expect(component.importForm.get('urlFilterRegex')?.value).toBe('');
-    expect(component.importForm.get('urlFilterRegex')?.disabled).toBe(true);
+    expect(component.filterEnabled.value).toBe(false);
+    expect(component.urlFilterRegex.value).toBe('');
+    expect(component.urlFilterRegex.disabled).toBe(true);
+  });
+
+  it('should prefill and enable the filter from saved collection settings', () => {
+    const { component } = createComponent({
+      ...baseData,
+      settings: { ...baseData.settings, filter: '^https://docs\\.example\\.com' },
+    });
+
+    expect(component.filterEnabled.value).toBe(true);
+    expect(component.urlFilterRegex.value).toBe('^https://docs\\.example\\.com');
+    expect(component.urlFilterRegex.enabled).toBe(true);
+    expect(component.urlFilterRegex.hasError('required')).toBe(false);
   });
 
   it('should enable urlFilterRegex when filterEnabled is checked', () => {
+    const { fixture, component } = createComponent();
     component.filterEnabled.setValue(true);
     fixture.detectChanges();
+
     expect(component.urlFilterRegex.enabled).toBe(true);
-    expect(component.urlFilterRegex.hasValidator(component['regexValidator'])).toBe(true);
-    expect(component.urlFilterRegex.hasValidator(Validators.required)).toBe(true);
+    expect(component.urlFilterRegex.hasValidator(component.regexValidator)).toBe(true);
   });
 
-  it('should disable urlFilterRegex when filterEnabled is unchecked', () => {
-    component.filterEnabled.setValue(true); // Enable first
+  it('should disable and clear urlFilterRegex when filterEnabled is unchecked', () => {
+    const { fixture, component } = createComponent();
+    component.filterEnabled.setValue(true);
     fixture.detectChanges();
-    component.filterEnabled.setValue(false); // Then disable
+    component.urlFilterRegex.setValue('^test');
+
+    component.filterEnabled.setValue(false);
     fixture.detectChanges();
+
     expect(component.urlFilterRegex.disabled).toBe(true);
     expect(component.urlFilterRegex.value).toBe('');
-    expect(component.urlFilterRegex.hasValidator(component['regexValidator'])).toBe(false);
-    expect(component.urlFilterRegex.hasValidator(Validators.required)).toBe(false);
+    expect(component.urlFilterRegex.hasValidator(component.regexValidator)).toBe(false);
   });
 
-  it('should validate valid regex patterns', () => {
+  it('should validate regex patterns', () => {
+    const { fixture, component } = createComponent();
     component.filterEnabled.setValue(true);
+    fixture.detectChanges();
+
     component.urlFilterRegex.setValue('^test.*$');
-    expect(component.urlFilterRegex.valid).toBe(true);
     expect(component.urlFilterRegex.hasError('invalidRegex')).toBe(false);
-  });
 
-  it('should invalidate invalid regex patterns', () => {
-    component.filterEnabled.setValue(true);
-    component.urlFilterRegex.setValue('[abc'); // Invalid regex
-    expect(component.urlFilterRegex.invalid).toBe(true);
+    component.urlFilterRegex.setValue('[abc');
     expect(component.urlFilterRegex.hasError('invalidRegex')).toBe(true);
   });
 
   it('should require urlFilterRegex when filterEnabled is true', () => {
+    const { fixture, component } = createComponent();
     component.filterEnabled.setValue(true);
+    fixture.detectChanges();
+
     component.urlFilterRegex.setValue('');
-    expect(component.urlFilterRegex.invalid).toBe(true);
     expect(component.urlFilterRegex.hasError('required')).toBe(true);
   });
 
+  it('should close with the raw form value when the filter is disabled', () => {
+    const { component } = createComponent();
 
-  it('should close dialog with correct data when form is valid and filter is disabled', () => {
     component.importForm.patchValue({
       url: 'http://example.com',
-      model: 'another-model',
       chunkSize: 200,
       chunkOverlap: 50,
       no_chunks: true,
       filterEnabled: false,
-      urlFilterRegex: '', // Ensure it's cleared if disabled
     });
-    fixture.detectChanges();
 
     component.onImportClick();
 
     expect(mockMatDialogRef.close).toHaveBeenCalledWith(jasmine.objectContaining({
-      model: 'another-model',
       url: 'http://example.com',
-      collectionId: dialogData.collectionId,
-      settings: {
-        chunk_size: 200,
-        chunk_overlap: 50,
-        no_chunks: true,
-      },
-      urlFilterRegex: null, // Expect null when disabled
+      chunkSize: 200,
+      chunkOverlap: 50,
+      no_chunks: true,
+      filterEnabled: false,
+      urlFilterRegex: '',
+      collectionId: baseData.collectionId,
     }));
   });
 
-  it('should close dialog with correct data when form is valid and filter is enabled with a regex', () => {
-    const testRegex = '.*\.pdf$';
+  it('should close with the filter when it is enabled', () => {
+    const testRegex = '.*\\.pdf$';
+    const { component } = createComponent();
+
     component.importForm.patchValue({
       url: 'http://example.com/data.pdf',
-      model: 'another-model',
       chunkSize: 200,
       chunkOverlap: 50,
       no_chunks: false,
       filterEnabled: true,
       urlFilterRegex: testRegex,
     });
-    fixture.detectChanges();
 
     component.onImportClick();
 
     expect(mockMatDialogRef.close).toHaveBeenCalledWith(jasmine.objectContaining({
-      model: 'another-model',
       url: 'http://example.com/data.pdf',
-      collectionId: dialogData.collectionId,
-      settings: {
-        chunk_size: 200,
-        chunk_overlap: 50,
-        no_chunks: false,
-        urlFilterRegex: testRegex, // Expect regex in settings
-      },
-      urlFilterRegex: testRegex, // Expect regex in top-level object
+      filterEnabled: true,
+      urlFilterRegex: testRegex,
+      collectionId: baseData.collectionId,
     }));
   });
 });

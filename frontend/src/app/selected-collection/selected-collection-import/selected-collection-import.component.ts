@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit, Input, OnChanges, SimpleChanges, OnDestroy, signal, WritableSignal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, Input, OnChanges, SimpleChanges, OnDestroy, computed, signal, WritableSignal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule, MatSelectChange } from '@angular/material/select'; // Import MatSelectChange
@@ -6,25 +6,25 @@ import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { ImportService } from '../../client/services/ImportService';
 import { Import } from '../../client/models/Import';
 
 import { UntilDestroy, untilDestroyed } from '@ngneat/until-destroy';
 import { ExtendedCollection } from '../selected-collection.component';
-import { LogStreamService } from '../../log-stream.service';
 import { TaskCachingService } from '../../task-caching.service';
-import { Message } from '../../client/models/Message';
+import { ImportStateService } from '../../import-state.service';
 import { MatDialog } from '@angular/material/dialog';
 import { FileImportDialog } from '../file-import-dialog/file-import-dialog';
 import { Body_import_file_import__collection_id__post } from '../../client/models/Body_import_file_import__collection_id__post';
 import { UrlImportDialog } from '../url-import-dialog/url-import-dialog';
 import { Body_import_url_import_url__colletion_id__post } from '../../client/models/Body_import_url_import_url__colletion_id__post';
 import { CollectionDetailsComponent } from '../collection-details/collection-details.component';
-import { CollectionDetails, FilesService, Task } from '../../client';
+import { CollectionDetails, CollectionsService, FileImportSettings, FilesService, Task } from '../../client';
 import { TaskCenterService } from '../../task-center/task-center.service';
 import { SettingsService } from '../../settings.service';
-import { PreviewDialogComponent } from '../preview-dialog/preview-dialog.component';
+import { PreviewPanelComponent } from '../preview-panel/preview-panel.component';
 import { CollectionRefreshService } from '../../collection-refresh.service';
 import { DeleteConfirmationDialogComponent } from '../../delete-confirmation-dialog/delete-confirmation-dialog.component';
 import { TestIds } from '../../testing/test-ids';
@@ -40,8 +40,10 @@ import { TestIds } from '../../testing/test-ids';
     MatButtonModule,
     ReactiveFormsModule,
     MatProgressBarModule,
+    MatTooltipModule,
     CollectionDetailsComponent,
-    MatIconModule
+    MatIconModule,
+    PreviewPanelComponent
   ],
   templateUrl: './selected-collection-import.component.html',
   styleUrl: './selected-collection-import.component.scss',
@@ -51,6 +53,8 @@ import { TestIds } from '../../testing/test-ids';
 @UntilDestroy()
 export class SelectedCollectionImportComponent implements OnInit, OnChanges{
   protected readonly TestIds = TestIds;
+  private static readonly RECENT_FILTERS_SETTING = 'UrlImportRecentFilters';
+  private static readonly MAX_RECENT_FILTERS = 5;
 
 
   @Input() collection: ExtendedCollection | undefined;
@@ -59,14 +63,28 @@ export class SelectedCollectionImportComponent implements OnInit, OnChanges{
 
   importForm!: FormGroup;
   importTypes: Import[] = [];
-  showProgressBar = signal(false);
-  task = signal<Task | undefined>(undefined);
-  infoString = signal<string>("");
+  collectionId = signal<string | undefined>(undefined);
+  task = computed<Task | undefined>(() => {
+    const collectionId = this.collectionId();
+    return collectionId ? this.importStateService.getState(collectionId)?.task : undefined;
+  });
+  showProgressBar = computed(() => this.task() !== undefined);
+  infoString = computed(() => {
+    const collectionId = this.collectionId();
+    return collectionId ? this.importStateService.getState(collectionId)?.info ?? '' : '';
+  });
   twoStepImport = signal<boolean>(false);
+  showPreview = signal(false);
+  previewData = signal<{
+    collectionName: string | undefined;
+    collectionId: string;
+    model: string;
+    settings: FileImportSettings;
+  } | null>(null);
   
   constructor(
     private fb: FormBuilder,
-    private logStreamService: LogStreamService,
+    private importStateService: ImportStateService,
     private taskCachingService: TaskCachingService,
     private dialog: MatDialog,
     private readonly taskCenterService: TaskCenterService,
@@ -82,23 +100,13 @@ export class SelectedCollectionImportComponent implements OnInit, OnChanges{
 
     await this.getImportTypes();
 
-    this.logStreamService.logs$
-      .pipe(untilDestroyed(this))
-      .subscribe((log: Message) => {
-        if (log.collectionId === this.collection?.id) {
-          this.infoString.set(log.message);
-        }
-      });
+    this.collectionId.set(this.collection?.id);
+    void this.taskCachingService.refresh();
 
     this.taskCachingService
       .tasks$
       .pipe(untilDestroyed(this))
-      .subscribe(tasks => {
-        const task = tasks.find(i => i.collectionId === this.collection?.id);
-        this.showProgressBar.set(task ? true : false);
-        this.task.set(task);
-        this.collectionRefreshService.triggerRefresh();
-      });
+      .subscribe(() => this.collectionRefreshService.triggerRefresh());
 
      if (this.collection?.saved && this.collection?.import_type)
      {
@@ -122,9 +130,29 @@ export class SelectedCollectionImportComponent implements OnInit, OnChanges{
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['collection'] && this.collection && this.importForm) {
-      const collectionId = this.collection.id;
+    if (changes['filesImported'] && !this.filesImported) {
+      this.showPreview.set(false);
+    }
 
+    if (changes['collection']) {
+      const previousCollectionId = changes['collection'].previousValue?.id;
+      const currentCollectionId = this.collection?.id;
+      this.collectionId.set(currentCollectionId);
+
+      // The parent replaces the collection object whenever it refreshes, so
+      // only close the inline preview when the user actually switched
+      // collections (not on every background refresh).
+      if (previousCollectionId !== currentCollectionId) {
+        this.showPreview.set(false);
+        this.previewData.set(null);
+      }
+
+      if (this.collection) {
+        void this.taskCachingService.refresh();
+      }
+    }
+
+    if (changes['collection'] && this.collection && this.importForm) {
       if (this.collectionIsSaved()) {
         this.importForm?.get('importType')?.disable({ emitEvent: false });
       } else {
@@ -147,13 +175,6 @@ export class SelectedCollectionImportComponent implements OnInit, OnChanges{
         }, { emitEvent: false });
 
       }
-
-      const task = this.taskCachingService.getTaskByCollectionId(this.collection.id);
-      this.showProgressBar.set(task ? true : false);
-
-      const info = this.logStreamService.getInfo(collectionId);
-      if (info)
-        this.infoString.set(info);
 
       this.importForm.markAsPristine();
       this.importForm.markAsUntouched();
@@ -211,8 +232,49 @@ export class SelectedCollectionImportComponent implements OnInit, OnChanges{
       collectionId: this.collection?.id,
       model: this.collectionIsSaved() ? this.collection!.model! : selectedImportType.model,
       settings: this.collectionIsSaved() ? JSON.parse(this.collection!.settings!) : selectedImportType.settings,
-      saved: this.collection?.saved
+      saved: this.collection?.saved,
+      recentFilters: this.getRecentFilters()
     };
+  }
+
+  private getRecentFilters(): string[] {
+    const setting = this.settingsService.settings
+      .find(s => s.name === SelectedCollectionImportComponent.RECENT_FILTERS_SETTING);
+    if (!setting?.value) {
+      return [];
+    }
+    try {
+      const parsed = JSON.parse(setting.value);
+      return Array.isArray(parsed)
+        ? parsed.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+        : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private async rememberUrlFilter(result: any): Promise<void> {
+    if (!result.filterEnabled) {
+      return;
+    }
+    const filter = (result.urlFilterRegex ?? '').trim();
+    if (!filter) {
+      return;
+    }
+
+    const recentFilters = [
+      filter,
+      ...this.getRecentFilters().filter(existing => existing !== filter)
+    ].slice(0, SelectedCollectionImportComponent.MAX_RECENT_FILTERS);
+
+    try {
+      await this.settingsService.updateSettings([{
+        name: SelectedCollectionImportComponent.RECENT_FILTERS_SETTING,
+        value: JSON.stringify(recentFilters)
+      }]);
+    } catch (error) {
+      console.error('Error saving recent URL filters:', error);
+    }
   }
 
   private buildFileFormData(selectedImportType: Import, result: any): Body_import_file_import__collection_id__post {
@@ -238,6 +300,7 @@ export class SelectedCollectionImportComponent implements OnInit, OnChanges{
 
   private async handleFileImport(result: any, selectedImportType: Import) {
     const formData = this.buildFileFormData(selectedImportType, result);
+    this.importStateService.clearInfo(result.collectionId);
     try {
       if (this.twoStepImport()) {
         await ImportService.importFileStep1ImportStep1CollectionIdPost(result.collectionId, formData);
@@ -259,7 +322,7 @@ export class SelectedCollectionImportComponent implements OnInit, OnChanges{
           chunk_size: result.chunkSize,
           chunk_overlap: result.chunkOverlap,
           no_chunks: result.no_chunks ?? result.noChunks,
-          filter: result.urlFilterRegex
+          filter: result.filterEnabled ? (result.urlFilterRegex?.trim() || null) : null
         }
       })
     };
@@ -268,6 +331,7 @@ export class SelectedCollectionImportComponent implements OnInit, OnChanges{
   private async handleUrlImport(result: any, selectedImportType: Import) {
     const formData = this.buildUrlFormData(selectedImportType, result);
     console.log('form data', formData);
+    this.importStateService.clearInfo(result.collectionId);
     try {
       if (this.twoStepImport()){
         await ImportService.importUrlStep1ImportUrlStep1CollectionIdPost(result.collectionId, result.url, formData);
@@ -275,30 +339,65 @@ export class SelectedCollectionImportComponent implements OnInit, OnChanges{
       else{
         await ImportService.importUrlImportUrlColletionIdPost(result.collectionId, result.url, formData);
       }
+      await this.rememberUrlFilter(result);
       console.log('Url imported successfully');
     } catch (error) {
       console.error('Error importing Url:', error);
     }
   }
 
-openPreviewDialog() {
+  async openPreviewPanel(): Promise<void> {
+    const selectedImportType: Import | null = this.importForm.get('importType')?.value ?? null;
+    const collection = this.collection;
+    if (!selectedImportType || !collection) {
+      return;
+    }
+
+    let collectionName = collection.name;
+    let model = selectedImportType.model;
+    let settings = selectedImportType.settings;
+
+    // Step 1 persists the import settings on the collection. Read the latest
+    // copy so the preview always uses the chunk settings used for step 1 even
+    // if the parent collection input has not been refreshed yet.
+    try {
+      const freshCollection = await CollectionsService.readCollectionCollectionsCollectionIdGet(collection.id);
+      collectionName = freshCollection.name;
+      if (freshCollection.import_type !== 'NONE') {
+        model = freshCollection.model ?? model;
+        settings = freshCollection.settings ? JSON.parse(freshCollection.settings) : settings;
+      }
+    } catch (error) {
+      console.error('Failed to load latest collection settings for preview:', error);
+    }
+
+    this.previewData.set({
+      collectionName,
+      collectionId: collection.id,
+      model,
+      settings,
+    });
+    this.showPreview.set(true);
+  }
+
+  closePreviewPanel(): void {
+    this.showPreview.set(false);
+  }
+
+  async onPreviewImport(result: any): Promise<void> {
     const selectedImportType: Import | null = this.importForm.get('importType')?.value ?? null;
     if (!selectedImportType) {
       return;
     }
 
-   const commonData = this.getDialogData(selectedImportType);
-
-  this.dialog.open(PreviewDialogComponent, { data: { ...commonData, twoStepImport: this.twoStepImport() } })
-        .afterClosed()
-        .subscribe(result => { 
-          if (result) this.handle2ndStepFileImport(result, selectedImportType,);
-         });
-      return;
-}
+    await this.handle2ndStepFileImport(result, selectedImportType);
+    this.closePreviewPanel();
+    this.collectionRefreshService.triggerRefresh();
+  }
   async handle2ndStepFileImport(result: any, selectedImportType: Import) {
    
     const selectedFiles: string[] = result.selectedFiles || [];
+    this.importStateService.clearInfo(result.collectionId);
     const formData = this.buildUrlFormData(selectedImportType, result);
     let importParams = JSON.parse(formData.import_params);
     importParams.settings.chunk_type = result.chunkType;
@@ -331,9 +430,10 @@ openPreviewDialog() {
     return (this.collection?.saved) ?? false;
   }
 
-  async cancelTask(arg0: any) {
-      await this.taskCenterService.cancelTask(this.task()!.id);
-  } 
+  async cancelTask(taskId: string): Promise<void> {
+    await this.taskCenterService.cancelTask(taskId);
+    await this.taskCachingService.refresh();
+  }
 
   async onDeleteFiles() {
     if (!this.collection) return;

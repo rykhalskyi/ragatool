@@ -15,7 +15,11 @@ test('Dracula_2 Popups Scenario', async ({ page }) => {
     
     // Check if Dracula_2 exists and delete it
     const collectionItem = page.getByTestId(`${TestIds.collectionItem}-Dracula_2`);
-    if (await collectionItem.isVisible()) {
+    const exists = await collectionItem
+      .waitFor({ state: 'visible', timeout: 5000 })
+      .then(() => true)
+      .catch(() => false);
+    if (exists) {
       await collectionItem.click();
       await page.getByTestId(TestIds.deleteCollectionButton).click();
       await page.getByTestId(TestIds.deleteConfirmButton).click();
@@ -73,6 +77,23 @@ test('Dracula_2 Popups Scenario', async ({ page }) => {
     // Verify chunking parameters in preview
     await expect(page.getByTestId(TestIds.chunkSizeInput)).toHaveValue('500');
     await expect(page.getByTestId(TestIds.chunkOverlapInput)).toHaveValue('50');
+
+    // Preview is inline (not a dialog) and supports search + select all
+    await expect(page.getByTestId(TestIds.previewPanel)).toBeVisible();
+    const fileItems = page.getByTestId(TestIds.previewDialogFileItem);
+    await expect(fileItems).toHaveCount(1);
+
+    await page.getByTestId(TestIds.previewPanelSearchInput).fill('no-such-page');
+    await expect(page.getByText('No pages match')).toBeVisible();
+    await page.getByTestId(TestIds.previewPanelSearchInput).fill('dracula');
+    await expect(fileItems).toHaveCount(1);
+    await expect(page.getByTestId(TestIds.previewPanelSelectedCount)).toContainText('1 of 1');
+
+    const selectAll = page.getByTestId(TestIds.previewPanelSelectAll).getByRole('checkbox');
+    await selectAll.click();
+    await expect(page.getByTestId(TestIds.previewDialogImportButton)).toBeDisabled();
+    await selectAll.click();
+    await expect(page.getByTestId(TestIds.previewDialogImportButton)).toBeEnabled();
 
     // Navigation in preview
     await expect(page.getByText('Jonathan Harker travels to Transylvania')).toBeVisible();

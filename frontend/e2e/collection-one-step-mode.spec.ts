@@ -14,7 +14,11 @@ test('Add Lord of the Rings collection and import file', async ({ page }) => {
   await test.step('Once Before tests: delete Lord of the Rings if exists', async () => {
     await page.goto('http://localhost:4200');
     const collectionItem = page.getByTestId(`${TestIds.collectionItem}-Lord of the Rings`);
-    if (await collectionItem.isVisible()) {
+    const exists = await collectionItem
+      .waitFor({ state: 'visible', timeout: 5000 })
+      .then(() => true)
+      .catch(() => false);
+    if (exists) {
       await collectionItem.click();
       await page.getByTestId(TestIds.deleteCollectionButton).click();
       await page.getByTestId(TestIds.deleteConfirmButton).click();

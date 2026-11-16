@@ -65,6 +65,7 @@ export const TestIds = {
   modelInput: 'model-input',
   importFileSubmitButton: 'import-file-submit-button',
   importProgress: 'import-progress',
+  stopImportButton: 'stop-import-button',
   chunkCountText: 'chunk-count-text',
 
   // Preview Dialog
@@ -76,6 +77,13 @@ export const TestIds = {
   previewDialogNextButton: 'preview-dialog-next-button',
   previewDialogPrevButton: 'preview-dialog-prev-button',
   previewDialogFileItem: 'preview-dialog-file-item',
+
+  // Preview Panel (inline)
+  previewPanel: 'preview-panel',
+  previewPanelCloseButton: 'preview-panel-close-button',
+  previewPanelSelectAll: 'preview-panel-select-all',
+  previewPanelSelectedCount: 'preview-panel-selected-count',
+  previewPanelSearchInput: 'preview-panel-search-input',
 
   // Inspect Dialog
   inspectButton: 'inspect-button',

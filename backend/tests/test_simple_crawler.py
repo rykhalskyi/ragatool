@@ -438,10 +438,40 @@ def test_off_domain_links_are_skipped():
     assert FakeFetcher.fetched_urls == ["http://example.com"]
 
 
-def test_cancellation_returns_none():
+def test_cancellation_returns_partial_results():
     event = Event()
     event.set()
 
     result = simple_crawl("http://example.com", event, None, max_depth=1, options=make_options())
 
-    assert result is None
+    assert result == []
+
+
+def test_cancellation_returns_pages_collected_so_far():
+    event = Event()
+    FakeFetcher.responses = {
+        "http://example.com": page(
+            '<html><body><p>Home content</p>'
+            '<a href="/page2">Page 2</a></body></html>',
+            "http://example.com",
+        ),
+        "http://example.com/page2": page(
+            "<html><body><p>Content of page 2</p></body></html>",
+            "http://example.com/page2",
+        ),
+    }
+
+    def stop_after_first_page(message: str) -> None:
+        if message.startswith("Imported"):
+            event.set()
+
+    results = simple_crawl(
+        "http://example.com",
+        event,
+        None,
+        max_depth=1,
+        options=make_options(),
+        on_progress=stop_after_first_page,
+    )
+
+    assert [result["url"] for result in results] == ["http://example.com"]

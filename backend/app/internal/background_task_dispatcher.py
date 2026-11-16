@@ -42,6 +42,12 @@ class BackgroundTaskDispatcher:
                         cancellation_event = threading.Event()
                     self.running_tasks[task_id] = cancellation_event
 
+            if task_func is None:
+                # The task was cancelled while still queued and its DB row
+                # was already removed; just release the queue slot.
+                self.task_id_queue.task_done()
+                continue
+
             if task_func:
                 try:
                     crud_task.update_task_status(self.db, task_id, "RUNNING")
@@ -90,7 +96,9 @@ class BackgroundTaskDispatcher:
         with self.lock:
             if task_id in self.waiting_tasks:
                 del self.waiting_tasks[task_id]
-                crud_task.update_task_status(self.db, task_id, "CANCELLING")
+                # A queued task never runs, so remove it instead of leaving a
+                # CANCELLING row behind until the next application restart.
+                crud_task.delete_task(self.db, task_id)
                 self.message_hub.send_task_message('Task cancelled')
                 return True
             elif task_id in self.running_tasks:

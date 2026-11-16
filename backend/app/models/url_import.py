@@ -71,10 +71,10 @@ class UrlImport(ImportBase):
             on_progress=lambda message: message_hub.send_message(collection_id, MessageType.INFO, message),
         )
 
-        if pages is None:
-             message_hub.send_message(collection_id, MessageType.UNLOCK, f"Import of {file_name} was cancelled")
-             message_hub.send_message(collection_id, MessageType.LOG, f"CANCELLED Import from {file_name}. Parsed no pages.")
-             return
+        if cancel_event.is_set():
+            message_hub.send_message(collection_id, MessageType.UNLOCK, f"Crawling of {file_name} was stopped")
+            message_hub.send_message(collection_id, MessageType.LOG, f"STOPPED import from {file_name}. Crawled {len(pages)} page(s) were not imported.")
+            return
 
         message_hub.send_message(collection_id, MessageType.INFO, f"Parsed {len(pages)} pages")
 
@@ -195,24 +195,23 @@ class UrlImport(ImportBase):
             on_progress=lambda message: context.messageHub.send_message(collection_id, MessageType.INFO, message),
         )
 
-        if pages is None:
-             context.messageHub.send_message(collection_id, MessageType.UNLOCK, f"Import of {url} was cancelled")
-             context.messageHub.send_message(collection_id, MessageType.LOG, f"CANCELLED Import from {url}. Parsed no pages.")
-             return
+        cancelled = cancel_event.is_set()
 
-        context.messageHub.send_message(collection_id, MessageType.INFO, f"Parsed {len(pages)} pages")
+        if not cancelled:
+            context.messageHub.send_message(collection_id, MessageType.INFO, f"Parsed {len(pages)} pages")
 
+        # When the user stops crawling, pages collected so far must still be
+        # saved so they can be reviewed and imported (or deleted) later.
         for page in pages:
-            if cancel_event.is_set():
-                 context.messageHub.send_message(collection_id, MessageType.UNLOCK, f"Import of {url} was cancelled")
-                 context.messageHub.send_message(collection_id, MessageType.LOG, f"CANCELLED Import from {url} chunks of length {context.parameters.settings.chunk_size}, overlap {context.parameters.settings.chunk_overlap}.") 
-                 return
-            
             tmp_file = TempFileHelper.save_temp_str(page["text"], page["url"])
             create_file(context.db, collection_id, tmp_file, page["url"])
-            
-            
-        context.messageHub.send_message(collection_id, MessageType.UNLOCK, f"Import of {url} completed.")
+
+        if cancelled:
+            context.messageHub.send_message(collection_id, MessageType.INFO, f"Crawl stopped. Saved {len(pages)} page(s).")
+            context.messageHub.send_message(collection_id, MessageType.LOG, f"STOPPED import from {url}. Saved {len(pages)} crawled page(s) to files.")
+            context.messageHub.send_message(collection_id, MessageType.UNLOCK, f"Import of {url} stopped.")
+        else:
+            context.messageHub.send_message(collection_id, MessageType.UNLOCK, f"Import of {url} completed.")
 
 
 def read_file_lines(file_path: str) -> list[str]:
