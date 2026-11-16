@@ -31,7 +31,7 @@ def simple_crawl(
     max_depth: int = 1,
     options: Optional[CrawlOptions] = None,
     on_progress: Optional[Callable[[str], None]] = None,
-) -> Optional[list[dict]]:
+) -> list[dict]:
     options = options or CrawlOptions()
     start = normalize_url(start_url)
     if not is_http_url(start):

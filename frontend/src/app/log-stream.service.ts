@@ -67,6 +67,10 @@ export class LogStreamService {
     return this.infos[collectionId];
   }
 
+  clearInfo(collectionId: string): void {
+    delete this.infos[collectionId];
+  }
+
   getAllInfos(): Readonly<Record<string, string>> {
     return { ...this.infos };
   }

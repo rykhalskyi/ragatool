@@ -61,6 +61,10 @@ export class TaskCachingService implements OnDestroy {
    * prepared files/chunks after the task, so always emit on TASK events.
    */
   private async refreshAfterTaskEvent(): Promise<void> {
+    // An in-flight fetch may have started before this event, so its response
+    // can be stale. Wait for it, then fetch again so the event is guaranteed
+    // to be reflected in the emitted task list.
+    await this.refreshInFlight;
     await this.refresh();
     this.tasksSubject.next([...this.tasks]);
   }
@@ -68,7 +72,7 @@ export class TaskCachingService implements OnDestroy {
   private async fetchTasks(): Promise<void> {
     try {
       const tasks = await TasksService.getTasksTasksTasksGet();
-      const changed = JSON.stringify(tasks) !== JSON.stringify(this.tasks);
+      const changed = this.tasksChanged(tasks);
       this.tasks = tasks;
 
       if (changed) {
@@ -79,6 +83,22 @@ export class TaskCachingService implements OnDestroy {
     } catch (error) {
       console.error('Error fetching tasks:', error);
     }
+  }
+
+  private tasksChanged(next: Task[]): boolean {
+    if (next.length !== this.tasks.length) {
+      return true;
+    }
+
+    const previousById = new Map(this.tasks.map(task => [task.id, task]));
+    return next.some(task => {
+      const previous = previousById.get(task.id);
+      return !previous
+        || previous.collectionId !== task.collectionId
+        || previous.name !== task.name
+        || previous.startTime !== task.startTime
+        || previous.status !== task.status;
+    });
   }
 
   private updatePolling(): void {

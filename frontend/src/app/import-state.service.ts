@@ -55,18 +55,30 @@ export class ImportStateService implements OnDestroy {
   }
 
   clearInfo(collectionId: string): void {
+    this.logStreamService.clearInfo(collectionId);
     this.update(collectionId, { info: '', updatedAt: Date.now() });
   }
 
   private syncTasks(tasks: Task[]): void {
     const tasksByCollection = new Map(tasks.map(task => [task.collectionId, task]));
+    const removedCollections = Object.entries(this._states())
+      .filter(([collectionId, state]) => state.task && !tasksByCollection.has(collectionId))
+      .map(([collectionId]) => collectionId);
 
     this._states.update(states => {
       const next: Record<string, ImportProgressState> = { ...states };
 
-      for (const [collectionId, state] of Object.entries(next)) {
-        if (state.task && !tasksByCollection.has(collectionId)) {
-          next[collectionId] = { ...state, task: undefined, updatedAt: Date.now() };
+      for (const collectionId of removedCollections) {
+        const state = next[collectionId];
+        if (state) {
+          // The task finished or was removed; drop the last progress line so
+          // an in-progress message is not shown after it is no longer true.
+          next[collectionId] = {
+            ...state,
+            info: '',
+            task: undefined,
+            updatedAt: Date.now(),
+          };
         }
       }
 
@@ -81,6 +93,10 @@ export class ImportStateService implements OnDestroy {
 
       return next;
     });
+
+    for (const collectionId of removedCollections) {
+      this.logStreamService.clearInfo(collectionId);
+    }
   }
 
   private update(collectionId: string, patch: Partial<ImportProgressState>): void {

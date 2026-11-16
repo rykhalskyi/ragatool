@@ -82,14 +82,28 @@ class TestBackgroundTaskDispatcher(unittest.TestCase):
             # Immediately cancel the second task
             self.assertTrue(dispatcher.cancel_task(task_id_to_cancel))
             
-            # Assert that the task status was updated to CANCELLED
-            mock_crud_task.update_task_status.assert_called_with(self.mock_db, task_id_to_cancel, "CANCELLING")
+            # A queued task never runs, so its row is deleted immediately
+            # instead of being left behind in the CANCELLING state.
+            mock_crud_task.delete_task.assert_any_call(self.mock_db, task_id_to_cancel)
+            assert (
+                unittest.mock.call(self.mock_db, task_id_to_cancel, "CANCELLING")
+                not in mock_crud_task.update_task_status.call_args_list
+            )
             
             # Assert that the task is no longer in waiting_tasks
             with dispatcher.lock:
                 self.assertNotIn(task_id_to_cancel, dispatcher.waiting_tasks)
             
-            # Clean up the long running task
+            # Clean up the long running task; wait until a worker has picked it
+            # up so cancellation goes through the running-task path.
+            deadline = time.time() + 5
+            while time.time() < deadline:
+                with dispatcher.lock:
+                    if long_task_id in dispatcher.running_tasks:
+                        break
+                time.sleep(0.01)
+            with dispatcher.lock:
+                self.assertIn(long_task_id, dispatcher.running_tasks)
             dispatcher.cancel_task(long_task_id)
             mock_crud_task.update_task_status.assert_called_with(self.mock_db, long_task_id, "CANCELLING")
             dispatcher.stop()

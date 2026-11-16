@@ -135,9 +135,17 @@ export class SelectedCollectionImportComponent implements OnInit, OnChanges{
     }
 
     if (changes['collection']) {
-      this.collectionId.set(this.collection?.id);
-      this.showPreview.set(false);
-      this.previewData.set(null);
+      const previousCollectionId = changes['collection'].previousValue?.id;
+      const currentCollectionId = this.collection?.id;
+      this.collectionId.set(currentCollectionId);
+
+      // The parent replaces the collection object whenever it refreshes, so
+      // only close the inline preview when the user actually switched
+      // collections (not on every background refresh).
+      if (previousCollectionId !== currentCollectionId) {
+        this.showPreview.set(false);
+        this.previewData.set(null);
+      }
 
       if (this.collection) {
         void this.taskCachingService.refresh();

@@ -96,7 +96,6 @@ class BackgroundTaskDispatcher:
         with self.lock:
             if task_id in self.waiting_tasks:
                 del self.waiting_tasks[task_id]
-                crud_task.update_task_status(self.db, task_id, "CANCELLING")
                 # A queued task never runs, so remove it instead of leaving a
                 # CANCELLING row behind until the next application restart.
                 crud_task.delete_task(self.db, task_id)
