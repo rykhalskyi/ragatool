@@ -141,6 +141,11 @@ def create_tables(conn: Optional[Connection] = None):
     """)
 
     cursor.execute("""
+    INSERT OR IGNORE INTO settings (name, value, description)
+    VALUES ('UrlImportRecentFilters', '[]', 'Recently used URL import filter regular expressions (JSON array)')
+    """)
+
+    cursor.execute("""
     CREATE TABLE IF NOT EXISTS files (
         id TEXT PRIMARY KEY,
         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,

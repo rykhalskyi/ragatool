@@ -70,7 +70,16 @@
       <mat-checkbox formControlName="filterEnabled" class="filter-checkbox">Enable URL Filtering</mat-checkbox>
       <mat-form-field appearance="fill" class="url-filter-regex-input" >
         <mat-label>URL Filter Regex</mat-label>
-        <input matInput formControlName="urlFilterRegex" placeholder="Enter regular expression">
+        <input matInput formControlName="urlFilterRegex" placeholder="Enter regular expression"
+               [matAutocomplete]="filterAuto" autocomplete="off">
+        <mat-autocomplete #filterAuto="matAutocomplete">
+          @for (filter of data.recentFilters ?? []; track filter) {
+            <mat-option [value]="filter">{{ filter }}</mat-option>
+          }
+        </mat-autocomplete>
+        @if (data.recentFilters?.length) {
+          <mat-hint>Recently used filters are suggested while typing.</mat-hint>
+        }
         @if (importForm.get('urlFilterRegex')?.hasError('invalidRegex') && importForm.get('urlFilterRegex')?.touched) {
           <mat-error>
             Invalid regular expression format.

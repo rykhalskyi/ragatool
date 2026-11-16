@@ -77,6 +77,13 @@ export const TestIds = {
   previewDialogPrevButton: 'preview-dialog-prev-button',
   previewDialogFileItem: 'preview-dialog-file-item',
 
+  // Preview Panel (inline)
+  previewPanel: 'preview-panel',
+  previewPanelCloseButton: 'preview-panel-close-button',
+  previewPanelSelectAll: 'preview-panel-select-all',
+  previewPanelSelectedCount: 'preview-panel-selected-count',
+  previewPanelSearchInput: 'preview-panel-search-input',
+
   // Inspect Dialog
   inspectButton: 'inspect-button',
   inspectDialogTitle: 'inspect-dialog-title',

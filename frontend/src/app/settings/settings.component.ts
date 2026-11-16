@@ -11,6 +11,7 @@ import { SettingsService } from '../settings.service';
 import { Setting } from '../client/models/Setting';
 import { SettingCreate } from '../client/models/SettingCreate';
 import { Observable, of } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { TestIds } from '../testing/test-ids';
 
@@ -36,6 +37,7 @@ export class SettingsComponent implements OnInit {
   private readonly selectOptions: Record<string, string[]> = {
     JsRenderMode: ['auto', 'always', 'off'],
   };
+  private readonly hiddenSettings = new Set<string>(['UrlImportRecentFilters']);
   
 
   constructor(private settingsService: SettingsService, 
@@ -43,7 +45,9 @@ export class SettingsComponent implements OnInit {
 
   ngOnInit(): void {
     this.settingsService.loadSettings();
-    this.settings$ = this.settingsService.settings$;
+    this.settings$ = this.settingsService.settings$.pipe(
+      map(settings => settings.filter(setting => !this.hiddenSettings.has(setting.name)))
+    );
   }
 
   updateSetting(setting: Setting, newValue: string) {

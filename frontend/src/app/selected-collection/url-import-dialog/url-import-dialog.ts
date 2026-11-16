@@ -3,8 +3,9 @@ import { UntilDestroy, untilDestroyed } from '@ngneat/until-destroy';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatButton } from '@angular/material/button';
 import { CommonModule } from '@angular/common';
-import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormControl, AbstractControl } from '@angular/forms';
-import { MatError, MatFormField, MatLabel } from '@angular/material/form-field';
+import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormControl, AbstractControl, ValidationErrors, ValidatorFn } from '@angular/forms';
+import { MatError, MatFormField, MatHint, MatLabel } from '@angular/material/form-field';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { FileImportSettings } from '../../client';
 import { MatInput } from '@angular/material/input';
 import {MatCheckboxModule} from '@angular/material/checkbox';
@@ -22,8 +23,10 @@ import {MatCheckboxModule} from '@angular/material/checkbox';
     MatFormField,
     MatInput,
     MatError,
+    MatHint,
     MatLabel,
-    MatCheckboxModule
+    MatCheckboxModule,
+    MatAutocompleteModule
   ],
   templateUrl: './url-import-dialog.html',
   styleUrl: './url-import-dialog.scss',
@@ -33,6 +36,19 @@ export class UrlImportDialog implements OnInit {
   showProgressBar = signal(false);
   infoString = signal<string>("");
 
+  readonly regexValidator: ValidatorFn = (control: AbstractControl): ValidationErrors | null => {
+    const value = (control.value ?? '').toString();
+    if (!value) {
+      return null;
+    }
+    try {
+      new RegExp(value);
+      return null;
+    } catch {
+      return { invalidRegex: true };
+    }
+  };
+
   constructor(
     public dialogRef: MatDialogRef<UrlImportDialog>,
     @Inject(MAT_DIALOG_DATA) public data: { 
@@ -41,27 +57,42 @@ export class UrlImportDialog implements OnInit {
       model: string, 
       settings: FileImportSettings,
       saved: boolean,
-      twoStepImport: boolean
+      twoStepImport: boolean,
+      recentFilters?: string[]
     },
     private fb: FormBuilder,
   ) {}
 
+  get filterEnabled(): FormControl {
+    return this.importForm.get('filterEnabled') as FormControl;
+  }
+
+  get urlFilterRegex(): FormControl {
+    return this.importForm.get('urlFilterRegex') as FormControl;
+  }
+
   ngOnInit(): void {
+    const savedFilter = (this.data.settings?.filter ?? '').trim();
+    const filterEnabled = savedFilter.length > 0;
+
     this.importForm = this.fb.group({
       model: [this.data.model, Validators.required],
       chunkSize: [this.data.settings.chunk_size, [Validators.required, Validators.min(1)]],
       chunkOverlap: [this.data.settings.chunk_overlap, [Validators.required, Validators.min(0)]],
       url: ['', Validators.required],
-      no_chunks: false,
-      filterEnabled: false,
-      urlFilterRegex: [{ value: "", disabled: true }]
+      no_chunks: [this.data.settings?.no_chunks ?? false],
+      filterEnabled: [filterEnabled],
+      urlFilterRegex: [
+        { value: savedFilter, disabled: !filterEnabled },
+        filterEnabled ? [Validators.required, this.regexValidator] : []
+      ]
     });
 
     this.importForm.get('filterEnabled')?.valueChanges.pipe(untilDestroyed(this)).subscribe(enabled => {
       const urlFilterRegexControl = this.importForm.get('urlFilterRegex');
       if (enabled) {
         urlFilterRegexControl?.enable();
-        urlFilterRegexControl?.setValidators(Validators.required);
+        urlFilterRegexControl?.setValidators([Validators.required, this.regexValidator]);
       } else {
         urlFilterRegexControl?.disable();
         urlFilterRegexControl?.setValue("");
@@ -70,10 +101,7 @@ export class UrlImportDialog implements OnInit {
       urlFilterRegexControl?.updateValueAndValidity();
     });
 
-    //if (this.data.saved)
-      this.importForm.get('model')?.disable()
-
-
+    this.importForm.get('model')?.disable();
   }
 
   onNoClick(): void {

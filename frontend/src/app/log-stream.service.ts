@@ -67,6 +67,10 @@ export class LogStreamService {
     return this.infos[collectionId];
   }
 
+  getAllInfos(): Readonly<Record<string, string>> {
+    return { ...this.infos };
+  }
+
   async loadInitialLogs(): Promise<Message[]>{
     try{
       const logs = await LogsService.readLogsLogsGet(25);      
