@@ -65,6 +65,7 @@ export const TestIds = {
   modelInput: 'model-input',
   importFileSubmitButton: 'import-file-submit-button',
   importProgress: 'import-progress',
+  stopImportButton: 'stop-import-button',
   chunkCountText: 'chunk-count-text',
 
   // Preview Dialog

@@ -57,8 +57,16 @@
     <div class="import-progress-bar" [attr.data-testid]="TestIds.importProgress">
       <div class="progressbar-line">
         <mat-progress-bar mode="indeterminate"></mat-progress-bar>
-        <button mat-icon-button (click)="cancelTask(task()!.id)" >
-            <mat-icon>cancel</mat-icon>
+        <button
+          mat-stroked-button
+          color="warn"
+          type="button"
+          (click)="cancelTask(task()!.id)"
+          [disabled]="task()!.status === 'CANCELLING'"
+          matTooltip="Stops the current task. In 2-step URL import, pages crawled so far are kept as files so you can review, import, or delete them."
+          [attr.data-testid]="TestIds.stopImportButton">
+          <mat-icon>{{ task()!.status === 'CANCELLING' ? 'hourglass_top' : 'stop_circle' }}</mat-icon>
+          {{ task()!.status === 'CANCELLING' ? 'Stopping…' : 'Stop' }}
         </button>
       </div>
       <p>

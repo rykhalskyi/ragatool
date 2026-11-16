@@ -6,6 +6,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { ImportService } from '../../client/services/ImportService';
 import { Import } from '../../client/models/Import';
@@ -39,6 +40,7 @@ import { TestIds } from '../../testing/test-ids';
     MatButtonModule,
     ReactiveFormsModule,
     MatProgressBarModule,
+    MatTooltipModule,
     CollectionDetailsComponent,
     MatIconModule,
     PreviewPanelComponent
@@ -403,9 +405,10 @@ export class SelectedCollectionImportComponent implements OnInit, OnChanges{
     return (this.collection?.saved) ?? false;
   }
 
-  async cancelTask(arg0: any) {
-      await this.taskCenterService.cancelTask(this.task()!.id);
-  } 
+  async cancelTask(taskId: string): Promise<void> {
+    await this.taskCenterService.cancelTask(taskId);
+    await this.taskCachingService.refresh();
+  }
 
   async onDeleteFiles() {
     if (!this.collection) return;

@@ -53,7 +53,9 @@ def simple_crawl(
         with StaticFetcher(options) as fetcher:
             while queue:
                 if cancel_event.is_set():
-                    return None
+                    # Return what has been collected so far. Callers decide
+                    # whether to keep or discard partial crawl results.
+                    return results
 
                 url, depth = queue.popleft()
                 if url in visited or depth > max_depth:
@@ -77,14 +79,14 @@ def simple_crawl(
 
                 if requests_made > 0 and options.crawl_request_delay_ms > 0:
                     if cancel_event.wait(options.crawl_request_delay_ms / 1000):
-                        return None
+                        return results
                 requests_made += 1
 
                 _report(on_progress, f"Crawling [{depth}] {url}")
 
                 fetched = fetcher.fetch(url, cancel_event)
                 if cancel_event.is_set():
-                    return None
+                    return results
 
                 if fetched is not None:
                     try:
@@ -110,7 +112,7 @@ def simple_crawl(
                     if render_needed and options.js_render_mode != "off":
                         rendered_page = renderer.render(url, cancel_event)
                         if cancel_event.is_set():
-                            return None
+                            return results
 
                     if rendered_page is not None:
                         extracted = extract_page(
@@ -157,7 +159,7 @@ def simple_crawl(
 
                 for link in links:
                     if cancel_event.is_set():
-                        return None
+                        return results
                     candidate = normalize_url(urljoin(final_url, link))
                     if candidate in visited:
                         continue

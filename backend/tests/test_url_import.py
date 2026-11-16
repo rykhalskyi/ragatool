@@ -107,6 +107,52 @@ class TestUrlImport(unittest.TestCase):
         topics = [call.args[1] for call in context.messageHub.send_message.call_args_list]
         assert MessageType.UNLOCK in topics
 
+    @patch('app.models.url_import.create_file')
+    @patch('app.models.url_import.TempFileHelper.save_temp_str', return_value='/tmp/crawled.html')
+    @patch('app.models.url_import.simple_crawler.simple_crawl')
+    def test_step_1_saves_pages_when_crawling_is_stopped(
+        self, mock_simple_crawl, mock_save_temp, mock_create_file
+    ):
+        url_import = UrlImport()
+        context = self._create_mock_context('1', two_step_import='True')
+        cancel_event = Event()
+        cancel_event.set()
+        mock_simple_crawl.return_value = [
+            {
+                "url": "http://example.com/a",
+                "text": "Page A",
+                "title": "A",
+                "final_url": "http://example.com/a",
+                "rendered": False,
+            },
+            {
+                "url": "http://example.com/b",
+                "text": "Page B",
+                "title": "B",
+                "final_url": "http://example.com/b",
+                "rendered": False,
+            },
+        ]
+
+        async def run_test():
+            await url_import.step_1('collection1', 'http://example.com', context, cancel_event)
+
+        import asyncio
+        asyncio.run(run_test())
+
+        assert mock_create_file.call_count == 2
+        mock_create_file.assert_any_call(
+            context.db, 'collection1', '/tmp/crawled.html', 'http://example.com/a'
+        )
+        mock_create_file.assert_any_call(
+            context.db, 'collection1', '/tmp/crawled.html', 'http://example.com/b'
+        )
+
+        topics = [call.args[1] for call in context.messageHub.send_message.call_args_list]
+        assert MessageType.UNLOCK in topics
+        messages = [call.args[2] for call in context.messageHub.send_message.call_args_list]
+        assert any("Saved 2 page(s)" in message for message in messages)
+
     def _create_mock_context(self, crawl_depth_value, two_step_import='False'):
         mock_settings_manager = MagicMock()
         mock_settings_manager.get_setting.side_effect = lambda setting_name: crawl_depth_value if setting_name == SettingsName.CRAWL_DEPTH else two_step_import
@@ -129,6 +175,7 @@ class TestUrlImport(unittest.TestCase):
         context.messageHub = mock_message_hub
         context.parameters = MagicMock()
         context.parameters.settings.filter = ""
+        context.db = MagicMock()
         
         return context
 
