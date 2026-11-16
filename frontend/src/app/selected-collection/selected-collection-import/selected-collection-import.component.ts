@@ -21,7 +21,7 @@ import { Body_import_file_import__collection_id__post } from '../../client/model
 import { UrlImportDialog } from '../url-import-dialog/url-import-dialog';
 import { Body_import_url_import_url__colletion_id__post } from '../../client/models/Body_import_url_import_url__colletion_id__post';
 import { CollectionDetailsComponent } from '../collection-details/collection-details.component';
-import { CollectionDetails, FileImportSettings, FilesService, Task } from '../../client';
+import { CollectionDetails, CollectionsService, FileImportSettings, FilesService, Task } from '../../client';
 import { TaskCenterService } from '../../task-center/task-center.service';
 import { SettingsService } from '../../settings.service';
 import { PreviewPanelComponent } from '../preview-panel/preview-panel.component';
@@ -338,19 +338,36 @@ export class SelectedCollectionImportComponent implements OnInit, OnChanges{
     }
   }
 
-  openPreviewPanel(): void {
+  async openPreviewPanel(): Promise<void> {
     const selectedImportType: Import | null = this.importForm.get('importType')?.value ?? null;
     const collection = this.collection;
     if (!selectedImportType || !collection) {
       return;
     }
 
-    const commonData = this.getDialogData(selectedImportType);
+    let collectionName = collection.name;
+    let model = selectedImportType.model;
+    let settings = selectedImportType.settings;
+
+    // Step 1 persists the import settings on the collection. Read the latest
+    // copy so the preview always uses the chunk settings used for step 1 even
+    // if the parent collection input has not been refreshed yet.
+    try {
+      const freshCollection = await CollectionsService.readCollectionCollectionsCollectionIdGet(collection.id);
+      collectionName = freshCollection.name;
+      if (freshCollection.import_type !== 'NONE') {
+        model = freshCollection.model ?? model;
+        settings = freshCollection.settings ? JSON.parse(freshCollection.settings) : settings;
+      }
+    } catch (error) {
+      console.error('Failed to load latest collection settings for preview:', error);
+    }
+
     this.previewData.set({
-      collectionName: commonData.collectionName,
+      collectionName,
       collectionId: collection.id,
-      model: commonData.model,
-      settings: commonData.settings,
+      model,
+      settings,
     });
     this.showPreview.set(true);
   }

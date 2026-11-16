@@ -26,7 +26,7 @@ export class TaskCachingService implements OnDestroy {
   constructor(private logStreamService: LogStreamService) {
     this.logSubscription = this.logStreamService.logs$.subscribe(message => {
       if (message.topic === 'TASK') {
-        void this.refresh();
+        void this.refreshAfterTaskEvent();
       }
     });
 
@@ -53,6 +53,16 @@ export class TaskCachingService implements OnDestroy {
 
   getTaskByCollectionId(collectionId: string): Task | undefined {
     return this.tasks.find(task => task.collectionId === collectionId);
+  }
+
+  /**
+   * A task can start and finish between two polls, leaving the task list
+   * unchanged ([] -> []). Views still need a notification so they can refresh
+   * prepared files/chunks after the task, so always emit on TASK events.
+   */
+  private async refreshAfterTaskEvent(): Promise<void> {
+    await this.refresh();
+    this.tasksSubject.next([...this.tasks]);
   }
 
   private async fetchTasks(): Promise<void> {

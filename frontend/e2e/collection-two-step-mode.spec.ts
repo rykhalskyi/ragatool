@@ -15,7 +15,11 @@ test('2-step import Dracula collection', async ({ page }) => {
   await test.step('Once Before tests: delete Dracula if exists', async () => {
     await page.goto('http://localhost:4200');
     const collectionItem = page.getByTestId(`${TestIds.collectionItem}-Dracula_2s`);
-    if (await collectionItem.isVisible()) {
+    const exists = await collectionItem
+      .waitFor({ state: 'visible', timeout: 5000 })
+      .then(() => true)
+      .catch(() => false);
+    if (exists) {
       await collectionItem.click();
       await page.getByTestId(TestIds.deleteCollectionButton).click();
       await page.getByTestId(TestIds.deleteConfirmButton).click();
