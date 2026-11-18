@@ -1,7 +1,12 @@
 from unittest.mock import patch
 
 from app.internal.crawl_options import CrawlOptions
-from app.internal.web_fetcher import StaticFetcher, _response_kind, extract_pdf_page
+from app.internal.web_fetcher import (
+    StaticFetcher,
+    _response_kind,
+    extract_page,
+    extract_pdf_page,
+)
 
 
 def make_pdf(text: str) -> bytes:
@@ -42,6 +47,81 @@ def test_response_kind_detection():
     assert _response_kind("https://example.com/download", "application/pdf", b"not a pdf") is None
     assert _response_kind("https://example.com/download?id=1", "", b"%PDF-1.4") == "pdf"
     assert _response_kind("https://example.com/page", "", b"<html></html>") == "html"
+
+
+DOCS_HTML = """
+<html>
+  <head><title>Install guide</title></head>
+  <body>
+    <header><a href="/">Home</a><a href="/download">Download</a></header>
+    <nav><a href="/alpha">Alpha</a><a href="/beta">Beta</a></nav>
+    <div class="cookie-banner">We use cookies to improve your experience.</div>
+    <aside>Related links sidebar</aside>
+    <main>
+      <article>
+        <h1>Installing the widget</h1>
+        <p>The widget is installed with the package manager. This paragraph holds
+        the real documentation content that should be imported.</p>
+        <p>Run the installer and then restart the service to finish the setup.</p>
+        <pre><code>widget install --now</code></pre>
+      </article>
+    </main>
+    <footer>Copyright Example Corp. All rights reserved.</footer>
+  </body>
+</html>
+"""
+
+
+def test_extract_page_strips_page_chrome():
+    result = extract_page(DOCS_HTML, "https://docs.example.com/install", CrawlOptions())
+
+    assert "installed with the package manager" in result.text
+    assert result.text.count("installed with the package manager") == 1
+    assert "widget install --now" in result.text
+    assert "We use cookies" not in result.text
+    assert "Related links sidebar" not in result.text
+    assert "Copyright Example Corp" not in result.text
+    assert "Alpha" not in result.text
+
+
+def test_extract_page_recovers_thin_main_content_without_chrome():
+    html = (
+        "<html><body>"
+        "<nav><a href='/x'>Navigation</a></nav>"
+        "<main><article><p>Short docs text</p></article></main>"
+        "<footer>Footer chrome</footer>"
+        "</body></html>"
+    )
+
+    result = extract_page(html, "https://docs.example.com/thin", CrawlOptions())
+
+    assert "Short docs text" in result.text
+    assert "Navigation" not in result.text
+    assert "Footer chrome" not in result.text
+
+
+def test_extract_page_does_not_use_rendered_body_text_over_clean_text():
+    result = extract_page(
+        DOCS_HTML,
+        "https://docs.example.com/install",
+        CrawlOptions(),
+        fallback_text="Home Download Alpha Beta Accept cookies Footer chrome",
+    )
+
+    assert "installed with the package manager" in result.text
+    assert "Accept cookies" not in result.text
+    assert "Alpha" not in result.text
+
+
+def test_extract_page_uses_rendered_body_text_only_when_empty():
+    result = extract_page(
+        "<html><body></body></html>",
+        "https://example.com/",
+        CrawlOptions(),
+        fallback_text="Rendered client-side content",
+    )
+
+    assert result.text == "Rendered client-side content"
 
 
 def test_extract_pdf_page_extracts_text_and_title():
