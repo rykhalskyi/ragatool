@@ -438,6 +438,54 @@ def test_off_domain_links_are_skipped():
     assert FakeFetcher.fetched_urls == ["http://example.com"]
 
 
+def test_repeated_cross_page_blocks_are_stripped():
+    shared = "<p>Edit this page on GitHub</p><p>Previous Next</p>"
+
+    def docs_html(number: int) -> str:
+        return (
+            "<html><head><title>Page %d</title></head><body><main><article>"
+            "%s<p>Unique documentation content number %d.</p>"
+            "</article></main></body></html>"
+        ) % (number, shared, number)
+
+    FakeFetcher.responses = {
+        "http://example.com": page(
+            docs_html(1) + '<a href="/page2">Page 2</a><a href="/page3">Page 3</a>',
+            "http://example.com",
+        ),
+        "http://example.com/page2": page(docs_html(2), "http://example.com/page2"),
+        "http://example.com/page3": page(docs_html(3), "http://example.com/page3"),
+    }
+
+    results = simple_crawl("http://example.com", Event(), None, max_depth=1, options=make_options())
+
+    assert len(results) == 3
+    for result in results:
+        assert "Edit this page on GitHub" not in result["text"]
+        assert "Previous Next" not in result["text"]
+    assert "number 1" in results[0]["text"]
+    assert "number 3" in results[2]["text"]
+
+
+def test_small_crawl_does_not_strip_unrelated_content():
+    FakeFetcher.responses = {
+        "http://example.com": page(
+            "<html><body><p>Home</p><a href='/page2'>Page 2</a></body></html>",
+            "http://example.com",
+        ),
+        "http://example.com/page2": page(
+            "<html><body><p>Page 2</p></body></html>",
+            "http://example.com/page2",
+        ),
+    }
+
+    results = simple_crawl("http://example.com", Event(), None, max_depth=1, options=make_options())
+
+    assert len(results) == 2
+    assert "Home" in results[0]["text"]
+    assert "Page 2" in results[1]["text"]
+
+
 def test_cancellation_returns_partial_results():
     event = Event()
     event.set()

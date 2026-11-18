@@ -1,4 +1,6 @@
-from collections import deque
+import math
+import re
+from collections import Counter, deque
 from hashlib import sha256
 from re import Pattern
 from threading import Event
@@ -49,13 +51,19 @@ def simple_crawl(
     results: list[dict] = []
     requests_made = 0
 
+    def finalize() -> list[dict]:
+        # Strip chrome (menus, sidebars, footers, ...) that repeats across the
+        # crawled pages. Callers decide whether to keep partial results.
+        _strip_repeated_blocks(results)
+        return results
+
     try:
         with StaticFetcher(options) as fetcher:
             while queue:
                 if cancel_event.is_set():
                     # Return what has been collected so far. Callers decide
                     # whether to keep or discard partial crawl results.
-                    return results
+                    return finalize()
 
                 url, depth = queue.popleft()
                 if url in visited or depth > max_depth:
@@ -79,14 +87,14 @@ def simple_crawl(
 
                 if requests_made > 0 and options.crawl_request_delay_ms > 0:
                     if cancel_event.wait(options.crawl_request_delay_ms / 1000):
-                        return results
+                        return finalize()
                 requests_made += 1
 
                 _report(on_progress, f"Crawling [{depth}] {url}")
 
                 fetched = fetcher.fetch(url, cancel_event)
                 if cancel_event.is_set():
-                    return results
+                    return finalize()
 
                 if fetched is not None:
                     try:
@@ -112,7 +120,7 @@ def simple_crawl(
                     if render_needed and options.js_render_mode != "off":
                         rendered_page = renderer.render(url, cancel_event)
                         if cancel_event.is_set():
-                            return results
+                            return finalize()
 
                     if rendered_page is not None:
                         extracted = extract_page(
@@ -159,7 +167,7 @@ def simple_crawl(
 
                 for link in links:
                     if cancel_event.is_set():
-                        return results
+                        return finalize()
                     candidate = normalize_url(urljoin(final_url, link))
                     if candidate in visited:
                         continue
@@ -169,7 +177,55 @@ def simple_crawl(
     finally:
         renderer.close()
 
-    return results
+    return finalize()
+
+
+def _strip_repeated_blocks(pages: list[dict]) -> None:
+    """Remove blocks that repeat across most pages of a crawl.
+
+    Documentation sites (and most sites) render the same menu, sidebar,
+    breadcrumb and footer on every page. Exact repeated blocks across a
+    majority of pages are chrome, not content, so drop them in place.
+    """
+    if len(pages) < 3:
+        return
+
+    page_blocks = []
+    counts: Counter[str] = Counter()
+    for page in pages:
+        blocks, joiner = _split_blocks(page["text"])
+        normalized = [_normalize_block(block) for block in blocks]
+        page_blocks.append((page, blocks, normalized, joiner))
+        counts.update({key for key in normalized if len(key) >= 2})
+
+    threshold = max(3, math.ceil(len(pages) * 0.6))
+    repeated = {key for key, count in counts.items() if count >= threshold}
+    if not repeated:
+        return
+
+    cleaned = []
+    for page, blocks, normalized, joiner in page_blocks:
+        kept = [block for block, key in zip(blocks, normalized) if key not in repeated]
+        text = joiner.join(kept).strip()
+        if text:
+            page["text"] = text
+            cleaned.append(page)
+
+    pages[:] = cleaned
+
+
+def _split_blocks(text: str) -> tuple[list[str], str]:
+    if "\n\n" in text:
+        parts = re.split(r"\n\s*\n", text)
+        joiner = "\n\n"
+    else:
+        parts = text.split("\n")
+        joiner = "\n"
+    return [part.strip() for part in parts if part.strip()], joiner
+
+
+def _normalize_block(block: str) -> str:
+    return " ".join(block.split()).lower()
 
 
 def _link_allowed(

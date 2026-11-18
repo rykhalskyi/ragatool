@@ -29,6 +29,43 @@ SPA_MARKERS = (
     "data-reactroot",
 )
 
+MIN_USEFUL_TEXT_CHARS = 80
+
+CONTENT_SELECTORS = (
+    "main",
+    "article",
+    '[role="main"]',
+    ".documentation",
+    ".content",
+    "#content",
+    "#main",
+)
+
+NOISE_SELECTORS = (
+    "script",
+    "style",
+    "noscript",
+    "nav",
+    "header",
+    "footer",
+    "aside",
+    "form",
+    "iframe",
+    '[role="navigation"]',
+    '[role="banner"]',
+    '[role="contentinfo"]',
+    '[role="complementary"]',
+    '[aria-hidden="true"]',
+    '[class*="cookie"]',
+    '[id*="cookie"]',
+    '[class*="consent"]',
+    '[id*="consent"]',
+    '[class*="gdpr"]',
+    '[id*="gdpr"]',
+    '[class*="breadcrumb"]',
+    '[id*="breadcrumb"]',
+)
+
 
 @dataclass
 class FetchResult:
@@ -217,40 +254,89 @@ def extract_page(
     soup = BeautifulSoup(html, "html.parser")
     title = _extract_title(soup)
 
-    text = ""
+    text = _trafilatura_extract(html, url, favor_precision=True)
+    dom_text, has_container = _extract_dom_text(soup)
+
+    if has_container:
+        # A semantic <main>/<article> container recovers short documentation
+        # pages that trafilatura's precision pass misses, without escalating
+        # to recall mode (which re-introduces chrome).
+        if len(text.strip()) < MIN_USEFUL_TEXT_CHARS and len(dom_text.strip()) > len(text.strip()):
+            text = dom_text
+        if not text.strip():
+            text = _trafilatura_extract(html, url, favor_recall=True) or dom_text
+    else:
+        if len(text.strip()) < MIN_USEFUL_TEXT_CHARS:
+            balanced = _trafilatura_extract(html, url)
+            if len(balanced.strip()) > len(text.strip()):
+                text = balanced
+        if not text.strip():
+            text = _trafilatura_extract(html, url, favor_recall=True)
+        if not text.strip():
+            text = dom_text
+
+    # Rendered body text is a last resort only: it almost always contains
+    # navigation, cookie banners and other chrome, so it must never replace
+    # a successful main-content extraction.
+    fallback_text = (fallback_text or "").strip()
+    if not text.strip() and fallback_text:
+        text = fallback_text
+
+    return ExtractResult(text=text.strip(), title=title)
+
+
+def _trafilatura_extract(html: str, url: str, **kwargs) -> str:
     try:
         text = trafilatura.extract(
             html,
             url=url,
             include_tables=True,
             include_comments=False,
+            include_links=False,
+            deduplicate=True,
+            **kwargs,
         ) or ""
     except Exception:
-        text = ""
+        return ""
+    return _deduplicate_text(text)
 
-    if len(text.strip()) < options.min_static_text_chars:
+
+def _deduplicate_text(text: str) -> str:
+    seen: set[str] = set()
+    lines = []
+    for line in text.splitlines():
+        key = " ".join(line.split()).lower()
+        if not key:
+            continue
+        if key in seen:
+            continue
+        seen.add(key)
+        lines.append(line.strip())
+    return "\n".join(lines)
+
+
+def _extract_dom_text(soup: BeautifulSoup) -> tuple[str, bool]:
+    container = None
+    for selector in CONTENT_SELECTORS:
         try:
-            recall_text = trafilatura.extract(
-                html,
-                url=url,
-                include_tables=True,
-                include_comments=False,
-                favor_recall=True,
-            ) or ""
+            container = soup.select_one(selector)
         except Exception:
-            recall_text = ""
-        if len(recall_text.strip()) > len(text.strip()):
-            text = recall_text
+            container = None
+        if container is not None:
+            break
 
-    if not text.strip():
-        for tag in soup(["script", "style", "nav", "header", "footer", "aside", "noscript"]):
-            tag.decompose()
-        text = soup.get_text("\n", strip=True)
+    has_container = container is not None
+    if container is None:
+        container = soup.body or soup
 
-    if fallback_text and len(fallback_text.strip()) > len(text.strip()):
-        text = fallback_text
+    for selector in NOISE_SELECTORS:
+        try:
+            for tag in container.select(selector):
+                tag.decompose()
+        except Exception:
+            continue
 
-    return ExtractResult(text=text.strip(), title=title)
+    return container.get_text("\n", strip=True), has_container
 
 
 def extract_links(html: str, base_url: str) -> list[str]:
