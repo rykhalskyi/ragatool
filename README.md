@@ -160,6 +160,19 @@ The frontend container proxies `/api` to the backend, so the UI stays
 same-origin and the session cookie uses `SameSite=Lax`. The bundled nginx adds
 CSP and other security headers; the CSP assumes `API_URL=/api` (same origin).
 
+## LLM API profiles
+
+Open **Settings → LLM API profiles** to add an OpenAI-compatible provider for
+Ragatool's built-in agent. Profiles store a name, provider, base URL, model,
+timeouts, and an API key. The app appends `/chat/completions` to the base URL.
+
+API keys are encrypted with Fernet before they are stored and are never
+returned to the browser; the UI only shows a masked value. Set
+`RAGATOOL_ENCRYPTION_KEY` to a stable Fernet key in production. When it is
+unset, Ragatool creates `.llm_key` next to the database with mode `0600`.
+Back up that key with the database volume: losing it means re-entering stored
+API keys. See `backend/.env.example` for the generation command and overrides.
+
 ## Ragatool MCP Configuration
 
 Every MCP request requires an API token from the Access page. Add it to your

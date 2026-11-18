@@ -1,7 +1,7 @@
 ---
 created: 2026-11-18
 type: ticket
-status: proposed
+status: in-progress
 summary: Add an in-app, resizable agent pane with encrypted LLM API profiles and direct access to the same tools as the Ragatool MCP server.
 ---
 
@@ -266,4 +266,18 @@ cd frontend && npm test
 
 ## Outcome
 
-Not started.
+Phase 1 implemented: `llm_profiles` storage, Fernet-encrypted API keys,
+profile CRUD/activation/test endpoints under `/agent`, and the Settings UI
+section for adding and editing OpenAI-compatible profiles. Phases 2–4 remain.
+
+Implementation notes:
+
+- `backend/app/database.py` creates `llm_profiles` and enforces one active
+  profile with a partial unique index.
+- `backend/app/internal/agent/` contains the crypto helper, profile service,
+  and provider connection test.
+- `backend/app/routers/agent.py` exposes providers and profile CRUD.
+- `frontend/src/app/settings/llm-profiles/` contains the settings section and
+  dialog.
+- `RAGATOOL_ENCRYPTION_KEY` or the fallback `.llm_key` file next to the
+  database protects stored keys.

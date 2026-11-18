@@ -45,6 +45,24 @@ export const TestIds = {
   jsRenderModeSelect: 'js-render-mode-select',
   saveSettingsButton: 'save-settings-button',
 
+  // LLM profiles
+  llmProfilesSection: 'llm-profiles-section',
+  llmProfilesEmpty: 'llm-profiles-empty',
+  addLlmProfileButton: 'add-llm-profile-button',
+  llmProfileCard: 'llm-profile-card',
+  llmProfileDialogTitle: 'llm-profile-dialog-title',
+  llmProfileNameInput: 'llm-profile-name-input',
+  llmProfileProviderSelect: 'llm-profile-provider-select',
+  llmProfileBaseUrlInput: 'llm-profile-base-url-input',
+  llmProfileModelInput: 'llm-profile-model-input',
+  llmProfileApiKeyInput: 'llm-profile-api-key-input',
+  llmProfileSaveButton: 'llm-profile-save-button',
+  llmProfileCancelButton: 'llm-profile-cancel-button',
+  llmProfileActivateToggle: 'llm-profile-activate-toggle',
+  llmProfileTestButton: 'llm-profile-test-button',
+  llmProfileEditButton: 'llm-profile-edit-button',
+  llmProfileDeleteButton: 'llm-profile-delete-button',
+
   // SelectedCollection
   importTypeSelect: 'import-type-select',
   importButton: 'import-button',

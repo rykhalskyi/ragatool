@@ -1,0 +1,75 @@
+<section class="llm-profiles" [attr.data-testid]="TestIds.llmProfilesSection">
+  <div class="section-header">
+    <div>
+      <h2>LLM API profiles</h2>
+      <p>
+        Add an OpenAI-compatible provider and API key. Keys are encrypted and never
+        returned to the browser.
+      </p>
+    </div>
+    <button mat-raised-button color="primary" type="button" (click)="openCreate()"
+            [disabled]="loading" [attr.data-testid]="TestIds.addLlmProfileButton">
+      <mat-icon>add</mat-icon>
+      Add profile
+    </button>
+  </div>
+
+  @if (loading) {
+    <p class="muted">Loading profiles…</p>
+  } @else if (error) {
+    <p class="form-error">{{ error }}</p>
+  } @else if (profiles.length === 0) {
+    <div class="empty-state" [attr.data-testid]="TestIds.llmProfilesEmpty">
+      <p>No LLM profiles configured.</p>
+      <button mat-stroked-button type="button" (click)="openCreate()">Add your first profile</button>
+    </div>
+  } @else {
+    <div class="profile-list">
+      @for (profile of profiles; track profile.id) {
+        <article class="profile-card" [class.profile-card-active]="profile.is_active"
+                 [attr.data-testid]="TestIds.llmProfileCard">
+          <div class="profile-main">
+            <div class="profile-title-row">
+              <h3>{{ profile.name }}</h3>
+              <span class="provider-badge">{{ providerLabel(profile) }}</span>
+              @if (profile.is_active) {
+                <span class="active-badge">Active</span>
+              }
+            </div>
+            <p class="profile-details">
+              <span>Model: {{ profile.model }}</span>
+              <span>Key: <code>{{ profile.api_key_masked }}</code></span>
+            </p>
+            <p class="profile-url">{{ profile.base_url }}</p>
+          </div>
+
+          <div class="profile-actions">
+            <mat-slide-toggle
+              [checked]="profile.is_active"
+              (change)="activate(profile)"
+              [disabled]="busyId === profile.id"
+              [attr.data-testid]="TestIds.llmProfileActivateToggle">
+              Active
+            </mat-slide-toggle>
+            <button mat-stroked-button type="button" (click)="test(profile)"
+                    [disabled]="testingId === profile.id"
+                    [attr.data-testid]="TestIds.llmProfileTestButton">
+              {{ testingId === profile.id ? 'Testing…' : 'Test' }}
+            </button>
+            <button mat-stroked-button type="button" (click)="openEdit(profile)"
+                    [disabled]="busyId === profile.id"
+                    [attr.data-testid]="TestIds.llmProfileEditButton">
+              Edit
+            </button>
+            <button mat-icon-button type="button" color="warn" (click)="remove(profile)"
+                    [disabled]="busyId === profile.id"
+                    aria-label="Delete LLM profile"
+                    [attr.data-testid]="TestIds.llmProfileDeleteButton">
+              <mat-icon>delete</mat-icon>
+            </button>
+          </div>
+        </article>
+      }
+    </div>
+  }
+</section>

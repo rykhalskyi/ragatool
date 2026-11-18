@@ -3,7 +3,11 @@
       <h1>Settings</h1>
       <button mat-raised-button color="primary" type="button" (click)="saveSettings()" [attr.data-testid]="TestIds.saveSettingsButton">Save</button>
   </div>
-  
+
+  <app-llm-profiles></app-llm-profiles>
+
+  <h2 class="section-title">Import &amp; retrieval</h2>
+
   @if (settings$ | async; as settings) {
     @for (setting of settings; track setting.name) {
       <div class="setting-item">

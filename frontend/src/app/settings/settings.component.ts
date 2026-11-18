@@ -14,6 +14,7 @@ import { Observable, of } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { TestIds } from '../testing/test-ids';
+import { LlmProfilesComponent } from './llm-profiles/llm-profiles.component';
 
 @Component({
   selector: 'app-settings',
@@ -26,7 +27,8 @@ import { TestIds } from '../testing/test-ids';
     MatButtonModule,
     MatSlideToggleModule,
     MatSelectModule,
-    MatIconModule
+    MatIconModule,
+    LlmProfilesComponent
   ],
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.scss'

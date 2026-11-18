@@ -22,6 +22,7 @@ from app.routers import (
     summaries,
     auth,
     tokens,
+    agent,
 )
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import create_tables, get_db_connection
@@ -141,6 +142,9 @@ app.include_router(
 )  # HTTP endpoints are protected individually; the WebSocket uses API tokens.
 app.include_router(
     summaries.router, prefix="/summaries", tags=["summaries"], dependencies=protected
+)
+app.include_router(
+    agent.router, prefix="/agent", tags=["agent"], dependencies=protected
 )
 
 app.include_router(auth.router, prefix="/auth", tags=["auth"])

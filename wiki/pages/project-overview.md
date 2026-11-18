@@ -80,6 +80,8 @@ plugins/               # OnlyOffice, Thunderbird, Outlook integrations
   (`source`, `chunk`, `ts`, `char_start`, `char_end`).
 - **Summary hierarchy:** CHUNKS / CHAPTER / BOOK summaries plus wiki pages
   managed through the RAG wiki skills.
+- **LLM profiles:** OpenAI-compatible provider profiles with Fernet-encrypted
+  API keys, used by Ragatool's built-in agent.
 - **Extensions:** WebSocket-connected plugins exposed as MCP tools.
 - **MessageHub:** broadcasts progress, info, and log messages to the UI via
   SSE; also persists log messages.

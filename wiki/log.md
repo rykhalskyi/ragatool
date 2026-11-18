@@ -8,3 +8,4 @@
 ## [2026-11-15] update | Secure Ragatool auth: switch UI sessions to server-side SQLite session IDs; remove SECRET_KEY/itsdangerous
 ## [2026-11-15] update | Secure Ragatool auth: public-exposure hardening (origin guard, docs toggle, nginx headers, Cloudflare Tunnel docs)
 ## [2026-11-18] ticket | In-app agent pane: encrypted LLM profiles and direct MCP tool access
+## [2026-11-18] update | Agent pane phase 1: LLM profiles, encrypted keys, CRUD/test API, and Settings UI
