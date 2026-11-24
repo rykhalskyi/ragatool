@@ -161,7 +161,7 @@ def register_tools(mcp_server, mcp_manager):
             return {"status": "error", "message": str(e)}
 
     @mcp_server.tool()
-    def get_chunks_by_id(collection_name: str, ids):
+    def get_chunks_by_id(collection_name: str, ids: List[str] | str):
         """
         Retrieves one or multiple chunks from a ChromaDB collection using IDs.
 
@@ -326,7 +326,7 @@ def register_tools(mcp_server, mcp_manager):
             summaries = get_summary_by_type(db, collection_id, summary_type_enum)
             if len(summaries) > 0:
                 if summary_index <= len(summaries) - 1: 
-                    return {"status": "success", "summary": summaries[summary_index].model_dump}
+                    return {"status": "success", "summary": summaries[summary_index].model_dump()}
                 else: return {"status": "error", "message": f"Index out of range {len(summaries)-1}"}
             else:
                 return {"status": "error", "message": f"No summaries found for type {summary_type_enum.name} in collection '{collection_name}'."}

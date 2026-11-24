@@ -10,5 +10,10 @@
     <div class="selected-topic">
       <router-outlet></router-outlet>
     </div>
+    @if (!isAuthPage() && agentUi.visible()) {
+      <div class="agent-divider" (mousedown)="startAgentResizing($event)"
+           [attr.data-testid]="TestIds.agentResizeHandle"></div>
+      <app-agent-pane></app-agent-pane>
+    }
   </div>
 </main>

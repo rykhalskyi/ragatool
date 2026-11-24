@@ -19,6 +19,7 @@ import { UntilDestroy, untilDestroyed } from '@ngneat/until-destroy';
 import { File, FilesService } from '../client';
 import { Subscription } from 'rxjs';
 import { ExtensionToolDetailsComponent } from './extension-tool-details/extension-tool-details.component'; // Import the new component
+import { CurrentCollectionService } from '../agent-pane/current-collection.service';
 
 
 export interface ExtendedCollection extends Collection {
@@ -60,7 +61,8 @@ export class SelectedCollectionComponent implements OnInit, OnDestroy {
     private route: ActivatedRoute,
     private router: Router,
     private collectionRefreshService: CollectionRefreshService,
-    public dialog: MatDialog
+    public dialog: MatDialog,
+    private currentCollectionService: CurrentCollectionService
   ) {}
 
   ngOnInit(): void {
@@ -84,12 +86,14 @@ export class SelectedCollectionComponent implements OnInit, OnDestroy {
           this.collection = undefined; // Clear collection data if navigating to extension tool
           this.collectionDetails.set(null);
           this.collectionFiles.set(null);
+          this.currentCollectionService.clear();
         } else {
           this.activeType = null;
           this.selectedId = null;
           this.collection = undefined;
           this.collectionDetails.set(null);
           this.collectionFiles.set(null);
+          this.currentCollectionService.clear();
         }
       });
 
@@ -116,6 +120,10 @@ export class SelectedCollectionComponent implements OnInit, OnDestroy {
       };
 
       this.isEnabled = this.collection?.enabled || false;
+      this.currentCollectionService.set({
+        id: collection.id,
+        name: collection.name,
+      });
     } catch (error) {
       console.error('Error fetching collection details:', error);
     }

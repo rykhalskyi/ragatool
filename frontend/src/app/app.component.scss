@@ -31,7 +31,26 @@
 
   .selected-topic {
     flex-grow: 1;
+    min-width: 0;
     height: 100%;
     overflow-y: auto;
+  }
+
+  .agent-divider {
+    width: 5px;
+    flex: 0 0 5px;
+    background-color: #ccc;
+    cursor: col-resize;
+    transition: background-color 0.3s;
+  }
+
+  .agent-divider:hover {
+    background-color: #aaa;
+  }
+}
+
+@media (max-width: 900px) {
+  .content .agent-divider {
+    display: none;
   }
 }

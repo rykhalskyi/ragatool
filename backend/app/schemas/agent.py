@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Any, Literal, Optional
 from urllib.parse import urlparse
 
 from pydantic import BaseModel, Field, field_validator
@@ -118,3 +118,54 @@ class LlmProfileTestResult(BaseModel):
     message: str
     model: Optional[str] = None
     latency_ms: Optional[int] = None
+
+
+class AgentChatHistoryMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=20_000)
+
+    @field_validator("content")
+    @classmethod
+    def _valid_content(cls, value: str) -> str:
+        return _strip_not_blank(value, "content")
+
+
+class AgentChatRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=20_000)
+    history: list[AgentChatHistoryMessage] = Field(default_factory=list, max_length=40)
+    collection_name: Optional[str] = Field(default=None, max_length=512)
+
+    @field_validator("message")
+    @classmethod
+    def _valid_message(cls, value: str) -> str:
+        return _strip_not_blank(value, "message")
+
+    @field_validator("collection_name")
+    @classmethod
+    def _valid_collection_name(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        trimmed = value.strip()
+        return trimmed or None
+
+
+class AgentToolCallOut(BaseModel):
+    id: str
+    name: str
+    arguments: Any = None
+    status: str
+    result_preview: str = ""
+
+
+class AgentUsage(BaseModel):
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    total_tokens: int = 0
+
+
+class AgentChatResponse(BaseModel):
+    message: str
+    model: str
+    tool_calls: list[AgentToolCallOut] = Field(default_factory=list)
+    usage: AgentUsage = Field(default_factory=AgentUsage)
+    warnings: list[str] = Field(default_factory=list)

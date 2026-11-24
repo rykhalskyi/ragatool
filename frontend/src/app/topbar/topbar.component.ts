@@ -14,13 +14,15 @@ import { Overlay, OverlayRef } from '@angular/cdk/overlay';
 import { ComponentPortal } from '@angular/cdk/portal';
 import { TaskCenterComponent } from '../task-center/task-center.component';
 import { MatBadgeModule } from '@angular/material/badge';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { TestIds } from '@testing/test-ids';
 import { getApiUrl } from '../../environments/runtime-config';
+import { AgentUiService } from '../agent-ui.service';
 
 @Component({
   selector: 'app-topbar',
   standalone: true,
-  imports: [MatSlideToggleModule, MatButtonModule, MatIconModule, MatBadgeModule],
+  imports: [MatSlideToggleModule, MatButtonModule, MatIconModule, MatBadgeModule, MatTooltipModule],
   templateUrl: './topbar.component.html',
   styleUrl: './topbar.component.scss'
 })
@@ -37,7 +39,8 @@ export class TopbarComponent implements OnInit {
     private taskCashedService: TaskCachingService,
     private router: Router,
     private overlay: Overlay,
-    private http: HttpClient){} // Injected McpService
+    private http: HttpClient,
+    public readonly agentUi: AgentUiService){} // Injected McpService
   
   ngOnInit(): void {
     this.taskCashedService.tasks$.subscribe(tasks => {

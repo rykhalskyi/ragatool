@@ -4,8 +4,10 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 
 from app.dependencies import get_db
-from app.internal.agent import llm_client, profiles
+from app.internal.agent import llm_client, profiles, service
 from app.schemas.agent import (
+    AgentChatRequest,
+    AgentChatResponse,
     LlmProfileActivate,
     LlmProfileCreate,
     LlmProfileOut,
@@ -87,3 +89,25 @@ async def test_profile(
         raise HTTPException(status_code=400, detail=str(exc))
 
     return await llm_client.test_connection(profile, api_key)
+
+
+@router.post("/chat", response_model=AgentChatResponse)
+async def chat(
+    payload: AgentChatRequest, db: Connection = Depends(get_db)
+) -> AgentChatResponse:
+    try:
+        return await service.run_chat(db, payload)
+    except service.AgentConfigurationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except profiles.ProfileValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except service.AgentBusyError as exc:
+        raise HTTPException(status_code=429, detail=str(exc))
+    except llm_client.LlmProviderError as exc:
+        if exc.kind == "auth":
+            status_code = 400
+        elif exc.kind == "rate_limit":
+            status_code = 429
+        else:
+            status_code = 502
+        raise HTTPException(status_code=status_code, detail=str(exc))

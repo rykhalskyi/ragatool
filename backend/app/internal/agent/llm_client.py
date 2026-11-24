@@ -1,8 +1,100 @@
 import time
+from typing import Any
 
 import httpx
 
 from app.schemas.agent import LlmProfileTestResult
+
+
+class LlmProviderError(RuntimeError):
+    def __init__(self, kind: str, message: str, status_code: int | None = None):
+        super().__init__(message)
+        self.kind = kind
+        self.status_code = status_code
+
+
+def _timeout(profile: dict) -> httpx.Timeout:
+    return httpx.Timeout(
+        connect=float(profile["connect_timeout_seconds"]),
+        read=float(profile["read_timeout_seconds"]),
+        write=float(profile["read_timeout_seconds"]),
+        pool=float(profile["connect_timeout_seconds"]),
+    )
+
+
+def _headers(api_key: str) -> dict[str, str]:
+    headers = {"Content-Type": "application/json"}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+    return headers
+
+
+def _raise_for_status(status_code: int) -> None:
+    if status_code in {401, 403}:
+        raise LlmProviderError(
+            "auth",
+            "The provider rejected the API key. Check the active LLM profile.",
+            status_code,
+        )
+    if status_code == 429:
+        raise LlmProviderError(
+            "rate_limit",
+            "The provider rate-limited the request. Try again later.",
+            status_code,
+        )
+    raise LlmProviderError(
+        "http_error",
+        f"The provider returned HTTP {status_code}.",
+        status_code,
+    )
+
+
+async def chat_completion(
+    profile: dict,
+    api_key: str,
+    messages: list[dict[str, Any]],
+    tools: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    url = chat_completions_url(profile["base_url"])
+    body: dict[str, Any] = {
+        "model": profile["model"],
+        "messages": messages,
+        "temperature": float(profile["temperature"]),
+        "max_tokens": int(profile["max_tokens"]),
+    }
+    if tools:
+        body["tools"] = tools
+        body["tool_choice"] = "auto"
+
+    try:
+        async with httpx.AsyncClient(timeout=_timeout(profile)) as client:
+            response = await client.post(url, json=body, headers=_headers(api_key))
+    except httpx.TimeoutException as exc:
+        raise LlmProviderError(
+            "timeout",
+            "The provider timed out. Check the profile timeouts and network.",
+        ) from exc
+    except httpx.HTTPError as exc:
+        raise LlmProviderError(
+            "network",
+            "Could not reach the provider. Check the base URL and network.",
+        ) from exc
+
+    if response.status_code >= 400:
+        _raise_for_status(response.status_code)
+
+    try:
+        payload = response.json()
+    except ValueError as exc:
+        raise LlmProviderError(
+            "invalid_response", "The provider returned an invalid response."
+        ) from exc
+
+    if not isinstance(payload, dict) or not isinstance(payload.get("choices"), list):
+        raise LlmProviderError(
+            "invalid_response", "The provider returned an unexpected response."
+        )
+    return payload
 
 
 def chat_completions_url(base_url: str) -> str:
