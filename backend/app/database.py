@@ -142,6 +142,16 @@ def create_tables(conn: Optional[Connection] = None):
 
     cursor.execute("""
     INSERT OR IGNORE INTO settings (name, value, description)
+    VALUES ('AgentMaxToolRounds', '6', 'Maximum number of tool-call rounds the agent may run per chat')
+    """)
+
+    cursor.execute("""
+    INSERT OR IGNORE INTO settings (name, value, description)
+    VALUES ('AgentMaxToolCallsPerRound', '8', 'Maximum number of tool calls the agent may execute in a single round')
+    """)
+
+    cursor.execute("""
+    INSERT OR IGNORE INTO settings (name, value, description)
     VALUES ('UrlImportRecentFilters', '[]', 'Recently used URL import filter regular expressions (JSON array)')
     """)
 

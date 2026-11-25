@@ -6,6 +6,7 @@ from typing import Any, Iterable
 from sqlite3 import Connection
 
 from app.internal.agent import llm_client, profiles, tool_bridge
+from app.internal.settings_manager import SettingsManager
 from app.schemas.agent import (
     AgentChatHistoryMessage,
     AgentChatRequest,
@@ -13,11 +14,14 @@ from app.schemas.agent import (
     AgentToolCallOut,
     AgentUsage,
 )
+from app.schemas.setting import SettingsName
 
 MAX_HISTORY_MESSAGES = 20
 MAX_HISTORY_CHARS = 20_000
 MAX_TOOL_ROUNDS = 6
 MAX_TOOL_CALLS_PER_ROUND = 8
+MAX_TOOL_ROUNDS_LIMIT = 100
+MAX_TOOL_CALLS_PER_ROUND_LIMIT = 100
 MAX_CONCURRENT_RUNS = 2
 RUN_WAIT_SECONDS = 5.0
 
@@ -40,6 +44,31 @@ class AgentConfigurationError(RuntimeError):
 
 class AgentBusyError(RuntimeError):
     pass
+
+
+def _bounded_setting(
+    manager: SettingsManager, name: SettingsName, default: int, upper: int
+) -> int:
+    value = manager.get_setting_int(name, default)
+    return max(1, min(value, upper))
+
+
+def _tool_limits(db: Connection) -> tuple[int, int]:
+    manager = SettingsManager(db)
+    return (
+        _bounded_setting(
+            manager,
+            SettingsName.AGENT_MAX_TOOL_ROUNDS,
+            MAX_TOOL_ROUNDS,
+            MAX_TOOL_ROUNDS_LIMIT,
+        ),
+        _bounded_setting(
+            manager,
+            SettingsName.AGENT_MAX_TOOL_CALLS_PER_ROUND,
+            MAX_TOOL_CALLS_PER_ROUND,
+            MAX_TOOL_CALLS_PER_ROUND_LIMIT,
+        ),
+    )
 
 
 def _system_prompt(collection_name: str | None) -> str:
@@ -152,6 +181,7 @@ async def run_chat(db: Connection, request: AgentChatRequest) -> AgentChatRespon
             "No active LLM profile is configured. Add one in Settings."
         )
     api_key = profiles.decrypt_profile_key(profile)
+    max_tool_rounds, max_tool_calls_per_round = _tool_limits(db)
 
     acquired = await asyncio.to_thread(
         _RUN_SEMAPHORE.acquire, True, RUN_WAIT_SECONDS
@@ -162,7 +192,13 @@ async def run_chat(db: Connection, request: AgentChatRequest) -> AgentChatRespon
         )
 
     try:
-        return await _run_agent_loop(profile, api_key, request)
+        return await _run_agent_loop(
+            profile,
+            api_key,
+            request,
+            max_tool_rounds=max_tool_rounds,
+            max_tool_calls_per_round=max_tool_calls_per_round,
+        )
     finally:
         _RUN_SEMAPHORE.release()
 
@@ -171,6 +207,8 @@ async def _run_agent_loop(
     profile: dict[str, Any],
     api_key: str,
     request: AgentChatRequest,
+    max_tool_rounds: int = MAX_TOOL_ROUNDS,
+    max_tool_calls_per_round: int = MAX_TOOL_CALLS_PER_ROUND,
 ) -> AgentChatResponse:
     warnings: list[str] = []
     usage = AgentUsage()
@@ -191,7 +229,7 @@ async def _run_agent_loop(
     answer = ""
     last_answer = ""
 
-    for round_index in range(MAX_TOOL_ROUNDS):
+    for round_index in range(max_tool_rounds):
         payload = await _call_provider(profile, api_key, messages, tools)
         model = payload.get("model") or model
         _add_usage(usage, _usage_from(payload))
@@ -223,12 +261,12 @@ async def _run_agent_loop(
         }
         messages.append(assistant_message)
 
-        if len(raw_calls) > MAX_TOOL_CALLS_PER_ROUND:
+        if len(raw_calls) > max_tool_calls_per_round:
             warnings.append(
                 f"The model requested {len(raw_calls)} tool calls in one round; "
-                f"only the first {MAX_TOOL_CALLS_PER_ROUND} were executed."
+                f"only the first {max_tool_calls_per_round} were executed."
             )
-            raw_calls = raw_calls[:MAX_TOOL_CALLS_PER_ROUND]
+            raw_calls = raw_calls[:max_tool_calls_per_round]
 
         for raw_call in raw_calls:
             if not isinstance(raw_call, dict):
@@ -271,7 +309,7 @@ async def _run_agent_loop(
                 )
             )
 
-        if round_index == MAX_TOOL_ROUNDS - 1:
+        if round_index == max_tool_rounds - 1:
             warnings.append(
                 "The tool-call limit was reached; the answer below uses the "
                 "information gathered so far."

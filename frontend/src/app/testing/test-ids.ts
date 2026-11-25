@@ -45,6 +45,8 @@ export const TestIds = {
   rerankEnabledSwitch: 'rerank-enabled-switch',
   retrievalFetchKInput: 'retrieval-fetch-k-input',
   jsRenderModeSelect: 'js-render-mode-select',
+  agentMaxToolRoundsInput: 'agent-max-tool-rounds-input',
+  agentMaxToolCallsPerRoundInput: 'agent-max-tool-calls-per-round-input',
   saveSettingsButton: 'save-settings-button',
 
   // LLM profiles

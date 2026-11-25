@@ -96,6 +96,43 @@
         <app-access></app-access>
       }
       @case ('agent-api') {
+        <div class="panel-header">
+          <div>
+            <h2>Agent limits</h2>
+            <p>Control how many tool-call rounds and tool calls the agent may use per chat.</p>
+          </div>
+          <button mat-raised-button color="primary" type="button" (click)="saveSettings()">
+            <mat-icon>save</mat-icon>
+            Save
+          </button>
+        </div>
+
+        @if (agentSettings$ | async; as agentSettings) {
+          <div class="settings-list agent-settings">
+            @for (setting of agentSettings; track setting.name) {
+              <div class="setting-item">
+                <mat-form-field appearance="outline">
+                  <mat-label>{{ setting.name }}</mat-label>
+                  <input matInput type="number"
+                         [value]="setting.value"
+                         (input)="updateSetting(setting, $event.target.value)"
+                         [placeholder]="setting.name"
+                         [title]="setting.name"
+                         [attr.data-testid]="testIdFor(setting)"
+                         [min]="minFor(setting)"
+                         required>
+                  @if (+setting.value < minFor(setting)) {
+                    <mat-error>
+                      Value must be at least {{ minFor(setting) }}.
+                    </mat-error>
+                  }
+                </mat-form-field>
+                <p class="setting-description">{{ setting.description }}</p>
+              </div>
+            }
+          </div>
+        }
+
         <app-llm-profiles></app-llm-profiles>
       }
     }

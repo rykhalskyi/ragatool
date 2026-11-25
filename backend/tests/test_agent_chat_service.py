@@ -4,12 +4,14 @@ import pytest
 from cryptography.fernet import Fernet
 
 import app.database as database
+from app.crud import crud_setting
 from app.internal.agent import llm_client, profiles, service, tool_bridge
 from app.schemas.agent import (
     AgentChatHistoryMessage,
     AgentChatRequest,
     LlmProfileCreate,
 )
+from app.schemas.setting import SettingCreate, SettingsName
 
 
 @pytest.fixture
@@ -172,6 +174,35 @@ async def test_agent_loop_warns_and_stops_after_max_rounds(db, monkeypatch):
     assert len(response.tool_calls) == service.MAX_TOOL_ROUNDS
     assert calls[-1] is None
     assert any("tool-call limit" in warning for warning in response.warnings)
+
+
+@pytest.mark.asyncio
+async def test_agent_loop_respects_configured_tool_rounds(db, monkeypatch):
+    make_profile(db)
+    crud_setting.update_settings(
+        db,
+        [SettingCreate(name=SettingsName.AGENT_MAX_TOOL_ROUNDS.value, value="2")],
+    )
+
+    async def fake_chat(profile, api_key, messages, tools):
+        if tools is None:
+            return final_response("Summary after limit")
+        return tool_call_response()
+
+    async def fake_list_tools():
+        return [{"type": "function", "function": {"name": "query_collection"}}]
+
+    async def fake_execute(name, arguments):
+        return {"ok": True, "content": "{}", "error": None}
+
+    monkeypatch.setattr(llm_client, "chat_completion", fake_chat)
+    monkeypatch.setattr(tool_bridge, "list_openai_tools", fake_list_tools)
+    monkeypatch.setattr(tool_bridge, "execute_tool", fake_execute)
+
+    response = await service.run_chat(db, AgentChatRequest(message="loop"))
+
+    assert response.message == "Summary after limit"
+    assert len(response.tool_calls) == 2
 
 
 @pytest.mark.asyncio

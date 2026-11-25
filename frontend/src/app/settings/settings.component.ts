@@ -54,10 +54,19 @@ export class SettingsComponent implements OnInit {
     { id: 'agent-api', label: 'Agent API', icon: 'smart_toy', testId: TestIds.settingsTabAgentApi },
   ];
   settings$: Observable<Setting[]> = of([]);
+  agentSettings$: Observable<Setting[]> = of([]);
+  private readonly agentSettingNames = new Set<string>([
+    'AgentMaxToolRounds',
+    'AgentMaxToolCallsPerRound',
+  ]);
   private readonly selectOptions: Record<string, string[]> = {
     JsRenderMode: ['auto', 'always', 'off'],
   };
-  private readonly hiddenSettings = new Set<string>(['UrlImportRecentFilters']);
+  private readonly hiddenSettings = new Set<string>([
+    'UrlImportRecentFilters',
+    'AgentMaxToolRounds',
+    'AgentMaxToolCallsPerRound',
+  ]);
 
   constructor(private settingsService: SettingsService,
               private snackBar: MatSnackBar,
@@ -74,6 +83,9 @@ export class SettingsComponent implements OnInit {
     this.settingsService.loadSettings();
     this.settings$ = this.settingsService.settings$.pipe(
       map(settings => settings.filter(setting => !this.hiddenSettings.has(setting.name)))
+    );
+    this.agentSettings$ = this.settingsService.settings$.pipe(
+      map(settings => settings.filter(setting => this.agentSettingNames.has(setting.name)))
     );
   }
 
@@ -144,7 +156,15 @@ export class SettingsComponent implements OnInit {
   }
 
   minFor(setting: Setting): number {
-    return ['MaxCrawlPages', 'RequestTimeoutSec', 'RetrievalFetchK'].includes(setting.name) ? 1 : 0;
+    return [
+      'MaxCrawlPages',
+      'RequestTimeoutSec',
+      'RetrievalFetchK',
+      'AgentMaxToolRounds',
+      'AgentMaxToolCallsPerRound',
+    ].includes(setting.name)
+      ? 1
+      : 0;
   }
 
   testIdFor(setting: Setting): string | null {
@@ -159,6 +179,12 @@ export class SettingsComponent implements OnInit {
     }
     if (setting.name === 'JsRenderMode') {
       return this.TestIds.jsRenderModeSelect;
+    }
+    if (setting.name === 'AgentMaxToolRounds') {
+      return this.TestIds.agentMaxToolRoundsInput;
+    }
+    if (setting.name === 'AgentMaxToolCallsPerRound') {
+      return this.TestIds.agentMaxToolCallsPerRoundInput;
     }
     return null;
   }
