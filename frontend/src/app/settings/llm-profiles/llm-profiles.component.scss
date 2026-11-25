@@ -1,7 +1,11 @@
+:host {
+  display: block;
+  width: 100%;
+}
+
 .llm-profiles {
-  margin-bottom: 32px;
-  padding-bottom: 24px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+  margin: 0;
+  padding: 0;
 }
 
 .section-header {
@@ -14,13 +18,17 @@
 
 .section-header h2 {
   margin: 0 0 4px;
+  font-size: 20px;
+  font-weight: 600;
+  color: #14324f;
 }
 
 .section-header p {
   margin: 0;
   max-width: 720px;
-  color: #666;
+  color: #5b6b7b;
   font-size: 14px;
+  line-height: 1.45;
 }
 
 .muted {

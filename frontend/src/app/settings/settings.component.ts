@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, ElementRef, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -7,6 +7,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatSelectModule } from '@angular/material/select';
 import { MatIconModule } from '@angular/material/icon';
+import { ActivatedRoute, Router } from '@angular/router';
 import { SettingsService } from '../settings.service';
 import { Setting } from '../client/models/Setting';
 import { SettingCreate } from '../client/models/SettingCreate';
@@ -14,7 +15,17 @@ import { Observable, of } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { TestIds } from '../testing/test-ids';
+import { AccessComponent } from '../access/access.component';
 import { LlmProfilesComponent } from './llm-profiles/llm-profiles.component';
+
+type SettingsTab = 'general' | 'access' | 'agent-api';
+
+interface SettingsTabDefinition {
+  id: SettingsTab;
+  label: string;
+  icon: string;
+  testId: string;
+}
 
 @Component({
   selector: 'app-settings',
@@ -28,6 +39,7 @@ import { LlmProfilesComponent } from './llm-profiles/llm-profiles.component';
     MatSlideToggleModule,
     MatSelectModule,
     MatIconModule,
+    AccessComponent,
     LlmProfilesComponent
   ],
   templateUrl: './settings.component.html',
@@ -35,21 +47,58 @@ import { LlmProfilesComponent } from './llm-profiles/llm-profiles.component';
 })
 export class SettingsComponent implements OnInit {
   protected readonly TestIds = TestIds;
+  readonly activeTab = signal<SettingsTab>('general');
+  readonly tabs: SettingsTabDefinition[] = [
+    { id: 'general', label: 'General', icon: 'settings', testId: TestIds.settingsTabGeneral },
+    { id: 'access', label: 'Access', icon: 'key', testId: TestIds.settingsTabAccess },
+    { id: 'agent-api', label: 'Agent API', icon: 'smart_toy', testId: TestIds.settingsTabAgentApi },
+  ];
   settings$: Observable<Setting[]> = of([]);
   private readonly selectOptions: Record<string, string[]> = {
     JsRenderMode: ['auto', 'always', 'off'],
   };
   private readonly hiddenSettings = new Set<string>(['UrlImportRecentFilters']);
-  
 
-  constructor(private settingsService: SettingsService, 
-              private snackBar: MatSnackBar) {}
+  constructor(private settingsService: SettingsService,
+              private snackBar: MatSnackBar,
+              private route: ActivatedRoute,
+              private router: Router,
+              private elementRef: ElementRef<HTMLElement>) {}
 
   ngOnInit(): void {
+    const requestedTab = this.route.snapshot.queryParamMap.get('tab');
+    if (this.isSettingsTab(requestedTab)) {
+      this.activeTab.set(requestedTab);
+    }
+    this.resetScroll();
     this.settingsService.loadSettings();
     this.settings$ = this.settingsService.settings$.pipe(
       map(settings => settings.filter(setting => !this.hiddenSettings.has(setting.name)))
     );
+  }
+
+  selectTab(tab: SettingsTab): void {
+    if (this.activeTab() === tab) {
+      return;
+    }
+    this.activeTab.set(tab);
+    this.resetScroll();
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { tab: tab === 'general' ? null : tab },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+  }
+
+  private isSettingsTab(value: string | null): value is SettingsTab {
+    return value === 'general' || value === 'access' || value === 'agent-api';
+  }
+
+  private resetScroll(): void {
+    this.elementRef.nativeElement
+      .closest('.selected-topic')
+      ?.scrollTo({ top: 0 });
   }
 
   updateSetting(setting: Setting, newValue: string) {

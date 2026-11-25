@@ -1,67 +1,103 @@
 <div class="settings-container">
   <div class="header">
+    <div>
       <h1>Settings</h1>
-      <button mat-raised-button color="primary" type="button" (click)="saveSettings()" [attr.data-testid]="TestIds.saveSettingsButton">Save</button>
+      <p class="subtitle">Manage your workspace, access and agent configuration.</p>
+    </div>
   </div>
 
-  <app-llm-profiles></app-llm-profiles>
-
-  <h2 class="section-title">Import &amp; retrieval</h2>
-
-  @if (settings$ | async; as settings) {
-    @for (setting of settings; track setting.name) {
-      <div class="setting-item">
-        @if (isBoolean(setting.value)) {
-          <mat-slide-toggle
-            [checked]="isTrue(setting.value)"
-            (change)="updateSetting(setting, $event.checked.toString())"
-            [attr.data-testid]="testIdFor(setting)">
-            {{ setting.name }}
-          </mat-slide-toggle>
-        } @else if (optionsFor(setting); as options) {
-          <mat-form-field appearance="fill">
-            <mat-label>{{ setting.name }}</mat-label>
-            <mat-select
-              [value]="setting.value"
-              (selectionChange)="updateSetting(setting, $event.value)"
-              [attr.data-testid]="testIdFor(setting)">
-              @for (option of options; track option) {
-                <mat-option [value]="option">{{ option }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
-        } @else if (isNumeric(setting.value)) {
-          <mat-form-field appearance="fill">
-            <mat-label>{{ setting.name }}</mat-label>
-            <input matInput type="number"
-                   [value]="setting.value"
-                   (input)="updateSetting(setting, $event.target.value)"
-                   [placeholder]="setting.name"
-                   [title]="setting.name"
-                   [attr.data-testid]="testIdFor(setting)"
-                   [min]="minFor(setting)"
-                   required>
-            @if (+setting.value < minFor(setting)) {
-              <mat-error>
-                Value must be at least {{ minFor(setting) }}.
-              </mat-error>
-            }
-          </mat-form-field>
-        } @else {
-          <mat-form-field appearance="fill">
-            <mat-label>{{ setting.name }}</mat-label>
-            <input matInput type="text"
-                   [value]="setting.value"
-                   (input)="updateSetting(setting, $event.target.value)"
-                   [placeholder]="setting.name"
-                   [title]="setting.name"
-                   [attr.data-testid]="testIdFor(setting)"
-                   required>
-          </mat-form-field>
-        }
-        <p class="setting-description">{{ setting.description }}</p>
-        
-      </div>
+  <nav class="settings-tabs" role="tablist" aria-label="Settings sections">
+    @for (tab of tabs; track tab.id) {
+      <button class="tab-button" type="button" role="tab"
+              [class.active]="activeTab() === tab.id"
+              [attr.aria-selected]="activeTab() === tab.id"
+              (click)="selectTab(tab.id)"
+              [attr.data-testid]="tab.testId">
+        <mat-icon>{{ tab.icon }}</mat-icon>
+        {{ tab.label }}
+      </button>
     }
-  }
+  </nav>
+
+  <section class="panel" role="tabpanel">
+    @switch (activeTab()) {
+      @case ('general') {
+        <div class="panel-header">
+          <div>
+            <h2>Import &amp; retrieval</h2>
+            <p>Defaults applied to new imports and retrieval requests.</p>
+          </div>
+          <button mat-raised-button color="primary" type="button" (click)="saveSettings()"
+                  [attr.data-testid]="TestIds.saveSettingsButton">
+            <mat-icon>save</mat-icon>
+            Save
+          </button>
+        </div>
+
+        @if (settings$ | async; as settings) {
+          <div class="settings-list">
+            @for (setting of settings; track setting.name) {
+              <div class="setting-item">
+                @if (isBoolean(setting.value)) {
+                  <mat-slide-toggle
+                    [checked]="isTrue(setting.value)"
+                    (change)="updateSetting(setting, $event.checked.toString())"
+                    [attr.data-testid]="testIdFor(setting)">
+                    {{ setting.name }}
+                  </mat-slide-toggle>
+                } @else if (optionsFor(setting); as options) {
+                  <mat-form-field appearance="outline">
+                    <mat-label>{{ setting.name }}</mat-label>
+                    <mat-select
+                      [value]="setting.value"
+                      (selectionChange)="updateSetting(setting, $event.value)"
+                      [attr.data-testid]="testIdFor(setting)">
+                      @for (option of options; track option) {
+                        <mat-option [value]="option">{{ option }}</mat-option>
+                      }
+                    </mat-select>
+                  </mat-form-field>
+                } @else if (isNumeric(setting.value)) {
+                  <mat-form-field appearance="outline">
+                    <mat-label>{{ setting.name }}</mat-label>
+                    <input matInput type="number"
+                           [value]="setting.value"
+                           (input)="updateSetting(setting, $event.target.value)"
+                           [placeholder]="setting.name"
+                           [title]="setting.name"
+                           [attr.data-testid]="testIdFor(setting)"
+                           [min]="minFor(setting)"
+                           required>
+                    @if (+setting.value < minFor(setting)) {
+                      <mat-error>
+                        Value must be at least {{ minFor(setting) }}.
+                      </mat-error>
+                    }
+                  </mat-form-field>
+                } @else {
+                  <mat-form-field appearance="outline">
+                    <mat-label>{{ setting.name }}</mat-label>
+                    <input matInput type="text"
+                           [value]="setting.value"
+                           (input)="updateSetting(setting, $event.target.value)"
+                           [placeholder]="setting.name"
+                           [title]="setting.name"
+                           [attr.data-testid]="testIdFor(setting)"
+                           required>
+                  </mat-form-field>
+                }
+                <p class="setting-description">{{ setting.description }}</p>
+              </div>
+            }
+          </div>
+        }
+      }
+      @case ('access') {
+        <app-access></app-access>
+      }
+      @case ('agent-api') {
+        <app-llm-profiles></app-llm-profiles>
+      }
+    }
+  </section>
 </div>

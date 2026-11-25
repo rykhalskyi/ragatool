@@ -50,6 +50,7 @@ test.describe('LLM API profiles', () => {
 
     await ensureLoggedIn(page);
     await page.goto('/settings');
+    await page.getByTestId(TestIds.settingsTabAgentApi).click();
 
     await expect(page.getByTestId(TestIds.llmProfilesSection)).toBeVisible();
     await expect(page.getByTestId(TestIds.llmProfilesEmpty)).toBeVisible();

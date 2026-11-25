@@ -166,7 +166,7 @@ test('shows the no-profile state and links to Settings', async ({ page }) => {
 
   await expect(page.getByTestId(TestIds.agentNoProfile)).toBeVisible();
   await page.getByTestId(TestIds.agentSettingsLink).click();
-  await expect(page).toHaveURL(/\/settings$/);
+  await expect(page).toHaveURL(/\/settings\?tab=agent-api$/);
 });
 
 test('shows the selected collection as context', async ({ page }) => {

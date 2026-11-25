@@ -11,7 +11,6 @@ export const TestIds = {
 
   // Topbar
   versionLabel: 'version-label',
-  accessButton: 'access-button',
 
   // Login
   loginUsernameInput: 'login-username-input',
@@ -39,6 +38,9 @@ export const TestIds = {
 
   // Settings
   settingsButton: 'settings-button',
+  settingsTabGeneral: 'settings-tab-general',
+  settingsTabAccess: 'settings-tab-access',
+  settingsTabAgentApi: 'settings-tab-agent-api',
   twoStepImportSwitch: 'two-step-import-switch',
   rerankEnabledSwitch: 'rerank-enabled-switch',
   retrievalFetchKInput: 'retrieval-fetch-k-input',

@@ -55,6 +55,7 @@
       <h3>No active LLM profile</h3>
       <p>Add an OpenAI-compatible profile in Settings to start chatting.</p>
       <a mat-raised-button color="primary" routerLink="/settings"
+         [queryParams]="{ tab: 'agent-api' }"
          (click)="hide()"
          [attr.data-testid]="TestIds.agentSettingsLink">
         Open Settings
