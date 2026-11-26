@@ -160,6 +160,51 @@ The frontend container proxies `/api` to the backend, so the UI stays
 same-origin and the session cookie uses `SameSite=Lax`. The bundled nginx adds
 CSP and other security headers; the CSP assumes `API_URL=/api` (same origin).
 
+## LLM API profiles
+
+Open **Settings → LLM API profiles** to add an OpenAI-compatible provider for
+Ragatool's built-in agent. Profiles store a name, provider, base URL, model,
+timeouts, and an API key. The app appends `/chat/completions` to the base URL.
+
+API keys are encrypted with Fernet before they are stored and are never
+returned to the browser; the UI only shows a masked value. Set
+`RAGATOOL_ENCRYPTION_KEY` to a stable Fernet key in production. When it is
+unset, Ragatool creates `.llm_key` next to the database with mode `0600`.
+Back up that key with the database volume: losing it means re-entering stored
+API keys. See `backend/.env.example` for the generation command and overrides.
+
+For SSRF protection, LLM base URLs that resolve to loopback, private,
+link-local, or reserved addresses are rejected, and public endpoints must use
+HTTPS. Set `RAGATOOL_LLM_ALLOW_PRIVATE_URLS=true` if you deliberately use a
+local or private-network provider such as Ollama or LM Studio (this also allows
+plain HTTP for those endpoints).
+
+## Built-in agent pane
+
+Use the **Agent** button in the topbar to open the right-side chat pane. The
+pane works in-process and does not require an MCP client, an API token, or the
+public **MCP ON** toggle. Its toolset is intentionally **read-only**: the agent
+can query collections, read chunks, and inspect summaries, tables of contents,
+and wiki pages, but it cannot mutate data or invoke extensions. This limits the
+impact of prompt injection from untrusted document text.
+
+- Drag the divider on the pane's left edge to resize it. The visible state and
+  width are remembered in the browser.
+- The active collection is shown as a chip in the pane header and passed to
+  the agent as context. Selecting a different collection changes the context
+  without clearing the conversation.
+- Use **New chat** to start a separate thread. Each request sends the recent
+  user and assistant messages from that thread as conversation history.
+- Chat history is stored in the browser (`localStorage`), not on the server.
+  It survives pane hide/show and page reloads but is not shared between
+  browsers or users, and clearing site data deletes it.
+- Responses are plain text; tool calls appear as collapsible rows with their
+  arguments and a result preview. Stop a request with the stop button.
+
+Mutating MCP tools (`add_*`, `update_*`, `delete_*`, wiki/TOC edits) and
+`call_extension` are not exposed to the agent. Use an MCP client if you need
+write access with an explicit, human-supervised workflow.
+
 ## Ragatool MCP Configuration
 
 Every MCP request requires an API token from the Access page. Add it to your

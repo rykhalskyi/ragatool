@@ -8,6 +8,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('Dracula_2 Popups Scenario', async ({ page }) => {
+  test.setTimeout(120_000);
   const filePath = path.resolve(__dirname, 'text/dracula.txt');
 
   await test.step('Once Before tests: delete Dracula_2 if exists', async () => {
@@ -16,14 +17,14 @@ test('Dracula_2 Popups Scenario', async ({ page }) => {
     // Check if Dracula_2 exists and delete it
     const collectionItem = page.getByTestId(`${TestIds.collectionItem}-Dracula_2`);
     const exists = await collectionItem
-      .waitFor({ state: 'visible', timeout: 5000 })
+      .waitFor({ state: 'visible', timeout: 15000 })
       .then(() => true)
       .catch(() => false);
     if (exists) {
       await collectionItem.click();
       await page.getByTestId(TestIds.deleteCollectionButton).click();
       await page.getByTestId(TestIds.deleteConfirmButton).click();
-      await expect(collectionItem).not.toBeVisible();
+      await expect(collectionItem).not.toBeVisible({ timeout: 15000 });
     }
   });
 
@@ -65,11 +66,11 @@ test('Dracula_2 Popups Scenario', async ({ page }) => {
     await page.getByTestId(TestIds.chunkOverlapInput).fill('50');
     await page.getByTestId(TestIds.importFileSubmitButton).click();
 
-    // wait until element 'progress' hidden
-    await expect(page.getByTestId(TestIds.importProgress)).not.toBeVisible({ timeout: 5000 });
-    
-    // 4. Step 2: Preview and Import
-    await page.getByTestId(TestIds.importStep2Button).click({timeout: 2000});
+    // 4. Step 2: Preview and Import. Wait for the background load task to
+    // refresh the prepared-file list before opening the preview.
+    const step2Button = page.getByTestId(TestIds.importStep2Button);
+    await expect(step2Button).toBeEnabled({ timeout: 60000 });
+    await step2Button.click();
     
     // Select the file in preview dialog
     await page.getByTestId(TestIds.previewDialogFileItem).filter({ hasText: 'dracula.txt' }).first().click();
@@ -107,10 +108,10 @@ test('Dracula_2 Popups Scenario', async ({ page }) => {
     // Final Import
     await page.getByTestId(TestIds.previewDialogImportButton).click();
 
-    // Verify import completed (progress bar hidden and chunks shown)
-    await expect(page.getByTestId(TestIds.importProgress)).not.toBeVisible();
-    await expect(page.getByTestId(TestIds.chunkCountText)).toBeVisible();
-    await expect(page.getByTestId(TestIds.chunkCountText)).toContainText('Count: 6');
+    // Verify import completed and chunks were created
+    await expect(page.getByTestId(TestIds.chunkCountText)).toContainText('Count: 6', {
+      timeout: 120000,
+    });
   });
 
   await test.step('2. Import and remove files', async () => {
@@ -125,7 +126,7 @@ test('Dracula_2 Popups Scenario', async ({ page }) => {
     await page.getByTestId(TestIds.importFileSubmitButton).click();
 
     // Verify step 2 button shown
-    await expect(page.getByTestId(TestIds.importStep2Button)).toBeVisible({ timeout: 5000 });
+    await expect(page.getByTestId(TestIds.importStep2Button)).toBeEnabled({ timeout: 60000 });
 
     // 4. Delete Files
     await page.getByTestId(TestIds.deleteFilesButton).click();

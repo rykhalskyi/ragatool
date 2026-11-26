@@ -1,11 +1,10 @@
 :host {
   display: block;
-  padding: 24px;
+  width: 100%;
 }
 
 .access-page {
-  max-width: 1000px;
-  margin: 0 auto;
+  margin: 0;
 }
 
 .header {
@@ -13,20 +12,22 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
-h1 {
-  margin: 0;
-  font-size: 28px;
+h2 {
+  margin: 0 0 4px;
+  font-size: 20px;
   font-weight: 600;
   color: #14324f;
 }
 
 .subtitle {
-  margin: 6px 0 0;
-  max-width: 640px;
+  margin: 0;
+  max-width: 720px;
   color: #5b6b7b;
+  font-size: 14px;
+  line-height: 1.45;
 }
 
 .header-actions {
@@ -38,8 +39,8 @@ h1 {
 
 .table-card {
   background: #fff;
-  border-radius: 16px;
-  box-shadow: 0 8px 30px rgba(20, 40, 70, 0.08);
+  border: 1px solid #e7edf4;
+  border-radius: 12px;
   overflow: hidden;
 }
 
@@ -83,4 +84,15 @@ code {
 .error {
   color: #b3261e;
   margin: 0 0 16px;
+}
+
+@media (max-width: 760px) {
+  .header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .header-actions {
+    flex-wrap: wrap;
+  }
 }

@@ -215,3 +215,5 @@ test-text/
 ragatouille.db
 
 .fastembed/
+
+.llm_key

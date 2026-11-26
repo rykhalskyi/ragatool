@@ -9,6 +9,7 @@ from urllib.parse import urljoin
 
 from app.internal.browser_renderer import BrowserRenderer
 from app.internal.crawl_options import CrawlOptions
+from app.internal.crawl_report import CrawlReport, LinkOutcome, PageLinkReport
 from app.internal.url_utils import (
     RobotsCache,
     ensure_url_allowed,
@@ -33,10 +34,15 @@ def simple_crawl(
     max_depth: int = 1,
     options: Optional[CrawlOptions] = None,
     on_progress: Optional[Callable[[str], None]] = None,
+    report: Optional[CrawlReport] = None,
 ) -> list[dict]:
     options = options or CrawlOptions()
+    crawl_report = report if report is not None else CrawlReport()
+    crawl_report.start_url = start_url
+
     start = normalize_url(start_url)
     if not is_http_url(start):
+        crawl_report.add_skipped(LinkOutcome(start_url, "invalid_start"))
         return []
 
     robots = (
@@ -47,6 +53,7 @@ def simple_crawl(
     renderer = BrowserRenderer(options)
     visited: set[str] = set()
     seen_content: set[str] = set()
+    queued: set[str] = {start}
     queue = deque([(start, 0)])
     results: list[dict] = []
     requests_made = 0
@@ -69,17 +76,22 @@ def simple_crawl(
                 if url in visited or depth > max_depth:
                     continue
                 if len(visited) >= options.max_crawl_pages:
+                    crawl_report.add_skipped(LinkOutcome(url, "page_limit"))
+                    for pending_url, _pending_depth in queue:
+                        crawl_report.add_skipped(LinkOutcome(pending_url, "page_limit"))
                     break
 
                 try:
                     ensure_url_allowed(url, options.allow_private_urls)
                 except ValueError as exc:
                     print(f"Skipping {url}: {exc}")
+                    crawl_report.add_skipped(LinkOutcome(url, "blocked_private_address"))
                     visited.add(url)
                     continue
 
                 if robots is not None and not robots.can_fetch(url):
                     _report(on_progress, f"Skipping {url} (robots.txt)")
+                    crawl_report.add_skipped(LinkOutcome(url, "robots"))
                     visited.add(url)
                     continue
 
@@ -101,6 +113,9 @@ def simple_crawl(
                         ensure_url_allowed(fetched.final_url, options.allow_private_urls)
                     except ValueError as exc:
                         print(f"Skipping {fetched.final_url}: {exc}")
+                        crawl_report.add_skipped(
+                            LinkOutcome(url, "blocked_private_address")
+                        )
                         continue
 
                 if fetched is not None and fetched.is_pdf:
@@ -138,18 +153,22 @@ def simple_crawl(
                         links = extract_links(fetched.html, final_url)
                         rendered = False
                     else:
+                        crawl_report.add_skipped(LinkOutcome(url, "fetch_failed"))
                         continue
 
                 normalized_final = normalize_url(final_url)
                 if regex is not None and normalized_final != url and not regex.match(normalized_final):
+                    crawl_report.add_skipped(LinkOutcome(url, "redirect_regex"))
                     continue
 
                 text = extracted.text.strip()
                 if not text:
+                    crawl_report.add_skipped(LinkOutcome(url, "empty_text"))
                     continue
 
                 content_hash = sha256(" ".join(text.split()).encode("utf-8")).hexdigest()
                 if content_hash in seen_content:
+                    crawl_report.add_skipped(LinkOutcome(url, "duplicate_content"))
                     continue
                 seen_content.add(content_hash)
 
@@ -162,18 +181,36 @@ def simple_crawl(
                 })
                 _report(on_progress, f"Imported {url}")
 
-                if depth == max_depth:
-                    continue
+                can_follow = depth < max_depth
+                page_report = PageLinkReport(url=url, depth=depth, found=len(links))
+                seen_on_page: set[str] = set()
 
                 for link in links:
                     if cancel_event.is_set():
+                        crawl_report.pages.append(page_report)
                         return finalize()
                     candidate = normalize_url(urljoin(final_url, link))
-                    if candidate in visited:
+                    if candidate in seen_on_page:
+                        page_report.add_rejected(LinkOutcome(candidate, "duplicate_url"))
                         continue
-                    if not _link_allowed(candidate, start, options, regex):
+                    seen_on_page.add(candidate)
+
+                    rejection = _link_rejection_reason(candidate, start, options, regex)
+                    if rejection is not None:
+                        page_report.add_rejected(LinkOutcome(candidate, rejection))
                         continue
+                    if not can_follow:
+                        page_report.add_rejected(LinkOutcome(candidate, "depth_limit"))
+                        continue
+                    if candidate in queued:
+                        page_report.add_rejected(LinkOutcome(candidate, "duplicate_url"))
+                        continue
+
+                    page_report.add_accepted(candidate)
+                    queued.add(candidate)
                     queue.append((candidate, depth + 1))
+
+                crawl_report.pages.append(page_report)
     finally:
         renderer.close()
 
@@ -228,23 +265,35 @@ def _normalize_block(block: str) -> str:
     return " ".join(block.split()).lower()
 
 
+def _link_rejection_reason(
+    url: str,
+    start_url: str,
+    options: CrawlOptions,
+    regex: Optional[Pattern[str]],
+) -> Optional[str]:
+    """Return why a discovered link is not followed, or ``None`` if allowed.
+
+    The start URL is always imported, even if it does not match ``regex``;
+    redirect targets are checked separately.
+    """
+    if not is_http_url(url):
+        return "unsupported_scheme"
+    if is_asset_url(url):
+        return "asset"
+    if not same_site(url, start_url, options.allow_subdomains):
+        return "off_site"
+    if regex is not None and not regex.match(url):
+        return "regex"
+    return None
+
+
 def _link_allowed(
     url: str,
     start_url: str,
     options: CrawlOptions,
     regex: Optional[Pattern[str]],
 ) -> bool:
-    """Filter discovered links. The start URL is always imported, even if it
-    does not match ``regex``; redirect targets are checked separately."""
-    if not is_http_url(url):
-        return False
-    if is_asset_url(url):
-        return False
-    if not same_site(url, start_url, options.allow_subdomains):
-        return False
-    if regex is not None and not regex.match(url):
-        return False
-    return True
+    return _link_rejection_reason(url, start_url, options, regex) is None
 
 
 def _report(on_progress: Optional[Callable[[str], None]], message: str) -> None:

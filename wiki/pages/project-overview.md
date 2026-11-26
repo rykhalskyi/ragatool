@@ -80,6 +80,12 @@ plugins/               # OnlyOffice, Thunderbird, Outlook integrations
   (`source`, `chunk`, `ts`, `char_start`, `char_end`).
 - **Summary hierarchy:** CHUNKS / CHAPTER / BOOK summaries plus wiki pages
   managed through the RAG wiki skills.
+- **LLM profiles:** OpenAI-compatible provider profiles with Fernet-encrypted
+  API keys, used by Ragatool's built-in agent.
+- **Agent pane:** an in-app, resizable right-side chat pane. It calls
+  `POST /agent/chat`, reuses the MCP tools through an in-process FastMCP
+  bridge, and keeps chat history in browser `localStorage`. It works whether
+  or not the public MCP server is enabled.
 - **Extensions:** WebSocket-connected plugins exposed as MCP tools.
 - **MessageHub:** broadcasts progress, info, and log messages to the UI via
   SSE; also persists log messages.

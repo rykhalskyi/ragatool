@@ -16,6 +16,8 @@ class SettingsName(str, Enum):
     ALLOW_SUBDOMAINS = "AllowSubdomains"
     RERANK_ENABLED = "RerankEnabled"
     RETRIEVAL_FETCH_K = "RetrievalFetchK"
+    AGENT_MAX_TOOL_ROUNDS = "AgentMaxToolRounds"
+    AGENT_MAX_TOOL_CALLS_PER_ROUND = "AgentMaxToolCallsPerRound"
     URL_IMPORT_RECENT_FILTERS = "UrlImportRecentFilters"
 
 class SettingBase(BaseModel):

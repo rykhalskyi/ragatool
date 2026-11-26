@@ -303,13 +303,39 @@ export class SelectedCollectionImportComponent implements OnInit, OnChanges{
     this.importStateService.clearInfo(result.collectionId);
     try {
       if (this.twoStepImport()) {
+        const previousCount = await this.countPreparedFiles(result.collectionId);
         await ImportService.importFileStep1ImportStep1CollectionIdPost(result.collectionId, formData);
+        void this.waitForPreparedFiles(result.collectionId, previousCount);
       } else {
         await ImportService.importFileImportCollectionIdPost(result.collectionId, formData);
       }
       console.log('File imported successfully');
     } catch (error) {
       console.error('Error importing file:', error);
+    }
+  }
+
+  private async countPreparedFiles(collectionId: string): Promise<number> {
+    try {
+      const files = await FilesService.readFilesFilesCollectionIdGet(collectionId);
+      return Array.isArray(files) ? files.length : 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  /**
+   * Step 1 runs in a background task and prepared files appear asynchronously.
+   * Poll briefly for the new file so the "2. Review and vectorize" button shows
+   * even if the task SSE event was missed (for example right after login).
+   */
+  private async waitForPreparedFiles(collectionId: string, previousCount: number): Promise<void> {
+    for (let attempt = 0; attempt < 120; attempt++) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      if (await this.countPreparedFiles(collectionId) > previousCount) {
+        this.collectionRefreshService.triggerRefresh();
+        return;
+      }
     }
   }
 
@@ -334,7 +360,9 @@ export class SelectedCollectionImportComponent implements OnInit, OnChanges{
     this.importStateService.clearInfo(result.collectionId);
     try {
       if (this.twoStepImport()){
+        const previousCount = await this.countPreparedFiles(result.collectionId);
         await ImportService.importUrlStep1ImportUrlStep1CollectionIdPost(result.collectionId, result.url, formData);
+        void this.waitForPreparedFiles(result.collectionId, previousCount);
       }
       else{
         await ImportService.importUrlImportUrlColletionIdPost(result.collectionId, result.url, formData);

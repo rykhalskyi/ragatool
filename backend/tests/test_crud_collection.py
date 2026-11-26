@@ -162,6 +162,26 @@ def test_delete_collection(db_connection):
     deleted_collection = crud_collection.get_collection(db_connection, created_collection.id)
     assert deleted_collection is None
 
+def test_delete_collection_removes_prepared_files(db_connection):
+    from app.crud import crud_files
+
+    created_collection = crud_collection.create_collection(
+        db_connection,
+        CollectionCreate(name="Collection With Files", settings="{}"),
+    )
+    crud_files.create_file(
+        db_connection,
+        created_collection.id,
+        "/tmp/prepared.txt",
+        "prepared.txt",
+    )
+    assert len(crud_files.get_files_for_collection(db_connection, created_collection.id)) == 1
+
+    crud_collection.delete_collection(db_connection, created_collection.id)
+
+    assert crud_files.get_files_for_collection(db_connection, created_collection.id) == []
+
+
 def test_delete_non_existent_collection(db_connection):
     result = crud_collection.delete_collection(db_connection, str(uuid.uuid4()))
     assert result is None

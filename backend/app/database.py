@@ -142,6 +142,16 @@ def create_tables(conn: Optional[Connection] = None):
 
     cursor.execute("""
     INSERT OR IGNORE INTO settings (name, value, description)
+    VALUES ('AgentMaxToolRounds', '6', 'Maximum number of tool-call rounds the agent may run per chat')
+    """)
+
+    cursor.execute("""
+    INSERT OR IGNORE INTO settings (name, value, description)
+    VALUES ('AgentMaxToolCallsPerRound', '8', 'Maximum number of tool calls the agent may execute in a single round')
+    """)
+
+    cursor.execute("""
+    INSERT OR IGNORE INTO settings (name, value, description)
     VALUES ('UrlImportRecentFilters', '[]', 'Recently used URL import filter regular expressions (JSON array)')
     """)
 
@@ -207,6 +217,29 @@ def create_tables(conn: Optional[Connection] = None):
         expires_at INTEGER NOT NULL,
         session_version INTEGER NOT NULL
     )
+    """)
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS llm_profiles (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        provider TEXT NOT NULL,
+        base_url TEXT NOT NULL,
+        api_key TEXT NOT NULL,
+        model TEXT NOT NULL,
+        temperature REAL NOT NULL DEFAULT 0.2,
+        max_tokens INTEGER NOT NULL DEFAULT 2048,
+        connect_timeout_seconds INTEGER NOT NULL DEFAULT 30,
+        read_timeout_seconds INTEGER NOT NULL DEFAULT 120,
+        is_active BOOLEAN NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT
+    )
+    """)
+
+    cursor.execute("""
+    CREATE UNIQUE INDEX IF NOT EXISTS llm_profiles_single_active
+    ON llm_profiles ((1)) WHERE is_active = 1
     """)
 
     conn.commit()

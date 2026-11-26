@@ -3,10 +3,19 @@
     <h2>Logs</h2>
     <div class="log-container">
      
-        @for (log of logs; track logs){         
-            <div class="log-item" [attr.data-testid]="TestIds.logItem">
-              <p><strong>></strong> {{ log.timestamp }} {{ log.topic }} {{ log.message }}</p>
-            </div>     
+        @for (log of logs; track log.id) {
+            @if (isCrawlReport(log)) {
+              <details class="log-item log-group" [attr.data-testid]="TestIds.logItem">
+                <summary>
+                  <strong>></strong> {{ log.timestamp }} {{ log.topic }} {{ crawlReportSummary(log) }}
+                </summary>
+                <pre class="log-group-body">{{ crawlReportBody(log) }}</pre>
+              </details>
+            } @else {
+              <div class="log-item" [attr.data-testid]="TestIds.logItem">
+                <p><strong>></strong> {{ log.timestamp }} {{ log.topic }} {{ log.message }}</p>
+              </div>
+            }
         }
        
         @if (logs.length === 0)

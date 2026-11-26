@@ -24,4 +24,24 @@
   }
 }
 
+.log-group {
+  summary {
+    cursor: pointer;
+    font-size: 0.9em;
+    line-height: 1.4;
+
+    strong {
+      color: #3f51b5;
+    }
+  }
+
+  .log-group-body {
+    margin: 4px 0 8px 16px;
+    white-space: pre-wrap;
+    font-family: monospace;
+    font-size: 0.85em;
+    line-height: 1.4;
+  }
+}
+
 

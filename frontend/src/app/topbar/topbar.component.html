@@ -9,14 +9,18 @@
       Add Collection
     </button>
 
-     <button mat-button class="menu-button" (click)="access_click()" [attr.data-testid]="TestIds.accessButton">
-      <mat-icon>key</mat-icon>
-      Access
-    </button>
-
      <button mat-button class="menu-button" (click)="settings_click()" [attr.data-testid]="TestIds.settingsButton">
       <mat-icon>settings</mat-icon>
       Settings
+    </button>
+
+     <button mat-button class="menu-button"
+             [class.active]="agentUi.visible()"
+             (click)="agentUi.toggle()"
+             [attr.data-testid]="TestIds.agentToggleButton"
+             matTooltip="Toggle agent pane">
+      <mat-icon>smart_toy</mat-icon>
+      Agent
     </button>
 
   </div>

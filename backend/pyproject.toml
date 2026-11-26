@@ -1,6 +1,6 @@
 [project]
 name = "backend"
-version = "0.4.6"
+version = "0.4.7"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -8,6 +8,7 @@ dependencies = [
     "bcrypt>=5.0.0",
     "beautifulsoup4>=4.14.3",
     "chromadb>=1.5.8",
+    "cryptography>=46.0.7",
     "docx2txt>=0.9",
     "fastapi>=0.136.0",
     "fastembed>=0.8.0",

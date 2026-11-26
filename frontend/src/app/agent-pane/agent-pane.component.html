@@ -1,0 +1,162 @@
+<aside class="agent-pane" [attr.data-testid]="TestIds.agentPane">
+  <header class="agent-header" [attr.data-testid]="TestIds.agentHeader">
+    <div class="agent-title">
+      <mat-icon>smart_toy</mat-icon>
+      <span>Agent</span>
+    </div>
+
+    <div class="agent-meta">
+      @if (agent.activeProfile(); as profile) {
+        <span class="chip" [title]="profile.base_url" [attr.data-testid]="TestIds.agentProfileChip">
+          {{ profile.name }} · {{ profile.model }}
+        </span>
+      } @else {
+        <span class="chip muted" [attr.data-testid]="TestIds.agentProfileChip">No profile</span>
+      }
+      @if (collection(); as context) {
+        <span class="chip collection" [attr.data-testid]="TestIds.agentCollectionChip">
+          {{ context.name }}
+        </span>
+      }
+    </div>
+
+    <button mat-icon-button type="button" title="Hide agent pane"
+            (click)="hide()"
+            [attr.data-testid]="TestIds.agentCloseButton">
+      <mat-icon>chevron_right</mat-icon>
+    </button>
+  </header>
+
+  <div class="agent-toolbar">
+    <select class="chat-select"
+            [value]="agent.activeChatId() ?? ''"
+            (change)="onChatSelected($event)"
+            [attr.data-testid]="TestIds.agentChatSelect">
+      @for (chat of agent.chats(); track chat.id) {
+        <option [value]="chat.id">{{ chat.title }}</option>
+      }
+    </select>
+
+    <button mat-icon-button type="button" title="New chat"
+            (click)="agent.newChat()"
+            [attr.data-testid]="TestIds.agentNewChatButton">
+      <mat-icon>add_comment</mat-icon>
+    </button>
+    <button mat-icon-button type="button" title="Delete this chat"
+            (click)="agent.deleteChat(agent.activeChatId() ?? '')"
+            [attr.data-testid]="TestIds.agentDeleteChatButton">
+      <mat-icon>delete_outline</mat-icon>
+    </button>
+  </div>
+
+  @if (!agent.activeProfile()) {
+    <section class="empty-state" [attr.data-testid]="TestIds.agentNoProfile">
+      <mat-icon>key</mat-icon>
+      <h3>No active LLM profile</h3>
+      <p>Add an OpenAI-compatible profile in Settings to start chatting.</p>
+      <a mat-raised-button color="primary" routerLink="/settings"
+         [queryParams]="{ tab: 'agent-api' }"
+         (click)="hide()"
+         [attr.data-testid]="TestIds.agentSettingsLink">
+        Open Settings
+      </a>
+    </section>
+  } @else if (agent.messages().length === 0) {
+    <section class="empty-state" [attr.data-testid]="TestIds.agentEmptyState">
+      <mat-icon>forum</mat-icon>
+      <h3>Ask about your knowledge base</h3>
+      <p>The agent can search collections, chunks, summaries, and wiki pages.</p>
+      <div class="quick-prompts">
+        @for (prompt of quickPrompts; track prompt; let index = $index) {
+          <button mat-stroked-button type="button"
+                  (click)="sendQuickPrompt(prompt)"
+                  [attr.data-testid]="TestIds.agentQuickPrompt + '-' + index">
+            {{ prompt }}
+          </button>
+        }
+      </div>
+    </section>
+  }
+
+  @if (agent.messages().length > 0) {
+  <div class="messages" #messagesEl (scroll)="onMessagesScroll()"
+       [attr.data-testid]="TestIds.agentMessageList">
+    @for (message of agent.messages(); track message.id) {
+      @if (message.role === 'user') {
+        <div class="message user" [attr.data-testid]="TestIds.agentUserMessage">
+          <div class="bubble">{{ message.content }}</div>
+        </div>
+      } @else if (message.role === 'assistant') {
+        <div class="message assistant" [attr.data-testid]="TestIds.agentAssistantMessage">
+          <div class="bubble">
+            @if (message.toolCalls?.length) {
+              <div class="tool-calls">
+                @for (tool of message.toolCalls; track tool.id + '-' + $index) {
+                  <details class="tool-call" [attr.data-testid]="TestIds.agentToolCall">
+                    <summary>
+                      <span class="tool-name">{{ tool.name }}</span>
+                      <span class="tool-status" [class.error]="tool.status === 'error'">
+                        {{ tool.status }}
+                      </span>
+                    </summary>
+                    <div class="tool-body">
+                      <div class="tool-label">Arguments</div>
+                      <pre>{{ formatArguments(tool.arguments) }}</pre>
+                      <div class="tool-label">Result</div>
+                      <pre>{{ tool.result_preview }}</pre>
+                    </div>
+                  </details>
+                }
+              </div>
+            }
+
+            @if (message.warnings?.length) {
+              @for (warning of message.warnings; track $index) {
+                <div class="notice inline" [attr.data-testid]="TestIds.agentNotice">
+                  {{ warning }}
+                </div>
+              }
+            }
+
+            <div class="answer-text">{{ message.content }}</div>
+          </div>
+        </div>
+      } @else {
+        <div class="notice" [class.error]="message.role === 'error'"
+             [attr.data-testid]="TestIds.agentNotice">
+          {{ message.content }}
+        </div>
+      }
+    }
+
+    @if (agent.isSending()) {
+      <div class="thinking">Thinking…</div>
+    }
+  </div>
+  }
+
+  <footer class="composer">
+    <textarea rows="2"
+              placeholder="Ask the agent… Enter to send, Shift+Enter for a new line"
+              [value]="draft()"
+              (input)="onDraftInput($event)"
+              (keydown)="onComposerKeydown($event)"
+              [disabled]="!agent.activeProfile()"
+              [attr.data-testid]="TestIds.agentComposer"></textarea>
+
+    @if (agent.isSending()) {
+      <button mat-icon-button type="button" class="stop-button" title="Stop"
+              (click)="agent.cancel()"
+              [attr.data-testid]="TestIds.agentStopButton">
+        <mat-icon>stop_circle</mat-icon>
+      </button>
+    } @else {
+      <button mat-fab type="button" class="send-button" title="Send"
+              (click)="send()"
+              [disabled]="!draft().trim() || !agent.activeProfile()"
+              [attr.data-testid]="TestIds.agentSendButton">
+        <mat-icon>send</mat-icon>
+      </button>
+    }
+  </footer>
+</aside>

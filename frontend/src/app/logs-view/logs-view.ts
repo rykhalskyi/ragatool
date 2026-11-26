@@ -52,4 +52,17 @@ export class LogsViewComponent implements OnInit, OnDestroy {
   addLog(log: Message) {
     this._allLogs.push(log); // Add new log to the beginning of the array
   }
+
+  isCrawlReport(log: Message): boolean {
+    return log.message.startsWith('Crawl report for ') && log.message.includes('\n');
+  }
+
+  crawlReportSummary(log: Message): string {
+    return log.message.split('\n')[0];
+  }
+
+  crawlReportBody(log: Message): string {
+    const lines = log.message.split('\n');
+    return lines.slice(1).join('\n');
+  }
 }

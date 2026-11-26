@@ -107,6 +107,9 @@ def delete_collection(db: Connection, collection_id: str):
         return None
 
     cursor = db.cursor()
+    # Remove prepared/imported file rows too, so deleting and recreating a
+    # collection with the same name cannot resurface stale files.
+    cursor.execute("DELETE FROM files WHERE collection_id = ?", (str(collection_id),))
     cursor.execute("DELETE FROM collections WHERE id = ?", (str(collection_id),))
     db.commit()
     

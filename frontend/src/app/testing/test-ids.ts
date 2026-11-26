@@ -11,7 +11,6 @@ export const TestIds = {
 
   // Topbar
   versionLabel: 'version-label',
-  accessButton: 'access-button',
 
   // Login
   loginUsernameInput: 'login-username-input',
@@ -39,11 +38,58 @@ export const TestIds = {
 
   // Settings
   settingsButton: 'settings-button',
+  settingsTabGeneral: 'settings-tab-general',
+  settingsTabAccess: 'settings-tab-access',
+  settingsTabAgentApi: 'settings-tab-agent-api',
   twoStepImportSwitch: 'two-step-import-switch',
   rerankEnabledSwitch: 'rerank-enabled-switch',
   retrievalFetchKInput: 'retrieval-fetch-k-input',
   jsRenderModeSelect: 'js-render-mode-select',
+  agentMaxToolRoundsInput: 'agent-max-tool-rounds-input',
+  agentMaxToolCallsPerRoundInput: 'agent-max-tool-calls-per-round-input',
   saveSettingsButton: 'save-settings-button',
+
+  // LLM profiles
+  llmProfilesSection: 'llm-profiles-section',
+  llmProfilesEmpty: 'llm-profiles-empty',
+  addLlmProfileButton: 'add-llm-profile-button',
+  llmProfileCard: 'llm-profile-card',
+  llmProfileDialogTitle: 'llm-profile-dialog-title',
+  llmProfileNameInput: 'llm-profile-name-input',
+  llmProfileProviderSelect: 'llm-profile-provider-select',
+  llmProfileBaseUrlInput: 'llm-profile-base-url-input',
+  llmProfileModelInput: 'llm-profile-model-input',
+  llmProfileApiKeyInput: 'llm-profile-api-key-input',
+  llmProfileSaveButton: 'llm-profile-save-button',
+  llmProfileCancelButton: 'llm-profile-cancel-button',
+  llmProfileActivateToggle: 'llm-profile-activate-toggle',
+  llmProfileTestButton: 'llm-profile-test-button',
+  llmProfileEditButton: 'llm-profile-edit-button',
+  llmProfileDeleteButton: 'llm-profile-delete-button',
+
+  // Agent pane
+  agentToggleButton: 'agent-toggle-button',
+  agentPane: 'agent-pane',
+  agentHeader: 'agent-header',
+  agentCloseButton: 'agent-close-button',
+  agentNewChatButton: 'agent-new-chat-button',
+  agentDeleteChatButton: 'agent-delete-chat-button',
+  agentChatSelect: 'agent-chat-select',
+  agentProfileChip: 'agent-profile-chip',
+  agentCollectionChip: 'agent-collection-chip',
+  agentEmptyState: 'agent-empty-state',
+  agentNoProfile: 'agent-no-profile',
+  agentSettingsLink: 'agent-settings-link',
+  agentMessageList: 'agent-message-list',
+  agentUserMessage: 'agent-user-message',
+  agentAssistantMessage: 'agent-assistant-message',
+  agentNotice: 'agent-notice',
+  agentToolCall: 'agent-tool-call',
+  agentComposer: 'agent-composer',
+  agentSendButton: 'agent-send-button',
+  agentStopButton: 'agent-stop-button',
+  agentQuickPrompt: 'agent-quick-prompt',
+  agentResizeHandle: 'agent-resize-handle',
 
   // SelectedCollection
   importTypeSelect: 'import-type-select',

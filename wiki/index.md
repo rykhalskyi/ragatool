@@ -7,5 +7,6 @@
 - [build-deploy](pages/build-deploy.md) — Build, test, run, and deploy commands for the Ragatool backend, frontend, and Docker setup.
 
 ## Tickets
+- [tickets/agent-pane](pages/tickets/agent-pane.md) — Add an in-app, resizable agent pane with encrypted LLM API profiles and direct access to the same tools as the Ragatool MCP server.
 - [tickets/secure-ragatool-auth](pages/tickets/secure-ragatool-auth.md) — Add single-user login, first-run setup, and revocable API tokens for the UI, MCP servers, and extension WebSockets.
 - [tickets/url-import-js-rendering](pages/tickets/url-import-js-rendering.md) — Add headless Chromium rendering for client-side rendered pages and overhaul URL crawler quality.

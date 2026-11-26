@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { TestIds } from '../src/app/testing/test-ids';
 import {
   ensureLoggedIn,
@@ -10,9 +10,14 @@ test.beforeEach(async ({ page }) => {
   await ensureLoggedIn(page);
 });
 
+async function openAccessTab(page: Page): Promise<void> {
+  await page.getByTestId(TestIds.settingsButton).click();
+  await expect(page).toHaveURL(/\/settings/);
+  await page.getByTestId(TestIds.settingsTabAccess).click();
+}
+
 test('creates and revokes an API token', async ({ page }) => {
-  await page.getByTestId(TestIds.accessButton).click();
-  await expect(page).toHaveURL(/\/access$/);
+  await openAccessTab(page);
 
   await page.getByTestId(TestIds.createTokenButton).click();
   await page.getByTestId(TestIds.tokenNameInput).fill('playwright');
@@ -30,7 +35,7 @@ test('creates and revokes an API token', async ({ page }) => {
 });
 
 test('logs out and back in', async ({ page }) => {
-  await page.getByTestId(TestIds.accessButton).click();
+  await openAccessTab(page);
   await page.getByTestId(TestIds.logoutButton).click();
   await expect(page).toHaveURL(/\/login$/);
 
