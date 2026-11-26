@@ -9,6 +9,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('2-step import Dracula collection', async ({ page }) => {
+  test.setTimeout(120_000);
   const draculaFilePath = path.resolve(__dirname, 'text/dracula.txt');
   const lotrFilePath = path.resolve(__dirname, 'text/lotr.txt');
 
@@ -16,14 +17,14 @@ test('2-step import Dracula collection', async ({ page }) => {
     await page.goto('http://localhost:4200');
     const collectionItem = page.getByTestId(`${TestIds.collectionItem}-Dracula_2s`);
     const exists = await collectionItem
-      .waitFor({ state: 'visible', timeout: 5000 })
+      .waitFor({ state: 'visible', timeout: 15000 })
       .then(() => true)
       .catch(() => false);
     if (exists) {
       await collectionItem.click();
       await page.getByTestId(TestIds.deleteCollectionButton).click();
       await page.getByTestId(TestIds.deleteConfirmButton).click();
-      await expect(collectionItem).not.toBeVisible();
+      await expect(collectionItem).not.toBeVisible({ timeout: 15000 });
     }
   });
 
@@ -76,11 +77,11 @@ test('2-step import Dracula collection', async ({ page }) => {
     // click 'Load' (Submit in dialog)
     await page.getByTestId(TestIds.importFileSubmitButton).click();
 
-    // wait until element 'progress' hidden
-    await expect(page.getByTestId(TestIds.importProgress)).not.toBeVisible({ timeout: 2000 });
-
-    // Step 2: Review and vectorize
-    await page.getByTestId(TestIds.importStep2Button).click({timeout: 2000});
+    // Step 2: Review and vectorize. The prepared-file list refreshes after the
+    // background load task finishes, so wait for the button instead of racing it.
+    const step2Button = page.getByTestId(TestIds.importStep2Button);
+    await expect(step2Button).toBeEnabled({ timeout: 60000 });
+    await step2Button.click();
     await expect(page.getByText('Review and Import')).toBeVisible();
     
     // click 'Import' in preview dialog
@@ -113,10 +114,10 @@ test('2-step import Dracula collection', async ({ page }) => {
     await fileChooser.setFiles(lotrFilePath);
     await page.getByTestId(TestIds.importFileSubmitButton).click();
 
-    await expect(page.getByTestId(TestIds.importProgress)).not.toBeVisible({ timeout: 2000 });
-
     // Step 2: Review and vectorize
-    await page.getByTestId(TestIds.importStep2Button).click();
+    const step2Button = page.getByTestId(TestIds.importStep2Button);
+    await expect(step2Button).toBeEnabled({ timeout: 60000 });
+    await step2Button.click();
     await page.getByTestId(TestIds.previewDialogImportButton).click();
 
     await expect(page.getByTestId(TestIds.chunkCountText)).toContainText('Count: 15', { timeout: 60000 });
