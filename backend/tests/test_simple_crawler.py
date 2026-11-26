@@ -486,6 +486,85 @@ def test_small_crawl_does_not_strip_unrelated_content():
     assert "Page 2" in results[1]["text"]
 
 
+def test_crawl_report_records_link_decisions():
+    from app.internal.crawl_report import CrawlReport
+
+    FakeFetcher.responses = {
+        "http://example.com": page(
+            '<html><body><p>Home</p>'
+            '<a href="/page2">Page 2</a>'
+            '<a href="/page2#section">Page 2 anchor</a>'
+            '<a href="/image.png">Image</a>'
+            '<a href="http://other.com/page">Other</a>'
+            '<a href="mailto:someone@example.com">Mail</a>'
+            "</body></html>",
+            "http://example.com",
+        ),
+        "http://example.com/page2": page(
+            "<html><body><p>Page 2</p></body></html>",
+            "http://example.com/page2",
+        ),
+    }
+
+    report = CrawlReport()
+    results = simple_crawl(
+        "http://example.com",
+        Event(),
+        None,
+        max_depth=1,
+        options=make_options(),
+        report=report,
+    )
+
+    assert len(results) == 2
+    page_report = report.pages[0]
+    assert page_report.url == "http://example.com"
+    assert page_report.found == 5
+    assert page_report.accepted == ["http://example.com/page2"]
+
+    reasons = [outcome.reason for outcome in page_report.rejected]
+    assert reasons.count("duplicate_url") == 1
+    assert "asset" in reasons
+    assert "off_site" in reasons
+    assert "unsupported_scheme" in reasons
+
+    summary = "\n".join(report.summary_lines())
+    assert "Crawl report for http://example.com" in summary
+    assert "queued  http://example.com/page2" in summary
+    assert "skipped" not in summary
+    assert "different site" not in summary
+    assert "asset/binary file" not in summary
+
+
+def test_crawl_report_records_depth_limited_links():
+    from app.internal.crawl_report import CrawlReport
+
+    FakeFetcher.responses = {
+        "http://example.com": page(
+            '<html><body><p>Home</p><a href="/page2">Page 2</a></body></html>',
+            "http://example.com",
+        ),
+    }
+
+    report = CrawlReport()
+    results = simple_crawl(
+        "http://example.com",
+        Event(),
+        None,
+        max_depth=0,
+        options=make_options(),
+        report=report,
+    )
+
+    assert len(results) == 1
+    page_report = report.pages[0]
+    assert page_report.accepted == []
+    assert any(
+        outcome.reason == "depth_limit" and outcome.url == "http://example.com/page2"
+        for outcome in page_report.rejected
+    )
+
+
 def test_cancellation_returns_partial_results():
     event = Event()
     event.set()

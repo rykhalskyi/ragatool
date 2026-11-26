@@ -23,7 +23,7 @@ class TestUrlImport(unittest.TestCase):
         asyncio.run(run_test())
 
         # Assert
-        mock_simple_crawl.assert_called_with('http://example.com', cancel_event, unittest.mock.ANY, max_depth=2, options=unittest.mock.ANY, on_progress=unittest.mock.ANY)
+        mock_simple_crawl.assert_called_with('http://example.com', cancel_event, unittest.mock.ANY, max_depth=2, options=unittest.mock.ANY, on_progress=unittest.mock.ANY, report=unittest.mock.ANY)
 
     @patch('app.models.url_import.simple_crawler.simple_crawl')
     def test_import_data_with_invalid_crawl_depth(self, mock_simple_crawl):
@@ -40,7 +40,7 @@ class TestUrlImport(unittest.TestCase):
         asyncio.run(run_test())
 
         # Assert
-        mock_simple_crawl.assert_called_with('http://example.com', cancel_event, unittest.mock.ANY, max_depth=1, options=unittest.mock.ANY, on_progress=unittest.mock.ANY)
+        mock_simple_crawl.assert_called_with('http://example.com', cancel_event, unittest.mock.ANY, max_depth=1, options=unittest.mock.ANY, on_progress=unittest.mock.ANY, report=unittest.mock.ANY)
 
     @patch('app.models.url_import.simple_crawler.simple_crawl')
     def test_import_data_with_missing_crawl_depth(self, mock_simple_crawl):
@@ -57,7 +57,7 @@ class TestUrlImport(unittest.TestCase):
         asyncio.run(run_test())
 
         # Assert
-        mock_simple_crawl.assert_called_with('http://example.com', cancel_event, unittest.mock.ANY, max_depth=1, options=unittest.mock.ANY, on_progress=unittest.mock.ANY)
+        mock_simple_crawl.assert_called_with('http://example.com', cancel_event, unittest.mock.ANY, max_depth=1, options=unittest.mock.ANY, on_progress=unittest.mock.ANY, report=unittest.mock.ANY)
 
     @patch('app.models.url_import.simple_crawler.simple_crawl')
     def test_step_1_with_valid_crawl_depth(self, mock_simple_crawl):
@@ -74,7 +74,7 @@ class TestUrlImport(unittest.TestCase):
         asyncio.run(run_test())
 
         # Assert
-        mock_simple_crawl.assert_called_with('http://example.com', cancel_event, unittest.mock.ANY, max_depth=3, options=unittest.mock.ANY, on_progress=unittest.mock.ANY)
+        mock_simple_crawl.assert_called_with('http://example.com', cancel_event, unittest.mock.ANY, max_depth=3, options=unittest.mock.ANY, on_progress=unittest.mock.ANY, report=unittest.mock.ANY)
 
     @patch('app.models.url_import.simple_crawler.simple_crawl', return_value=[])
     def test_import_data_unlocks_when_crawl_is_cancelled(self, mock_simple_crawl):
@@ -154,6 +154,28 @@ class TestUrlImport(unittest.TestCase):
         assert MessageType.UNLOCK in topics
         messages = [call.args[2] for call in context.messageHub.send_message.call_args_list]
         assert any("Saved 2 page(s)" in message for message in messages)
+
+    @patch('app.models.url_import.simple_crawler.simple_crawl', return_value=[])
+    def test_step_1_logs_crawl_report(self, mock_simple_crawl):
+        url_import = UrlImport()
+        context = self._create_mock_context('1', two_step_import='True')
+        cancel_event = Event()
+
+        async def run_test():
+            await url_import.step_1('collection1', 'http://example.com', context, cancel_event)
+
+        import asyncio
+        asyncio.run(run_test())
+
+        log_messages = [
+            call.args[2]
+            for call in context.messageHub.send_message.call_args_list
+            if call.args[1] == MessageType.LOG
+        ]
+        assert any(
+            message.startswith("Crawl report for http://example.com")
+            for message in log_messages
+        )
 
     def _create_mock_context(self, crawl_depth_value, two_step_import='False'):
         mock_settings_manager = MagicMock()

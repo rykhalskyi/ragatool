@@ -7,6 +7,7 @@ from app.crud.crud_files import create_file
 from app.internal import simple_crawler, vector_store
 from app.internal.chunker import Chunker, ChunkType
 from app.internal.crawl_options import CrawlOptions
+from app.internal.crawl_report import CrawlReport
 from app.internal.embedding_manager import (
     DEFAULT_EMBEDDING_MODEL,
     embed_documents,
@@ -61,6 +62,7 @@ class UrlImport(ImportBase):
                 # Invalid regex, ignore it
                 pass
             
+        crawl_report = CrawlReport(start_url=file_name)
         pages = await asyncio.to_thread(
             simple_crawler.simple_crawl,
             file_name,
@@ -69,7 +71,10 @@ class UrlImport(ImportBase):
             max_depth=max_depth,
             options=options,
             on_progress=lambda message: message_hub.send_message(collection_id, MessageType.INFO, message),
+            report=crawl_report,
         )
+
+        self._log_crawl_report(message_hub, collection_id, crawl_report)
 
         if cancel_event.is_set():
             message_hub.send_message(collection_id, MessageType.UNLOCK, f"Crawling of {file_name} was stopped")
@@ -185,6 +190,7 @@ class UrlImport(ImportBase):
                 # Invalid regex, ignore it
                 pass    
         
+        crawl_report = CrawlReport(start_url=url)
         pages = await asyncio.to_thread(
             simple_crawler.simple_crawl,
             url,
@@ -193,7 +199,10 @@ class UrlImport(ImportBase):
             max_depth=max_depth,
             options=options,
             on_progress=lambda message: context.messageHub.send_message(collection_id, MessageType.INFO, message),
+            report=crawl_report,
         )
+
+        self._log_crawl_report(context.messageHub, collection_id, crawl_report)
 
         cancelled = cancel_event.is_set()
 
@@ -212,6 +221,15 @@ class UrlImport(ImportBase):
             context.messageHub.send_message(collection_id, MessageType.UNLOCK, f"Import of {url} stopped.")
         else:
             context.messageHub.send_message(collection_id, MessageType.UNLOCK, f"Import of {url} completed.")
+
+    @staticmethod
+    def _log_crawl_report(
+        message_hub: MessageHub, collection_id: str, report: CrawlReport
+    ) -> None:
+        lines = report.summary_lines()
+        if not lines:
+            return
+        message_hub.send_message(collection_id, MessageType.LOG, "\n".join(lines))
 
 
 def read_file_lines(file_path: str) -> list[str]:
