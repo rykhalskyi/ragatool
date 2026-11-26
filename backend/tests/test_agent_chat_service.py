@@ -283,3 +283,74 @@ async def test_agent_loop_returns_tool_errors_as_data(db, monkeypatch):
 
     assert response.message == "Recovered"
     assert response.tool_calls[0].status == "error"
+
+
+@pytest.mark.asyncio
+async def test_tool_call_truncation_keeps_ids_consistent(db, monkeypatch):
+    make_profile(db)
+    crud_setting.update_settings(
+        db,
+        [
+            SettingCreate(
+                name=SettingsName.AGENT_MAX_TOOL_CALLS_PER_ROUND.value, value="2"
+            )
+        ],
+    )
+    captured = []
+
+    def many_calls_response():
+        return {
+            "model": "mock-model",
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content": None,
+                        "tool_calls": [
+                            {
+                                "id": f"call-{index}",
+                                "type": "function",
+                                "function": {
+                                    "name": "query_collection",
+                                    "arguments": "{}",
+                                },
+                            }
+                            for index in range(4)
+                        ],
+                    }
+                }
+            ],
+        }
+
+    async def fake_chat(profile, api_key, messages, tools):
+        captured.append(copy.deepcopy(messages))
+        if len(captured) > 1:
+            return final_response("done")
+        return many_calls_response()
+
+    async def fake_list_tools():
+        return [{"type": "function", "function": {"name": "query_collection"}}]
+
+    async def fake_execute(name, arguments):
+        return {"ok": True, "content": "{}", "error": None}
+
+    monkeypatch.setattr(llm_client, "chat_completion", fake_chat)
+    monkeypatch.setattr(tool_bridge, "list_openai_tools", fake_list_tools)
+    monkeypatch.setattr(tool_bridge, "execute_tool", fake_execute)
+
+    response = await service.run_chat(db, AgentChatRequest(message="many"))
+
+    second = captured[1]
+    assistant = next(
+        message
+        for message in second
+        if message["role"] == "assistant" and message.get("tool_calls")
+    )
+    tool_messages = [message for message in second if message["role"] == "tool"]
+
+    assert len(assistant["tool_calls"]) == 2
+    assert [call["id"] for call in assistant["tool_calls"]] == [
+        message["tool_call_id"] for message in tool_messages
+    ]
+    assert len(response.tool_calls) == 2
+    assert response.message == "done"

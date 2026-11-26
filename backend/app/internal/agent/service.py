@@ -254,24 +254,43 @@ async def _run_agent_loop(
                 warnings=warnings,
             )
 
-        assistant_message: dict[str, Any] = {
-            "role": "assistant",
-            "content": answer,
-            "tool_calls": raw_calls,
-        }
-        messages.append(assistant_message)
+        # Normalize and cap the calls *before* echoing them back to the provider.
+        # Every tool_call in the assistant message must have a matching tool
+        # result, otherwise the next request is rejected.
+        calls: list[dict[str, Any]] = []
+        for index, raw_call in enumerate(raw_calls):
+            if not isinstance(raw_call, dict):
+                continue
+            call = dict(raw_call)
+            call["id"] = str(call.get("id") or f"call_{round_index}_{index}")
+            calls.append(call)
+
+        if not calls:
+            return AgentChatResponse(
+                message=answer or "The provider returned an empty response.",
+                model=model,
+                tool_calls=tool_calls_out,
+                usage=usage,
+                warnings=warnings,
+            )
 
         if len(raw_calls) > max_tool_calls_per_round:
             warnings.append(
                 f"The model requested {len(raw_calls)} tool calls in one round; "
                 f"only the first {max_tool_calls_per_round} were executed."
             )
-            raw_calls = raw_calls[:max_tool_calls_per_round]
+        if len(calls) > max_tool_calls_per_round:
+            calls = calls[:max_tool_calls_per_round]
 
-        for raw_call in raw_calls:
-            if not isinstance(raw_call, dict):
-                continue
-            call_id = str(raw_call.get("id") or "")
+        assistant_message: dict[str, Any] = {
+            "role": "assistant",
+            "content": answer,
+            "tool_calls": calls,
+        }
+        messages.append(assistant_message)
+
+        for raw_call in calls:
+            call_id = str(raw_call["id"])
             function = raw_call.get("function") or {}
             name = str(function.get("name") or "")
             arguments, argument_error = _parse_arguments(function.get("arguments"))

@@ -1,9 +1,14 @@
 import os
+import time
 from pathlib import Path
 
 from cryptography.fernet import Fernet, InvalidToken
 
 from app import database
+
+KEY_FILE_MODE = 0o600
+_READ_ATTEMPTS = 50
+_READ_DELAY_SECONDS = 0.02
 
 
 class ApiKeyDecryptionError(RuntimeError):
@@ -21,22 +26,48 @@ def _key_file_path() -> Path:
     return Path(database_path).expanduser().resolve().parent / ".llm_key"
 
 
+def _restrict_permissions(path: Path) -> None:
+    """Best-effort enforce 0600 on the key file."""
+    try:
+        if path.stat().st_mode & 0o077:
+            os.chmod(path, KEY_FILE_MODE)
+    except OSError:
+        pass
+
+
+def _read_key(path: Path) -> str:
+    """Read a key, retrying briefly in case another process is still writing it."""
+    for attempt in range(_READ_ATTEMPTS):
+        try:
+            existing = path.read_text(encoding="utf-8").strip()
+        except FileNotFoundError:
+            return ""
+        if existing:
+            _restrict_permissions(path)
+            return existing
+        if attempt < _READ_ATTEMPTS - 1:
+            time.sleep(_READ_DELAY_SECONDS)
+    return ""
+
+
 def _load_or_create_key() -> str:
     path = _key_file_path()
     path.parent.mkdir(parents=True, exist_ok=True)
 
-    try:
-        existing = path.read_text(encoding="utf-8").strip()
-        if existing:
-            return existing
-    except FileNotFoundError:
-        pass
+    existing = _read_key(path)
+    if existing:
+        return existing
 
     key = Fernet.generate_key().decode("utf-8")
     try:
-        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, KEY_FILE_MODE)
     except FileExistsError:
-        return path.read_text(encoding="utf-8").strip()
+        existing = _read_key(path)
+        if existing:
+            return existing
+        raise RuntimeError(
+            f"The LLM encryption key file at {path} exists but is empty"
+        )
     except OSError as exc:
         raise RuntimeError(
             f"Could not create the LLM encryption key file at {path}"
@@ -50,6 +81,7 @@ def _load_or_create_key() -> str:
             path.unlink(missing_ok=True)
         finally:
             raise
+    _restrict_permissions(path)
     return key
 
 

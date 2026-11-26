@@ -1,10 +1,12 @@
 from sqlite3 import Connection
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
 from app.dependencies import get_db
 from app.internal.agent import llm_client, profiles, service
+from app.internal.auth import get_current_user
+from app.internal.rate_limit import SlidingWindowRateLimiter
 from app.schemas.agent import (
     AgentChatRequest,
     AgentChatResponse,
@@ -17,6 +19,29 @@ from app.schemas.agent import (
 )
 
 router = APIRouter()
+
+_CHAT_LIMITER = SlidingWindowRateLimiter(max_events=30, window_seconds=60)
+_PROFILE_TEST_LIMITER = SlidingWindowRateLimiter(max_events=60, window_seconds=60)
+
+
+def _rate_limit_key(request: Request) -> str:
+    user = get_current_user(request)
+    if user is not None:
+        return f"user:{user['id']}"
+    client = request.client
+    return f"ip:{client.host}" if client else "ip:unknown"
+
+
+def _enforce_rate_limit(
+    limiter: SlidingWindowRateLimiter, request: Request, detail: str
+) -> None:
+    retry_after = limiter.consume(_rate_limit_key(request))
+    if retry_after:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=detail,
+            headers={"Retry-After": str(retry_after)},
+        )
 
 
 @router.get("/providers", response_model=List[LlmProviderOut])
@@ -78,8 +103,11 @@ def activate_profile(
 
 @router.post("/profiles/{profile_id}/test", response_model=LlmProfileTestResult)
 async def test_profile(
-    profile_id: str, db: Connection = Depends(get_db)
+    profile_id: str, request: Request, db: Connection = Depends(get_db)
 ) -> LlmProfileTestResult:
+    _enforce_rate_limit(
+        _PROFILE_TEST_LIMITER, request, "Too many connection tests. Try again shortly."
+    )
     try:
         profile = profiles.get_raw_profile(db, profile_id)
         api_key = profiles.decrypt_profile_key(profile)
@@ -93,8 +121,11 @@ async def test_profile(
 
 @router.post("/chat", response_model=AgentChatResponse)
 async def chat(
-    payload: AgentChatRequest, db: Connection = Depends(get_db)
+    payload: AgentChatRequest, request: Request, db: Connection = Depends(get_db)
 ) -> AgentChatResponse:
+    _enforce_rate_limit(
+        _CHAT_LIMITER, request, "Too many agent requests. Try again shortly."
+    )
     try:
         return await service.run_chat(db, payload)
     except service.AgentConfigurationError as exc:
@@ -104,7 +135,7 @@ async def chat(
     except service.AgentBusyError as exc:
         raise HTTPException(status_code=429, detail=str(exc))
     except llm_client.LlmProviderError as exc:
-        if exc.kind == "auth":
+        if exc.kind in {"auth", "blocked_url"}:
             status_code = 400
         elif exc.kind == "rate_limit":
             status_code = 429

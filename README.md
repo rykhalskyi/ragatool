@@ -173,12 +173,20 @@ unset, Ragatool creates `.llm_key` next to the database with mode `0600`.
 Back up that key with the database volume: losing it means re-entering stored
 API keys. See `backend/.env.example` for the generation command and overrides.
 
+For SSRF protection, LLM base URLs that resolve to loopback, private,
+link-local, or reserved addresses are rejected, and public endpoints must use
+HTTPS. Set `RAGATOOL_LLM_ALLOW_PRIVATE_URLS=true` if you deliberately use a
+local or private-network provider such as Ollama or LM Studio (this also allows
+plain HTTP for those endpoints).
+
 ## Built-in agent pane
 
 Use the **Agent** button in the topbar to open the right-side chat pane. The
 pane works in-process and does not require an MCP client, an API token, or the
-public **MCP ON** toggle. It exposes the same tools as the MCP server, so the
-agent can query collections, read chunks, and inspect summaries and wiki pages.
+public **MCP ON** toggle. Its toolset is intentionally **read-only**: the agent
+can query collections, read chunks, and inspect summaries, tables of contents,
+and wiki pages, but it cannot mutate data or invoke extensions. This limits the
+impact of prompt injection from untrusted document text.
 
 - Drag the divider on the pane's left edge to resize it. The visible state and
   width are remembered in the browser.
@@ -193,8 +201,9 @@ agent can query collections, read chunks, and inspect summaries and wiki pages.
 - Responses are plain text; tool calls appear as collapsible rows with their
   arguments and a result preview. Stop a request with the stop button.
 
-The agent executes tools directly, matching MCP semantics, so mutating tools
-can change summaries and wiki pages without a confirmation step.
+Mutating MCP tools (`add_*`, `update_*`, `delete_*`, wiki/TOC edits) and
+`call_extension` are not exposed to the agent. Use an MCP client if you need
+write access with an explicit, human-supervised workflow.
 
 ## Ragatool MCP Configuration
 

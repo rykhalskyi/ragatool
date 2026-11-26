@@ -22,6 +22,29 @@ async def test_tool_list_excludes_health_check_and_has_schemas():
 
 
 @pytest.mark.asyncio
+async def test_tool_list_is_read_only():
+    tools = await tool_bridge.list_openai_tools()
+    names = {tool["function"]["name"] for tool in tools}
+
+    assert names == tool_bridge.READ_ONLY_TOOLS
+    assert "delete_summary" not in names
+    assert "edit_wiki_page" not in names
+    assert "add_to_collection" not in names
+    assert "call_extension" not in names
+
+
+@pytest.mark.asyncio
+async def test_execute_tool_rejects_mutating_tools():
+    for name in ("delete_summary", "edit_wiki_page", "add_fact", "call_extension"):
+        result = await tool_bridge.execute_tool(name, {})
+
+        assert result["ok"] is False
+        payload = json.loads(result["content"])
+        assert payload["status"] == "error"
+        assert name in payload["message"]
+
+
+@pytest.mark.asyncio
 async def test_execute_unknown_tool_returns_structured_error():
     result = await tool_bridge.execute_tool("does_not_exist", {})
 

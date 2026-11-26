@@ -9,11 +9,25 @@ from app.internal.tools import register_tools
 
 MAX_TOOL_RESULT_CHARS = 24_000
 MAX_TOOL_PREVIEW_CHARS = 600
-EXCLUDED_TOOLS = {"health_check"}
+
+# The built-in agent only gets read-only tools. Mutating tools and
+# `call_extension` are intentionally excluded so that untrusted document text
+# cannot trick the model into deleting data or invoking extensions.
+READ_ONLY_TOOLS = {
+    "collection_list",
+    "extension_list",
+    "get_chunks_by_id",
+    "get_single_summary",
+    "get_summaries",
+    "get_table_of_contents",
+    "get_wiki_index",
+    "get_wiki_page",
+    "query_collection",
+}
 
 
 class _AlwaysEnabledManager:
-    """Adapter that keeps the private agent toolset independent of MCP ON."""
+    """Adapter that keeps the read-only agent toolset independent of MCP ON."""
 
     server_name = "Rag-a-Tool-Agent"
 
@@ -81,7 +95,7 @@ async def list_openai_tools() -> list[dict[str, Any]]:
     tools = await get_server().list_tools()
     definitions: list[dict[str, Any]] = []
     for tool in tools:
-        if tool.name in EXCLUDED_TOOLS:
+        if tool.name not in READ_ONLY_TOOLS:
             continue
         parameters = getattr(tool, "parameters", None) or {
             "type": "object",
@@ -102,7 +116,7 @@ async def list_openai_tools() -> list[dict[str, Any]]:
 
 async def execute_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
     """Execute one tool in-process and return a model-safe result envelope."""
-    if name in EXCLUDED_TOOLS:
+    if name not in READ_ONLY_TOOLS:
         return {
             "ok": False,
             "content": json.dumps(
@@ -120,8 +134,8 @@ async def execute_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
             "content": json.dumps({"status": "error", "message": message}),
             "error": message,
         }
-    except Exception as exc:  # noqa: BLE001 - tool failures must not abort chat
-        message = f"Tool '{name}' failed: {exc}"
+    except Exception:  # noqa: BLE001 - tool failures must not abort chat
+        message = f"Tool '{name}' failed."
         return {
             "ok": False,
             "content": json.dumps({"status": "error", "message": message}),

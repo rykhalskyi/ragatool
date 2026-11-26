@@ -42,7 +42,7 @@ def simple_crawl(
 
     start = normalize_url(start_url)
     if not is_http_url(start):
-        crawl_report.skipped_pages.append(LinkOutcome(start_url, "invalid_start"))
+        crawl_report.add_skipped(LinkOutcome(start_url, "invalid_start"))
         return []
 
     robots = (
@@ -76,22 +76,22 @@ def simple_crawl(
                 if url in visited or depth > max_depth:
                     continue
                 if len(visited) >= options.max_crawl_pages:
-                    crawl_report.skipped_pages.append(LinkOutcome(url, "page_limit"))
+                    crawl_report.add_skipped(LinkOutcome(url, "page_limit"))
                     for pending_url, _pending_depth in queue:
-                        crawl_report.skipped_pages.append(LinkOutcome(pending_url, "page_limit"))
+                        crawl_report.add_skipped(LinkOutcome(pending_url, "page_limit"))
                     break
 
                 try:
                     ensure_url_allowed(url, options.allow_private_urls)
                 except ValueError as exc:
                     print(f"Skipping {url}: {exc}")
-                    crawl_report.skipped_pages.append(LinkOutcome(url, "blocked_private_address"))
+                    crawl_report.add_skipped(LinkOutcome(url, "blocked_private_address"))
                     visited.add(url)
                     continue
 
                 if robots is not None and not robots.can_fetch(url):
                     _report(on_progress, f"Skipping {url} (robots.txt)")
-                    crawl_report.skipped_pages.append(LinkOutcome(url, "robots"))
+                    crawl_report.add_skipped(LinkOutcome(url, "robots"))
                     visited.add(url)
                     continue
 
@@ -113,7 +113,7 @@ def simple_crawl(
                         ensure_url_allowed(fetched.final_url, options.allow_private_urls)
                     except ValueError as exc:
                         print(f"Skipping {fetched.final_url}: {exc}")
-                        crawl_report.skipped_pages.append(
+                        crawl_report.add_skipped(
                             LinkOutcome(url, "blocked_private_address")
                         )
                         continue
@@ -153,22 +153,22 @@ def simple_crawl(
                         links = extract_links(fetched.html, final_url)
                         rendered = False
                     else:
-                        crawl_report.skipped_pages.append(LinkOutcome(url, "fetch_failed"))
+                        crawl_report.add_skipped(LinkOutcome(url, "fetch_failed"))
                         continue
 
                 normalized_final = normalize_url(final_url)
                 if regex is not None and normalized_final != url and not regex.match(normalized_final):
-                    crawl_report.skipped_pages.append(LinkOutcome(url, "redirect_regex"))
+                    crawl_report.add_skipped(LinkOutcome(url, "redirect_regex"))
                     continue
 
                 text = extracted.text.strip()
                 if not text:
-                    crawl_report.skipped_pages.append(LinkOutcome(url, "empty_text"))
+                    crawl_report.add_skipped(LinkOutcome(url, "empty_text"))
                     continue
 
                 content_hash = sha256(" ".join(text.split()).encode("utf-8")).hexdigest()
                 if content_hash in seen_content:
-                    crawl_report.skipped_pages.append(LinkOutcome(url, "duplicate_content"))
+                    crawl_report.add_skipped(LinkOutcome(url, "duplicate_content"))
                     continue
                 seen_content.add(content_hash)
 
@@ -191,22 +191,22 @@ def simple_crawl(
                         return finalize()
                     candidate = normalize_url(urljoin(final_url, link))
                     if candidate in seen_on_page:
-                        page_report.rejected.append(LinkOutcome(candidate, "duplicate_url"))
+                        page_report.add_rejected(LinkOutcome(candidate, "duplicate_url"))
                         continue
                     seen_on_page.add(candidate)
 
                     rejection = _link_rejection_reason(candidate, start, options, regex)
                     if rejection is not None:
-                        page_report.rejected.append(LinkOutcome(candidate, rejection))
+                        page_report.add_rejected(LinkOutcome(candidate, rejection))
                         continue
                     if not can_follow:
-                        page_report.rejected.append(LinkOutcome(candidate, "depth_limit"))
+                        page_report.add_rejected(LinkOutcome(candidate, "depth_limit"))
                         continue
                     if candidate in queued:
-                        page_report.rejected.append(LinkOutcome(candidate, "duplicate_url"))
+                        page_report.add_rejected(LinkOutcome(candidate, "duplicate_url"))
                         continue
 
-                    page_report.accepted.append(candidate)
+                    page_report.add_accepted(candidate)
                     queued.add(candidate)
                     queue.append((candidate, depth + 1))
 

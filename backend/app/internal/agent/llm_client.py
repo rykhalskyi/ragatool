@@ -1,9 +1,41 @@
+import asyncio
+import os
 import time
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 
+from app.internal.url_utils import ensure_url_allowed
 from app.schemas.agent import LlmProfileTestResult
+
+
+def _allow_private_endpoints() -> bool:
+    value = os.getenv("RAGATOOL_LLM_ALLOW_PRIVATE_URLS", "")
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+async def _ensure_endpoint_allowed(url: str) -> None:
+    """Reject loopback/private/link-local LLM endpoints unless explicitly allowed.
+
+    This prevents the profile ``base_url`` from being used as an SSRF primitive
+    against internal services or cloud metadata endpoints. Public endpoints must
+    use HTTPS so the API key is never sent in cleartext.
+    """
+    allow_private = _allow_private_endpoints()
+    try:
+        await asyncio.to_thread(ensure_url_allowed, url, allow_private)
+    except ValueError as exc:
+        raise LlmProviderError(
+            "blocked_url", f"The LLM endpoint is not allowed: {exc}"
+        ) from exc
+
+    if urlparse(url).scheme.lower() != "https" and not allow_private:
+        raise LlmProviderError(
+            "blocked_url",
+            "Public LLM endpoints must use https://. Set "
+            "RAGATOOL_LLM_ALLOW_PRIVATE_URLS=true for local http providers.",
+        )
 
 
 class LlmProviderError(RuntimeError):
@@ -56,6 +88,7 @@ async def chat_completion(
     tools: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     url = chat_completions_url(profile["base_url"])
+    await _ensure_endpoint_allowed(url)
     body: dict[str, Any] = {
         "model": profile["model"],
         "messages": messages,
@@ -106,6 +139,10 @@ def chat_completions_url(base_url: str) -> str:
 
 async def test_connection(profile: dict, api_key: str) -> LlmProfileTestResult:
     url = chat_completions_url(profile["base_url"])
+    try:
+        await _ensure_endpoint_allowed(url)
+    except LlmProviderError as exc:
+        return LlmProfileTestResult(ok=False, message=str(exc))
     headers = {"Content-Type": "application/json"}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
