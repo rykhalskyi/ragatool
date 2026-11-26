@@ -8,7 +8,7 @@ def _detect_version() -> str:
     try:
         return version("backend")
     except PackageNotFoundError:
-        return "0.4.6"
+        return "0.4.7"
 
 
 APP_VERSION = os.getenv("APP_VERSION") or _detect_version()
